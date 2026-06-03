@@ -1,26 +1,25 @@
 # Raghav Sharma
 
-Builder focused on operational tooling and applied ML systems. Most of my work is in Go and Rust, across a recurring theme: correlating what shipped to what broke (or what cost more).
+I build infrastructure for AI and developer systems — observability, evaluation, workflow validation, and the task queues underneath. Mostly Go and Rust.
 
-## The trace family
+Recurring theme across the work: **make systems explain themselves.** Why the bill moved, which deploy broke staging, whether an eval actually passed, which job died and why.
 
-Three projects, one pattern: anomaly detection + deploy correlation + causal attribution. Applied across domains.
+## Infrastructure & dev tooling
 
-| Project | Domain | What it does |
-|---|---|---|
-| [llmtrace](https://github.com/Yatsuiii/llmtrace) | LLM ops | Self-hosted Go proxy that records per-call token cost and latency, detects per-key spend anomalies, and runs a Gemini agent to name the deploy that caused the spike. Live on Cloud Run. |
-| [costtrace](https://github.com/Yatsuiii/costtrace) | Cloud FinOps | CLI that correlates AWS cost anomalies to GitHub Actions deploys via CloudTrail resource events and a multi-signal confidence scorer. |
-| [ACE](https://github.com/Yatsuiii/api-causality-engine) | Dev tooling | Rust CLI that models multi-step API workflows as typed state machines and diffs execution traces across environments to surface why staging and production diverge. Distributed via Homebrew, Docker, and GitHub Actions CI/CD. |
-
-Same additive lineage-scoring rubric in all three. Different domains, same architectural answer.
+| Project | What it does |
+|---|---|
+| [llmtrace](https://github.com/Yatsuiii/llmtrace) | Self-hosted Go proxy that logs per-call LLM cost and latency, detects per-key spend anomalies, and runs an 8-tool Gemini agent to name the exact deploy that caused a spike. Live on Cloud Run. |
+| [evalc](https://github.com/Yatsuiii/evalc) | Compiles a natural-language eval criterion into a deterministic Python evaluator — no LLM-as-judge — self-tests it in a sandbox, and registers it as an Arize Phoenix evaluator. |
+| [ACE](https://github.com/Yatsuiii/api-causality-engine) | Rust CLI that runs multi-step API workflows as a typed state-machine graph: 21 static graph checks before any network call, plus cross-environment trace diffing. Shipped via Homebrew, Docker, GitHub Actions. |
+| [rivet](https://github.com/Yatsuiii/rivet) | Postgres-backed task queue for Go. `SKIP LOCKED` dequeue, visibility-timeout crash recovery, at-least-once delivery. No Redis, no broker. |
 
 ## ML systems
 
-[BrainConnect-ASD](https://github.com/Yatsuiii/Brain-Connectivity-ASD) -- adversarial GCN with a Gradient Reversal Layer for site deconfounding on 1,102 ABIDE subjects (fMRI). Mean AUC 0.7872 across 20 leave-one-site-out splits. Fine-tuned Qwen2.5-7B for ASD diagnostic report generation. Ran on AMD MI300X for the AMD Developer Hackathon 2026.
+[BrainConnect-ASD](https://github.com/Yatsuiii/Brain-Connectivity-GCN) — adversarial GCN with a Gradient Reversal Layer for site deconfounding on 1,102 ABIDE subjects (fMRI). Mean AUC 0.7872 across 20 leave-one-site-out splits. Fine-tuned Qwen2.5-7B for ASD diagnostic report generation. Ran on AMD MI300X for the AMD Developer Hackathon 2026.
 
 ## Stack
 
-Go · Rust · Python · SQLite · PyTorch · AWS · Docker · Google Cloud Run
+Go · Rust · Python · PostgreSQL · SQLite · PyTorch · Docker · Google Cloud Run · AWS
 
 ## Contact
 
