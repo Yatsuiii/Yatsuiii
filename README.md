@@ -1,6 +1,6 @@
 # Raghav Sharma
 
-I build infrastructure for AI and developer systems — observability, evaluation, workflow validation, and the task queues underneath. Mostly Go and Rust.
+I build infrastructure for AI and developer systems: observability, evaluation, workflow validation, and the task queues underneath. Mostly Go and Rust.
 
 Recurring theme across the work: **make systems explain themselves.** Why the bill moved, which deploy broke staging, whether an eval actually passed, which job died and why.
 
