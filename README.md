@@ -15,11 +15,13 @@
 
 ## Evidence, not adjectives
 
-**01 / External selection.** Won the **AMD Developer Hackathon 2026**
-fine-tuning track with
-[BrainConnect-ASD](https://github.com/Yatsuiii/Brain-Connectivity-GCN), a
+**01 / External selection.** Won the fine-tuning track of
+[lablab.ai's AMD Developer Hackathon 2026](https://lablab.ai/ai-hackathons/amd-developer/)
+with [BrainConnect-ASD](https://github.com/Yatsuiii/Brain-Connectivity-GCN), a
 site-adversarial GNN evaluated leave-one-site-out: 529 held-out subjects across
-four sites, ROC AUC 0.7872.
+four sites, ROC AUC 0.7872. The [lablab.ai winner
+announcement](https://www.linkedin.com/posts/lablab-ai_10770-builders-walked-in-these-teams-activity-7472361155663978496-knnz)
+records the selection.
 
 **02 / Upstream fixes.** Reproduced a live Vertex AI Memory Bank metadata-loss
 bug and shipped the typed conversion
