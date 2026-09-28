@@ -1,0 +1,106 @@
+{
+  "stats": [
+    {
+      "project": "Hive",
+      "space": "Hive",
+      "pages": 304,
+      "filtered_pages": 281,
+      "recent_pages": 3,
+      "error": null
+    },
+    {
+      "project": "ZooKeeper",
+      "space": "ZOOKEEPER",
+      "pages": 58,
+      "filtered_pages": 57,
+      "recent_pages": 3,
+      "error": null
+    },
+    {
+      "project": "CXF",
+      "space": "CXF20DOC",
+      "pages": 245,
+      "filtered_pages": 240,
+      "recent_pages": 10,
+      "error": null
+    },
+    {
+      "project": "NiFi",
+      "space": "NIFI",
+      "pages": 98,
+      "filtered_pages": 49,
+      "recent_pages": 13,
+      "error": null
+    },
+    {
+      "project": "Kafka",
+      "space": "KAFKA",
+      "pages": 1661,
+      "filtered_pages": 137,
+      "recent_pages": 14,
+      "error": null
+    },
+    {
+      "project": "Cassandra",
+      "space": "CASSANDRA",
+      "pages": 149,
+      "filtered_pages": 35,
+      "recent_pages": 10,
+      "error": null
+    },
+    {
+      "project": "Ignite",
+      "space": "IGNITE",
+      "pages": 297,
+      "filtered_pages": 83,
+      "recent_pages": 11,
+      "error": null
+    },
+    {
+      "project": "CloudStack",
+      "space": "CLOUDSTACK",
+      "pages": 1253,
+      "filtered_pages": 502,
+      "recent_pages": 14,
+      "error": null
+    },
+    {
+      "project": "OFBiz",
+      "space": "OFBIZ",
+      "pages": 704,
+      "filtered_pages": 496,
+      "recent_pages": 52,
+      "error": null
+    },
+    {
+      "project": "Tika",
+      "space": "TIKA",
+      "pages": 112,
+      "filtered_pages": 107,
+      "recent_pages": 14,
+      "error": null
+    },
+    {
+      "project": "Solr",
+      "space": "SOLR",
+      "pages": 840,
+      "filtered_pages": 621,
+      "recent_pages": 10,
+      "error": null
+    },
+    {
+      "project": "Hadoop",
+      "space": "HADOOP",
+      "pages": 98,
+      "filtered_pages": 36,
+      "recent_pages": 1,
+      "error": null
+    }
+  ],
+  "selected": [
+    "OFBiz",
+    "CloudStack",
+    "Kafka",
+    "Tika"
+  ]
+}
