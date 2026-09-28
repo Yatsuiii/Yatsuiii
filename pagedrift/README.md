@@ -40,6 +40,7 @@ addresses, file names, and package references rather than guess.
 
 ## Status
 
-The scanner is built and tested (48 tests). The repository half was checked against
-real ZooKeeper code. The Confluence half is waiting on network access to
-`cwiki.apache.org`, which this environment's network policy currently blocks.
+**Kill test 1 is KILLED on precision**: 0.74 against a 0.80 floor, run on 2026-09-28
+against OFBiz, CloudStack, Kafka and Tika. Prevalence passed at 34%. See
+[`RESULTS.md`](RESULTS.md) for the numbers, every judgment call behind them, and what
+the result means for the product idea.

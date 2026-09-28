@@ -1,0 +1,65 @@
+{
+  "scan_date": "2026-09-28T16:21:31.849676+00:00",
+  "spaces": [
+    {
+      "project": "OFBiz",
+      "space": "OFBIZ",
+      "repo": "apache/ofbiz-framework",
+      "repo_head": "acaefd6013d87848637c875230cc78a7d455f3cc",
+      "pages": 704,
+      "filtered_pages": 496,
+      "claim_pages": 14,
+      "flagged_pages": 1,
+      "claims": {
+        "class:ok": 64,
+        "class:missing": 1
+      }
+    },
+    {
+      "project": "CloudStack",
+      "space": "CLOUDSTACK",
+      "repo": "apache/cloudstack",
+      "repo_head": "0a5bf30af32bdea5a209f3f993cbd6a43301d0f9",
+      "pages": 1253,
+      "filtered_pages": 502,
+      "claim_pages": 17,
+      "flagged_pages": 5,
+      "claims": {
+        "class:ok": 60,
+        "class:missing": 9,
+        "class:moved": 1
+      }
+    },
+    {
+      "project": "Kafka",
+      "space": "KAFKA",
+      "repo": "apache/kafka",
+      "repo_head": "80b559a0f1df398b55c6701b401f77a3988fc6cb",
+      "pages": 1661,
+      "filtered_pages": 137,
+      "claim_pages": 4,
+      "flagged_pages": 2,
+      "claims": {
+        "class:ok": 23,
+        "class:missing": 2
+      }
+    },
+    {
+      "project": "Tika",
+      "space": "TIKA",
+      "repo": "apache/tika",
+      "repo_head": "df85810303bdd51e4a7f5accbcfb0d659b922631",
+      "pages": 112,
+      "filtered_pages": 107,
+      "claim_pages": 43,
+      "flagged_pages": 28,
+      "claims": {
+        "class:ok": 188,
+        "class:missing": 30,
+        "class:moved": 22
+      }
+    }
+  ],
+  "claim_pages": 78,
+  "flagged_pages": 36
+}

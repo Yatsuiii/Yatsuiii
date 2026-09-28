@@ -1,0 +1,19 @@
+{
+  "verdict": "KILLED",
+  "kills": [
+    "K1a precision"
+  ],
+  "verified": 50,
+  "real": 37,
+  "precision": 0.74,
+  "claim_pages": 78,
+  "flagged_pages": 36,
+  "flagged_page_share": 0.46153846153846156,
+  "estimated_prevalence": 0.34153846153846157,
+  "fresh_but_wrong": 0,
+  "fresh_but_wrong_share": 0.0,
+  "thresholds": {
+    "precision": 0.8,
+    "prevalence": 0.05
+  }
+}

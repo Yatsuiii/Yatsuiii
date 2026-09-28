@@ -131,3 +131,4 @@ differentiation claim against date-based apps like FreshPage.
 
 | Date | Section | Change | Reason |
 | --- | --- | --- | --- |
+| 2026-09-28 | §5 | No rule changed. Verification needed four judgments that §5 does not spell out: pasted output, version wording, proposal-type pages the §3 filter missed, and a page about the flagged class. [`RESULTS.md`](RESULTS.md) §4 lists each one and how it moves the verdict. | Keeps the audit trail complete. |
