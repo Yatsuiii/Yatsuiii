@@ -1,0 +1,102 @@
+[
+ {
+  "order": 4,
+  "env": "prime/taxcalc_bench",
+  "setup": "runs with verifiers 0.1.4 (release on its last-change date 2025-10-03)"
+ },
+ {
+  "order": 8,
+  "env": "openenv/wildfire_env",
+  "setup": "in-process reset/step works on CPU"
+ },
+ {
+  "order": 10,
+  "env": "prime/agent_dojo",
+  "setup": "runs with verifiers 0.1.11.dev0 (its declared minimum; no satisfying release by its last-change date 2026-02-26)"
+ },
+ {
+  "order": 13,
+  "env": "openenv/julia_env",
+  "setup": "Julia 1.10 copied from the official julia:1.10 Docker image (install.julialang.org is not on the allowlist); in-process step works"
+ },
+ {
+  "order": 15,
+  "env": "openenv/connect4_env",
+  "setup": "in-process reset/step works on CPU"
+ },
+ {
+  "order": 17,
+  "env": "prime/BigBench_BBH",
+  "setup": "runs with verifiers 0.1.11"
+ },
+ {
+  "order": 26,
+  "env": "prime/piqa",
+  "setup": "runs with verifiers 0.1.8"
+ },
+ {
+  "order": 27,
+  "env": "openenv/tbench2_env",
+  "setup": "local mode with Terminal-Bench 2 tasks from a git clone (the zip download URL is not on the allowlist); evaluate returns a reward"
+ },
+ {
+  "order": 36,
+  "env": "prime/arc_agi",
+  "setup": "runs with verifiers 0.1.7.post0"
+ },
+ {
+  "order": 42,
+  "env": "prime/lisanbench",
+  "setup": "runs with verifiers 0.1.4"
+ },
+ {
+  "order": 49,
+  "env": "prime/mbpp",
+  "setup": "runs with verifiers 0.1.8"
+ },
+ {
+  "order": 50,
+  "env": "prime/clockbench",
+  "setup": "runs with verifiers 0.1.11.dev0"
+ },
+ {
+  "order": 51,
+  "env": "prime/synthetic_clocks",
+  "setup": "runs with verifiers 0.1.4 after adding Pillow (an undeclared dependency) and num_examples=20 (its default materialises a 200k-image split)"
+ },
+ {
+  "order": 53,
+  "env": "openenv/dipg_safety_env",
+  "setup": "in-process via the app's own factory with the bundled sample dataset"
+ },
+ {
+  "order": 55,
+  "env": "prime/med_agent_bench",
+  "setup": "runs with verifiers 0.1.11.dev0 against the MedAgentBench FHIR server (docker image jyxsu6/medagentbench), launched from its own directory because it opens funcs_v1.json by relative path"
+ },
+ {
+  "order": 56,
+  "env": "prime/ascii_tree",
+  "setup": "runs with verifiers 0.1.4"
+ },
+ {
+  "order": 58,
+  "env": "prime/mastermind",
+  "setup": "runs with verifiers 0.1.11.dev0"
+ },
+ {
+  "order": 61,
+  "env": "prime/arc",
+  "setup": "runs with its pinned verifiers 0.1.5"
+ },
+ {
+  "order": 63,
+  "env": "prime/sad",
+  "setup": "runs with verifiers 0.1.8.post1"
+ },
+ {
+  "order": 65,
+  "env": "openenv/textarena_env",
+  "setup": "in-process; NLTK word lists fetched through the session proxy (NLTK_ALLOW_PROXIED_URLOPEN=1)"
+ }
+]

@@ -1,0 +1,45 @@
+{"order": 4, "env": "prime/taxcalc_bench", "e2": true, "note": "runs with verifiers 0.1.4 (release on its last-change date 2025-10-03)"}
+{"order": 5, "env": "openenv/kernrl", "e2": false, "note": "requires an NVIDIA GPU with CUDA; this machine has none"}
+{"order": 7, "env": "openenv/websearch_env", "e2": false, "note": "requires a Serper.dev API key (external paid API)"}
+{"order": 8, "env": "openenv/wildfire_env", "e2": true, "note": "in-process reset/step works on CPU"}
+{"order": 9, "env": "prime/wiki_race", "e2": false, "note": "calls the live Wikipedia API (en.wikipedia.org), which is not on the session allowlist"}
+{"order": 10, "env": "prime/agent_dojo", "e2": true, "note": "runs with verifiers 0.1.11.dev0 (its declared minimum; no satisfying release by its last-change date 2026-02-26)"}
+{"order": 11, "env": "prime/transformerpuzzles", "e2": false, "note": "runs code in Prime Intellect hosted sandboxes (prime-sandboxes), which need a paid Prime API key"}
+{"order": 13, "env": "openenv/julia_env", "e2": true, "note": "Julia 1.10 copied from the official julia:1.10 Docker image (install.julialang.org is not on the allowlist); in-process step works"}
+{"order": 14, "env": "openenv/carla_env", "e2": false, "note": "real simulator needs an NVIDIA GPU; the CPU mock mode has no physics"}
+{"order": 15, "env": "openenv/connect4_env", "e2": true, "note": "in-process reset/step works on CPU"}
+{"order": 16, "env": "prime/backend_bench", "e2": false, "note": "GPU kernel benchmark: evaluation runs on Modal cloud GPUs by default, and the local option needs a local GPU"}
+{"order": 17, "env": "prime/BigBench_BBH", "e2": true, "note": "runs with verifiers 0.1.11"}
+{"order": 18, "env": "prime/legalbench", "e2": false, "note": "its dataset DatologyAI/legalbench returns HTTP 401 on the Hub (gated or removed)"}
+{"order": 19, "env": "openenv/git_env", "e2": false, "note": "a Gitea-backed tool environment with no reward function to hack"}
+{"order": 21, "env": "openenv/jupyter_env", "e2": false, "note": "each episode needs an E2B cloud sandbox (paid API key)"}
+{"order": 27, "env": "openenv/tbench2_env", "e2": true, "note": "local mode with Terminal-Bench 2 tasks from a git clone (the zip download URL is not on the allowlist); evaluate returns a reward"}
+{"order": 26, "env": "prime/piqa", "e2": true, "note": "runs with verifiers 0.1.8"}
+{"order": 28, "env": "prime/gpu_puzzles", "e2": false, "note": "runs code in Prime Intellect hosted sandboxes (PRIME_API_KEY required)"}
+{"order": 30, "env": "prime/dabstep", "e2": false, "note": "creates a Prime Intellect hosted sandbox per rollout (PRIME_API_KEY required)"}
+{"order": 36, "env": "prime/arc_agi", "e2": true, "note": "runs with verifiers 0.1.7.post0"}
+{"order": 38, "env": "prime/seeclick", "e2": false, "note": "does not load: building its dataset raises 'cannot mix list and non-list, non-null values' (environment bug)"}
+{"order": 40, "env": "prime/enigmata", "e2": false, "note": "does not load under verifiers 0.1.4, 0.1.5 or 0.1.6.post0: its dataset has no prompt column (environment bug)"}
+{"order": 41, "env": "openenv/chat_env", "e2": false, "note": "generic chat environment with no reward of its own (reward comes from a user-supplied transform)"}
+{"order": 42, "env": "prime/lisanbench", "e2": true, "note": "runs with verifiers 0.1.4"}
+{"order": 44, "env": "prime/mcp_universe", "e2": false, "note": "dependencies unsatisfiable with any compatible verifiers (mcpuniverse pins anthropic==0.49.0), and its benchmarks need OpenAI/Anthropic API keys"}
+{"order": 45, "env": "prime/androidworld", "e2": false, "note": "needs an Android emulator"}
+{"order": 47, "env": "prime/autodiff", "e2": false, "note": "SandboxEnv: runs code in Prime Intellect hosted sandboxes (PRIME_API_KEY required)"}
+{"order": 48, "env": "prime/arc_agi_tool", "e2": false, "note": "runs code in Prime Intellect hosted sandboxes (prime_sandboxes)"}
+{"order": 49, "env": "prime/mbpp", "e2": true, "note": "runs with verifiers 0.1.8"}
+{"order": 50, "env": "prime/clockbench", "e2": true, "note": "runs with verifiers 0.1.11.dev0"}
+{"order": 51, "env": "prime/synthetic_clocks", "e2": true, "note": "runs with verifiers 0.1.4 after adding Pillow (an undeclared dependency) and num_examples=20 (its default materialises a 200k-image split)"}
+{"order": 53, "env": "openenv/dipg_safety_env", "e2": true, "note": "in-process via the app's own factory with the bundled sample dataset"}
+{"order": 54, "env": "prime/thematic_generalization", "e2": false, "note": "downloads a GitHub zip archive over HTTPS, which the network proxy blocks; no option to use a local copy"}
+{"order": 56, "env": "prime/ascii_tree", "e2": true, "note": "runs with verifiers 0.1.4"}
+{"order": 57, "env": "prime/truthfulqa", "e2": false, "note": "its dataset id 'truthful_qa' is no longer valid on the Hub (repository id must be namespace/name)"}
+{"order": 58, "env": "prime/mastermind", "e2": true, "note": "runs with verifiers 0.1.11.dev0"}
+{"order": 55, "env": "prime/med_agent_bench", "e2": true, "note": "runs with verifiers 0.1.11.dev0 against the MedAgentBench FHIR server (docker image jyxsu6/medagentbench), launched from its own directory because it opens funcs_v1.json by relative path"}
+{"order": 59, "env": "prime/balrog_bench", "e2": false, "note": "dependency TextWorld (balrog-ai fork) fails to build"}
+{"order": 60, "env": "openenv/terminus_env", "e2": false, "note": "runs commands in E2B cloud sandboxes (paid API key)"}
+{"order": 61, "env": "prime/arc", "e2": true, "note": "runs with its pinned verifiers 0.1.5"}
+{"order": 62, "env": "openenv/unity_env", "e2": false, "note": "Unity player downloads (storage.googleapis.com) but hangs on start in this headless, GPU-less container, with and without graphics"}
+{"order": 63, "env": "prime/sad", "e2": true, "note": "runs with verifiers 0.1.8.post1"}
+{"order": 64, "env": "openenv/harbor_env", "e2": false, "note": "a harness for external Harbor datasets: no reward of its own (rewards come from each dataset's verifier)"}
+{"order": 65, "env": "openenv/textarena_env", "e2": true, "note": "in-process; NLTK word lists fetched through the session proxy (NLTK_ALLOW_PROXIED_URLOPEN=1)"}
+{"order": 67, "env": "prime/simple_bench", "e2": true, "note": "runs, but comes after the 20th eligible environment, so it is not in the sample"}
