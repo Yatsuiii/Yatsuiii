@@ -1,0 +1,945 @@
+{
+ "seed": 20260928,
+ "n": 149,
+ "order": [
+  {
+   "env": "prime/patents_ar_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/nextjs_codebase_search",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/vllm_code_search",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/misguided_attn",
+   "e1_pass": false,
+   "e1_hits": [
+    "OpenAI(",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/taxcalc_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/kernrl",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/spiral_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/websearch_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/wildfire_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/wiki_race",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/agent_dojo",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/transformerpuzzles",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/search_r1_ish",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/julia_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/carla_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/connect4_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/backend_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/BigBench_BBH",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/legalbench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/git_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/calendar_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "anthropic"
+   ]
+  },
+  {
+   "env": "openenv/jupyter_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/webexplorer",
+   "e1_pass": false,
+   "e1_hits": [
+    "JudgeRubric",
+    "OpenAI(",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/gauss",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/uq",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/bixbench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/piqa",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/tbench2_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/gpu_puzzles",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/llm_writing_detection",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/dabstep",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/qed_math_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/coconot",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/llm_writer_negative_style",
+   "e1_pass": false,
+   "e1_hits": [
+    "JudgeRubric",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/torch_ao_codebase_search",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/github_mcp",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/arc_agi",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/gutenberg_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/seeclick",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/opencode_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "anthropic"
+   ]
+  },
+  {
+   "env": "prime/enigmata",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/chat_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/lisanbench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/hle_web_py",
+   "e1_pass": false,
+   "e1_hits": [
+    "JudgeRubric",
+    "OpenAI(",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/mcp_universe",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/androidworld",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/tau_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "litellm"
+   ]
+  },
+  {
+   "env": "prime/autodiff",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/arc_agi_tool",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/mbpp",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/clockbench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/synthetic_clocks",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/vrcli",
+   "e1_pass": false,
+   "e1_hits": [
+    "OpenAI("
+   ]
+  },
+  {
+   "env": "openenv/dipg_safety_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/thematic_generalization",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/med_agent_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/ascii_tree",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/truthfulqa",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/mastermind",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/balrog_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/terminus_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/arc",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/unity_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/sad",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/harbor_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/textarena_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/triton_codebase_search",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/simple_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/datasets_codebase_search",
+   "e1_pass": false,
+   "e1_hits": [
+    "JudgeRubric",
+    "OpenAI(",
+    "anthropic",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/medsafetybench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/web_voyager",
+   "e1_pass": false,
+   "e1_hits": [
+    "OpenAI(",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/finqa_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/aider_polyglot",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/uq_project",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/wmdp",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/congressional_records",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/vision_sr1",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/humaneval",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/grid_world_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/sycophancy_eval",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/reward_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/UncertaintyBench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/aidanbench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/dm_control_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/hellaswag",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/browsergym_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/ktor",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/phybench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/psycho_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/browsecomp_plus",
+   "e1_pass": false,
+   "e1_hits": [
+    "OpenAI(",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/gpu_puzzles_modal",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/penrose_diagrams",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI"
+   ]
+  },
+  {
+   "env": "openenv/sophistry_bench_sprint_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/fruit_box",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/repl_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/tensor_puzzles",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/kernelbench",
+   "e1_pass": false,
+   "e1_hits": [
+    "anthropic"
+   ]
+  },
+  {
+   "env": "prime/synlogic",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/colf",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/agentharm",
+   "e1_pass": false,
+   "e1_hits": [
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/writing_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/internbootcamp_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/pydantic_adherence",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/atari_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/scicode",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/mini_swe_agent_bench",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/agent_world_model_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI"
+   ]
+  },
+  {
+   "env": "prime/wildjailbreak",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/sumo_rl_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/agentic_misalignment",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/longbench_v2",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/minif2f",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/maze_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/snake_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/echo_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/nyt_connections",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/reasoning_gym_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/skyrl_sql",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/polars_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/pi_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/hanabi",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/openapp_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/agency_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/thinkingbox_env",
+   "e1_pass": false,
+   "e1_hits": [
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/simpleqa_verified_2",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "JudgeRubric",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/gptworld",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/harmeval",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/stepfun_prover",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/boolq",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/chess_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/deep_consult",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI"
+   ]
+  },
+  {
+   "env": "prime/allenai_ifeval",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/finrl_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/pelican_svg_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/mmlu",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/creative_writing",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "anthropic",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/coding_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/sg_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/winogrande",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/text_quests",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/jailbreak_bench",
+   "e1_pass": false,
+   "e1_hits": [
+    "AsyncOpenAI",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "prime/antislop",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/llm_training_puzzles",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/rust_cargo",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "openenv/openspiel_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/art_e",
+   "e1_pass": false,
+   "e1_hits": [
+    "OpenAI(",
+    "judge_client",
+    "judge_model"
+   ]
+  },
+  {
+   "env": "openenv/coding_tools_env",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/fh_aviary",
+   "e1_pass": true,
+   "e1_hits": []
+  },
+  {
+   "env": "prime/vpct_1",
+   "e1_pass": true,
+   "e1_hits": []
+  }
+ ]
+}
