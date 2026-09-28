@@ -1,0 +1,23 @@
+# MCP drift experiment -- seed list.
+#
+# Format, one per line:
+#   https://github.com/owner/repo              whole repo is one server
+#   https://github.com/owner/repo#src/name     monorepo: one server per subpath
+#
+# The official reference servers below are verified to exist and give you a
+# runnable end-to-end smoke test today. THEY ARE NOT A VALID SAMPLE: they are
+# maintained by the protocol authors, so their drift behaviour is not
+# representative of the third-party servers the thesis is actually about.
+#
+# Before running the real experiment, expand this to ~200 third-party servers
+# pulled from a public registry (Glama, Smithery, PulseMCP, or the official
+# registry). Sample by popularity, and record how you sampled -- selection
+# method goes in the writeup, not in a footnote.
+
+https://github.com/modelcontextprotocol/servers#src/everything
+https://github.com/modelcontextprotocol/servers#src/fetch
+https://github.com/modelcontextprotocol/servers#src/filesystem
+https://github.com/modelcontextprotocol/servers#src/git
+https://github.com/modelcontextprotocol/servers#src/memory
+https://github.com/modelcontextprotocol/servers#src/sequentialthinking
+https://github.com/modelcontextprotocol/servers#src/time

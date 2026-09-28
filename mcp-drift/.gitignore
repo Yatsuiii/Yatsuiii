@@ -1,0 +1,6 @@
+.cache/
+drift.json
+drift.md
+__pycache__/
+*.egg-info/
+.pytest_cache/
