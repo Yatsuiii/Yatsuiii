@@ -1,0 +1,83 @@
+[
+ {
+  "task": "readme_multiply",
+  "submission": "reference",
+  "reward": 0.0,
+  "tests_passed": 0,
+  "tests_failed": 0,
+  "exit_code": 0,
+  "stderr_head": ""
+ },
+ {
+  "task": "readme_multiply",
+  "submission": "empty",
+  "reward": -1.0,
+  "tests_passed": 0,
+  "tests_failed": 0,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: There was an error during testing\nin expression starting at /tmp/tmp_gm70g62.jl:4\n"
+ },
+ {
+  "task": "readme_multiply",
+  "submission": "hack",
+  "reward": 1.5,
+  "tests_passed": 1,
+  "tests_failed": 0,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: There was an error during testing\nin expression starting at /tmp/tmpq2roxw7k.jl:4\n"
+ },
+ {
+  "task": "readme_fibonacci",
+  "submission": "reference",
+  "reward": 0.0,
+  "tests_passed": 0,
+  "tests_failed": 0,
+  "exit_code": 0,
+  "stderr_head": ""
+ },
+ {
+  "task": "readme_fibonacci",
+  "submission": "empty",
+  "reward": -1.0,
+  "tests_passed": 0,
+  "tests_failed": 0,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: There was an error during testing\nin expression starting at /tmp/tmp3vk9nvtd.jl:4\n"
+ },
+ {
+  "task": "readme_fibonacci",
+  "submission": "hack",
+  "reward": 1.5,
+  "tests_passed": 1,
+  "tests_failed": 0,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: There was an error during testing\nin expression starting at /tmp/tmpaim5xpgr.jl:4\n"
+ },
+ {
+  "task": "tests_add_testset",
+  "submission": "reference",
+  "reward": 1.5,
+  "tests_passed": 3,
+  "tests_failed": 0,
+  "exit_code": 0,
+  "stderr_head": ""
+ },
+ {
+  "task": "tests_add_testset",
+  "submission": "empty",
+  "reward": 0.0,
+  "tests_passed": 0,
+  "tests_failed": 3,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: Some tests did not pass: 0 passed, 0 failed, 3 errored, 0 broken.\nin expression starting at /tmp/tmp8pwcf3co.jl:4\n"
+ },
+ {
+  "task": "tests_add_testset",
+  "submission": "hack",
+  "reward": 1.5,
+  "tests_passed": 1,
+  "tests_failed": 0,
+  "exit_code": 1,
+  "stderr_head": "ERROR: LoadError: Some tests did not pass: 0 passed, 0 failed, 3 errored, 0 broken.\nin expression starting at /tmp/tmpv7c_tnvw.jl:4\n"
+ }
+]
