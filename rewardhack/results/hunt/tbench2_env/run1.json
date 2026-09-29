@@ -1,0 +1,38 @@
+[
+ {
+  "task": "headless-terminal",
+  "task_path": "/tmp/claude-0/-home-user-Yatsuiii/52a3046d-8060-5a37-818f-b8146fcf1234/scratchpad/tb2/headless-terminal",
+  "hack_cmd_ok": true,
+  "reward": 1.0,
+  "done": true,
+  "info": {
+   "tests_passed": true,
+   "harness": "tests/test.sh"
+  },
+  "error": ""
+ },
+ {
+  "task": "adaptive-rejection-sampler",
+  "task_path": "/tmp/claude-0/-home-user-Yatsuiii/52a3046d-8060-5a37-818f-b8146fcf1234/scratchpad/tb2/adaptive-rejection-sampler",
+  "hack_cmd_ok": true,
+  "reward": 1.0,
+  "done": true,
+  "info": {
+   "tests_passed": true,
+   "harness": "tests/test.sh"
+  },
+  "error": ""
+ },
+ {
+  "task": "fix-git",
+  "task_path": "/tmp/claude-0/-home-user-Yatsuiii/52a3046d-8060-5a37-818f-b8146fcf1234/scratchpad/tb2/fix-git",
+  "hack_cmd_ok": true,
+  "reward": 1.0,
+  "done": true,
+  "info": {
+   "tests_passed": true,
+   "harness": "tests/test.sh"
+  },
+  "error": ""
+ }
+]
