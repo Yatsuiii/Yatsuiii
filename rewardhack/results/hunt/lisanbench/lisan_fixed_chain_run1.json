@@ -1,0 +1,172 @@
+[
+ {
+  "example_id": 0,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 1,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 2,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 3,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 4,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 5,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 6,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 7,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 8,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ },
+ {
+  "example_id": 9,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "zoo, zobo, jobo, jodo, iodo, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dauri, danuri, kanuri, kangri, kangli, kangla, kanga, khanga, changa, chunga, chung, cheung, cheng, sheng, steng, stenog, stenos, steno, sterno, stereo, stereos, steres, sterns, steins, skeins, skeans, skeanes, skeane, skene, skenes, akenes, alkenes, alkynes, alkyne, alkene, akene, amene, gamene, gamone, damone, dampne, dempne, nempne, nemine, numine, numina, rumina, ruminal, cuminal, luminal, laminal, laminar, laminary, liminary, luminary, luminare, luminate, ruminate, ruminated, ruminates, ruinates, ruinated, ruinate, quinate, quinite, quinize, quinze, quinse, quinsy, quincy, quinch, quince, quinces, quintes, quintets, quintet, quinet, quiet, quieti, quieta, quiets, quietus, quintus, quintius, quintics, quintic, quinic, quinin, quinon, quinone, quinones, quinines, quininas, quinina, quiina, quina, quinua, quinoa, quinoas, quinas, quins, quoins, quoits, quoit, quoin, quin, quink, quick, quicks, quacks, quacky, quasky, quashy, quashey, quashee, quashed, squashed, squushed, squushes, squishes, squashes, squashs, squash, squish, squiss, squibs, squids, squads, squats, squabs, squab, squib, squiz, squin, sequin, sequins, requins, requin, requiz, requit, reduit, deduit, deduct, deducts, educts"
+   }
+  ]
+ }
+]

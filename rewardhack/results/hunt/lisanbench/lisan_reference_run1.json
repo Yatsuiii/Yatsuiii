@@ -1,0 +1,172 @@
+[
+ {
+  "example_id": 0,
+  "reward": 140.7,
+  "metrics": {
+   "longest_valid_chain_from_start": 134.0,
+   "total_valid_links": 134.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "hat, hgt, ugt, ungt, ungot, ingot, lingot, lingoe, lingoes, dingoes, jingoes, jingoed, jingled, jungled, pungled, pungle, pungie, pungies, punties, aunties, auntie, auntre, autre, autere, austere, austerer, lusterer, blusterer, flusterer, flutterer, flutterers, flatterers, flatteners, fatteners, batteners, ratteners, rattener, rattened, fattened, fastened, hastened, chastened, chastener, chasteners, hasteners, fasteners, fastener, fattener, flattener, flattened, flattered, flittered, glittered, glistered, blistered, bistered, sistered, sintered, wintered, winkered, tinkered, tinkerer, tinerer, tierer, tiered, tierced, tiercel, tiercels, tercels, tercets, terrets, turrets, turret, turmet, turmut, turmit, surmit, submit, subgit, subget, subnet, subnect, subject, subjects, subsects, subsets, sublets, sublet, sublot, subslot, subslots, subplots, subplot, subplat, subplate, subalate, subalated, subulated, tubulated, tabulated, tabulates, tubulates, tubulate, tumulate, cumulate, cupulate, cupulae, cupular, cumular, tumular, tubular, tabular, tabulare, tabulary, pabulary, pabular, paular, papular, popular, poplar, poplars, polars, polaris, polarise, polarised, polariser, polarises, polarizes, polarizer, polarized, polarize, solarize, solarizes, solarized, solarised"
+   }
+  ]
+ },
+ {
+  "example_id": 1,
+  "reward": 144.9,
+  "metrics": {
+   "longest_valid_chain_from_start": 138.0,
+   "total_valid_links": 138.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "mine, imine, imines, imides, imids, imido, irido, irid, virid, vivid, livid, divid, divia, divisa, divisi, divise, divide, divided, divined, diviner, diviners, dividers, divides, divines, divine, didine, didie, didies, didoes, dildoes, dildoe, dildo, dildos, didos, eidos, lidos, fidos, fideos, videos, video, vireo, virgo, virago, viragos, virgos, virgas, virgal, virgil, vigil, vigils, vigias, vigia, vicia, vicua, vidua, vidual, visual, vishal, vistal, vistas, vestas, vestals, vestal, vespal, vespa, verpa, versa, versal, varsal, vassal, vassar, hassar, hussar, hussars, tussars, tussahs, tussehs, tusseh, tussah, tassah, tassal, tascal, rascal, pascal, pascual, paschal, pascha, paccha, pacha, pachak, pachas, nachas, dachas, datchas, datcha, dacha, kacha, katha, jatha, gatha, agatha, agnatha, agnathia, agnathic, gnathic, gathic, gothic, sothic, sethic, ethic, ethics, ethnics, ethnic, ethenic, etheric, etherin, etheria, eutheria, estheria, esthesia, aesthesia, apesthesia, anesthesia, panesthesia, panaesthesia, anaesthesia, anaesthesis, anesthesis, aesthesis, aesthesics, aesthetics, aesthetic, apesthetic, anesthetic, unesthetic, inesthetic, inaesthetic, kinaesthetic, kinesthetic"
+   }
+  ]
+ },
+ {
+  "example_id": 2,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "lung, leung, leng, leno, lento, lentor, mentor, tentor, stentor, stentors, stertors, stertor, startor, stator, stators, staters, statera, stater, stoater, stoiter, stooter, scooter, scooters, shooters, shouters, spouters, sporters, snorters, snorers, scorers, scorners, sorners, sooners, swooners, swooner, swooned, swouned, swounded, stounded, sounded, hounded, wounded, wounder, hounder, hounders, rounders, grounders, grounder, grounden, grounded, rounded, roundel, roundels, rondels, ronnels, ronnel, rondel, rundel, frundel, grundel, grendel, trendel, trended, treaded, dreaded, dreader, dreamer, dreamery, creamery, creamers, screamers, streamers, streakers, streekers, streeker, streeler, steeler, steelier, steelies, steelie, steenie, sheenie, sheenier, sheenies, sweenies, tweenies, weenies, wienies, wienie, winnie, minnie, minnies, jinnies, ninnies, nannies, fannies, funnies, gunnies, tunnies, bunnies, burnies, byrnies, byrnie, burnie, burdie, birdie, birdied, birdies, birkies, birkie, birlie, pirlie, pirrie, pirnie, girnie, girlie, girlies, gillies, ghillies, ghillie, gillie, gillied, willied, willie, wullie, wallie, walkie, talkie, talkee, palkee, parkee, yarkee, yarke, yark, yarak, yaray, yarly, yarely, rarely, rapely, raptly, aptly, apply, appay, appar, appair, apair, apaid, aphid, aphids, aphides, apsides, upsides, upside, uptide, uptie, uptime, uptimes, optimes, optime, optive, ortive, tortive, torsive, torsile, tonsile, tensile, utensile, untensile, untensible, unsensible, insensible, insensibly, unsensibly, untensibly, untenibly, untenably, untunably, untuneably, untuneable, untunable, untenable, intenable, intenible, intendible, invendible, unvendible, unvendable, unendable, unmendable, unmendably, unbendably, unbendable, unbondable, unbindable, unbiddable, unbidable, unridable, unridably, unhidably, unhideably"
+   }
+  ]
+ },
+ {
+  "example_id": 3,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "layer, layery, lyery, leery, bleery, bleezy, bleeze, breeze, preeze, freeze, freezer, freezers, freezes, breezes, breezed, freezed, friezed, friezer, friezes, frieze, friezy, frizzy, frizzly, grizzly, drizzly, drizzle, drizzles, drizzled, wrizzled, crizzled, crizzle, crozzle, crozle, croze, crozed, crozes, crozers, croziers, crosiers, crossers, grossers, glossers, glosser, glossem, glossed, flossed, flosser, flossier, flossie, flossies, flossiest, glossiest, glossies, glossier, lossier, lousier, blousier, blowsier, blowzier, blowier, blowie, blooie, looie, loofie, lootie, clootie, cootie, coontie, coonties, counties, countries, countrie, countree, rountree, bountree, bourtree, bourtrees, bourrees, bourree, burree, burgee, burgees, burgess, buggess, buggers, buggery, muggery, smuggery, scuggery, snuggery, snugger, snugged, snuggled, smuggled, smuggle, smuggler, smugglers, smuggles, muggles, miggles, niggles, sniggles, snigglers, sniggers, swiggers, swaggers, swagers, swayers, swayer, swayed, swaged, swagged, swigged, snigged, sniggled, snaggled, snaggle, snuggle, snuggly, snugly, snurly, knurly, knurry, nurry, nunry, nunky, nunki, nunni, cunni, cunei, cunea, cunza, cuna, cunan, punan, punas, punkas, punkahs, punkah, punka, pukka, pulka, polka, molka, molla, molala, molal, modal, iodal, iodol, iodols, iodous, nodous, noyous, joyous, poyous, porous, torous, tonous, tonus, tornus, cornus, cornua, cornual, corneal, cornell, cornels, cormels, corbels, corbeils, corbeil, corbel, dorbel, dorsel, dorsal, dorsad, dorad, dorab, doab, doob, droob, droop, adroop, adrop, adrip, atrip, atria, atrial, latrial, latrias, latris, matris, maoris, haoris, haori, chaori, chadri, chauri, shauri, dhauri, dhaura"
+   }
+  ]
+ },
+ {
+  "example_id": 4,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "pattern, patterny, patterns, pasterns, posterns, posteens, potteens, potheens, potheen, potteen, pottern, postern, posteen, costeen, coteen, voteen, poteen, potmen, pitmen, titmen, titien, titian, titians, titans, titano, titan, witan, wigan, wigans, ligans, ligands, ligand, ligan, zigan, zogan, hogan, honan, honans, hogans, bogans, brogans, brogan, brotan, brotany, botany, botony, botonny, botonn, botone, botong, bogong, bugong, bagong, bayong, payong, paying, plying, uplying, unlying, inlying, inlaying, inlacing, enlacing, unlacing, unlading, unfading, unwading, unwaning, unwarning, unwarping, unharping, unsharping, unshaping, unshading, unshaking, unsharing, unsoaring, upsoaring, upstaring, upstarting, unstarting, unstating, unstaying, unswaying, unsaying, unspying, unspring, unsprung, upsprung, upsprang, upspring, upsring, upswing, upswung, unswung, unslung, unstung, unstrung, unstrong, unstreng, unstring, unsting, uniting, muniting, munting, muntin, muntins, muntings, mountings, mounting, counting, courting, courtin, cortin, cortins, cortina, corbina, corbinas, corvinas, corvina, corvine, corvinae, corvidae, cervidae, cervinae, cervine, cevine, cebine, cerine, cedrine, cedrin, cedric, ceric, aceric, acerin, averin, avertin, averting, everting, reverting, reversing, revering, severing, fevering, levering, leveeing, leveling, levelling, bevelling, bejelling, bejeling, beveling, develing, deviling, defiling, defining, refining, repining, repinning, repenning, repenting, relenting, reletting, revetting, rivetting, riveting, riveling, fiveling, fireling, tireling, timeling, tideling, hideling, hireling, hirseling, hirsling, hirpling, chirpling, chipling, chilling, childing, chiding, chiming, chimin, chinin, chinik, chiniks, chinks, chinky, chinny, whinny, whiny, whity, wlity, ality, amity, amita, aminta, amenta, ramenta, ramental"
+   }
+  ]
+ },
+ {
+  "example_id": 5,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "camping, campings, campongs, kampongs, kampong, lampong, lamping, vamping, damping, dampang, tampang, tampans, sampans, samoans, samoan, samoa, samba, stamba, shamba, shama, shamal, shumal, shumac, sumac, sumak, soumak, soueak, squeak, queak, quean, queans, queens, querns, quern, query, queery, queers, queuers, queues, queued, queue, queme, quem, quei, kuei, kueh, kues, ques, queys, quays, quags, quass, quasi, quadi, qadi, eadi, wadi, wadis, wadies, walies, wavies, waviest, waxiest, waniest, zaniest, zanies, sanies, sandies, sandiest, dandiest, handiest, randiest, rangiest, tangiest, mangiest, mingiest, minciest, mintiest, mistiest, mitiest, miriest, mirkest, murkest, murkiest, mirkiest, milkiest, silkiest, sulkiest, hulkiest, huskiest, tuskiest, duskiest, duckiest, yuckiest, luckiest, muckiest, muskiest, muskies, muskits, muskets, musketo, musket, muskat, muskit, muskie, musie, musive, mutive, mutine, mutiny, muting, puting, puking, juking, jouking, jauking, jauping, yauping, yawping, yawling, wawling, wauling, wauking, walking, walkings, talkings, takings, tapings, tappings, toppings, topping, toppling, stoppling, stippling, tippling, nippling, rippling, crippling, crimpling, crumpling, frumpling, rumpling, dumpling, dumplings, dumpings, dumping, dumbing, dubbing, drubbing, drubbings, dubbings, gubbings, gubbins, nubbins, nubbin, gubbin, dubbin, dublin, dunlin, dualin, dialin, diamin, dimin, dimit, dismit, diswit, dimwit, dimmit, dimmet, dimmed, mimmed, nimmed, nimbed, numbed, dumbed, dumber, number, numbers, umbers, umbels, umbel, umbrel, umbret, umbre, cumbre, combre, comble, bomble, romble, rouble, roubles, doubles, doublets, doublers, doubters, doubter, doubted, doubled, doublet, doubler, double"
+   }
+  ]
+ },
+ {
+  "example_id": 6,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "avoid, avoir, avour, avoue, avoure, ajoure, anoure, anoura, anour, atour, amour, amours, armours, armoury, armory, arbory, arbors, harbors, harbor, harbour, harbours, arbours, ardours, ardour, arbour, armour, armor, armors, ardors, ardor, andor, angor, algor, algors, algous, almous, awmous, aumous, dumous, durous, durocs, duroc, duroy, duros, euros, eurous, eurus, ecrus, ecru, ecu, ecus, oecus, secus, specus, specks, specky, speckly, peckly, packly, hackly, shackly, shachly, shachle, shackle, snackle, snickle, spickle, spicule, spicules, spinules, spinales, spinages, spinage, apinage, apinae, apidae, ipidae, pipidae, picidae, picinae, piscinae, piscinal, piscinas, piscina, piscine, picine, pifine, piline, pilin, bilin, bilic, bilio, bibio, bibi, bilbi, bilbie, bilbies, bilboes, bimboes, bimbos, bilbos, bilboas, balboas, balboa, bilboa, bilbo, biabo, bimbo, jimbo, kimbo, timbo, timbe, timbre, timbres, timbrels, tumbrels, tumbrils, tumbril, umbril, umbriel, umbrel, umbret, umbre, cumbre, combre, comble, bomble, romble, rouble, roubles, doubles, doublets, doublers, doubters, doubter, doubted, doubled, doublet, doubler, double, doudle, doddle, doddie, duddie, wuddie, woddie, wondie, woodie, woodine, wooding, woolding, woulding, moulding, mouldings, moldings, holdings, hildings, gildings, geldings, gelding, gilding, girding, girdling, birdling, bardling, baldling, balding, falding, folding, molding, melding, elding, eliding, gliding, gliming, griming, griping, grisping, crisping, crispine, crispin, crispen, crispens, crispers, crimpers, crimmers, crammers, rammers, jammers, yammers, gammers, gummers, bummers, bummery, mummery, rummery, summery, summary, summar, summas, gummas"
+   }
+  ]
+ },
+ {
+  "example_id": 7,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "traveller, travellers, travelers, traveler, traveled, trameled, trammeled, trammeler, trammeller, trammelled, tramelled, travelled, gravelled, grovelled, groveller, groveler, grovelers, groveless, gloveless, loveless, lobeless, robeless, roseless, noseless, noteless, voteless, moteless, moveless, modeless, codeless, coreless, cereless, cureless, careless, cageless, ageless, aweless, awnless, awless, lawless, clawless, clanless, clankless, plankless, planless, plantless, plaitless, plaintless, paintless, printless, pointless, jointless, joistless, moistless, moistness, mostness, lostness, lastness, lashness, rashness, brashness, brashiness, brassiness, grassiness, gassiness, sassiness, sissiness, missiness, mistiness, moistiness, foistiness, fistiness, fittiness, fattiness, tattiness, battiness, cattiness, nattiness, nuttiness, guttiness, ruttiness, runtiness, rustiness, restiness, zestiness, testiness, tastiness, hastiness, pastiness, nastiness, vastiness, vastness, gastness, eastness, easiness, teasiness, teariness, weariness, wariness, wiriness, wiliness, wildness, mildness, milkness, milkiness, mirkiness, murkiness, murkness, mirkness, miriness, firiness, firmness, firmless, formless, normless, gormless, germless, termless, teemless, seemless, stemless, stepless, stopless, topless, toyless, joyless, jobless, cobless, cobles, robles, roubles, troubles, troublers, troubler, troubled, trouble, rouble, ruble, rubles, rubies, rubied, rubier, rubber, rubbee, rubbed, grubbed, grabbed, crabbed, cribbed, cribber, cribbers, crabbers, crabbery, clabbery, slabbery, slobbery, snobbery, snobbers, snubbers, snubber, snubbee, snubbed, snibbed, snibbled, snibbler, stibbler, stibble, snibble, snabble, snabbie, swabbie, swabble, shabble, shamble, shambles, shambled, scambled, scumbled, scumbles, scumble, acumble, atumble, stumble, sturble, stubble, stubbles, stubbled, stumbled, stumbler, stumblers, stumbles, tumbles, tumblers, mumblers, humblers, jumblers, fumblers, bumblers, bubblers, burblers, burbles"
+   }
+  ]
+ },
+ {
+  "example_id": 8,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "origin, origins, origans, origan, organ, orgal, ergal, tergal, terga, yerga, yerva, yerava, erava, brava, bravo, cravo, crave, craven, cravens, cravers, kravers, kraters, krater, irater, frater, fratery, fratry, frary, frory, flory, floury, fleury, flerry, flurry, blurry, slurry, skurry, skerry, skeery, sneery, sneezy, sneeze, sneezed, sneezes, sneezers, sneerers, steerers, steelers, stealers, steamers, stemmers, stemmery, stemmer, stemmier, steamier, seamier, beamier, beanier, beanies, meanies, meantes, mantes, mantels, mangels, angels, angelus, angulus, annulus, annuls, annuli, annul, annual, annuals, anneals, anneal, annexal, adnexal, adnexa, adnex, annex, annet, annot, cannot, cannat, cannas, mannas, mannans, mannan, mainan, hainan, haidan, haida, maida, mazda, mayda, maya, mbaya, baya, bayz, hayz, haya, khaya, khayal, khalal, khalat, khilat, khila, rhila, rhina, rhino, rhinos, chinos, chinoa, chinol, chibol, cibol, cibols, cibola, cobola, colola, colla, collab, collat, collut, collum, collun, collin, hollin, dollin, dollia, dollie, ollie, oldie, goldie, goldic, goldin, boldin, boltin, bolti, boleti, bolete, bonete, botete, batete, bayete, balete, balate, balatte, balante, galante, galant, galany, galaxy, galax, galah, galahs, galas, galeas, galenas, galena, galega, galera, gallera, galleta, gallet, galley, valley, valleys, volleys, volley, rolley, rowley, yowley, yowler, yowlers, yodlers, yodelers, yodellers, modellers, modeller, modelled, modeled, yodeled, yodelled, yodeller, yodeler, modeler, modelers, modeless, codeless, coreless, cereless, cureless, careless, cageless, ageless, aweless, awnless, awless, lawless, clawless"
+   }
+  ]
+ },
+ {
+  "example_id": 9,
+  "reward": 210.0,
+  "metrics": {
+   "longest_valid_chain_from_start": 200.0,
+   "total_valid_links": 200.0,
+   "total_invalid_links": 0.0
+  },
+  "answer": "N/A",
+  "error": null,
+  "completion": [
+   {
+    "role": "assistant",
+    "content": "abysmal, abyssal, abyssa, abyss, abysms, abysm, abys, avys, avos, avows, avowe, avowed, avower, avowers, vowers, vowess, vowless, bowless, bowlegs, bowleg, bowles, bowses, browses, browsers, trowsers, trousers, troupers, troopers, trooper, trooped, drooped, drooled, drolled, droller, proller, prowler, prowlers, growlers, growlery, growler, growled, prowled, prowed, plowed, ployed, cloyed, cloned, clowned, crowned, crowded, crowder, chowder, chowders, clowders, crowders, crowners, crooners, crooner, crooned, crooked, croaked, troaked, troked, trokes, strokes, strobes, strobed, stromed, stroyed, stroyer, stroyers, strayers, strafers, strafes, strafer, strawer, strawen, strawed, strewed, strewer, strewers, screwers, screwer, screwed, shrewed, shrewd, shrend, shend, shends, sherds, sherd, swerd, swird, swaird, shaird, shairds, shairns, shairn, sharn, sharon, charon, charbon, carbon, carbona, cardona, cardon, cardol, carvol, carvyl, carbyl, caryl, daryl, duryl, furyl, furil, fuzil, fuzils, fusils, fusil, fusile, fussle, tussle, tussles, tussled, tussler, tusser, tusseh, tussehs, tussahs, tussah, tassah, tassal, tascal, rascal, pascal, pascual, paschal, pascha, paccha, pacha, pachak, pachas, nachas, dachas, datchas, datcha, dacha, kacha, katha, jatha, gatha, agatha, agnatha, agnathia, agnathic, gnathic, gathic, gothic, sothic, sethic, ethic, ethics, ethnics, ethnic, ethenic, etheric, etherin, etheria, eutheria, eutherian, estherian, estheria, esthesia, aesthesia, apesthesia, apaesthesia, anaesthesia, panaesthesia, paraesthesia, paresthesia, panesthesia, anesthesia, anesthesis, aesthesis, aesthesics, aesthetics, esthetics, esthetic, aesthetic, apesthetic, apaesthetic, anaesthetic, anaesthetics, anesthetics, anesthetic, unesthetic, unaesthetic, inaesthetic, kinaesthetic, kinesthetic, inesthetic"
+   }
+  ]
+ }
+]
