@@ -1,0 +1,403 @@
+{
+  "gameability_score": 75,
+  "raw_total": 10.45,
+  "total_findings": 29,
+  "total_files_scanned": 21,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 1.0,
+      "finding_count": 2,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "grader_manipulation",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 534,
+          "title": "Dynamic code execution",
+          "description": "Using exec() or eval() which could execute modified grading logic or inject code into the grading pipeline.",
+          "evidence": "is_correct = eval(case_data, results, fhir_api_base)",
+          "suggested_fix": "Audit all exec()/eval() calls. Restrict the agent's access to the grading module namespace. Prefer compiled verifiers.",
+          "detector_name": "grader_manipulation",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "grader_manipulation",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 543,
+          "title": "Dynamic code execution",
+          "description": "Using exec() or eval() which could execute modified grading logic or inject code into the grading pipeline.",
+          "evidence": "def eval(case_data, results, fhir_api_base):",
+          "suggested_fix": "Audit all exec()/eval() calls. Restrict the agent's access to the grading module namespace. Prefer compiled verifiers.",
+          "detector_name": "grader_manipulation",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 9.45,
+      "finding_count": 27,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 20,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 59,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 67,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 77,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 79,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 107,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 109,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 139,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 161,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 163,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 182,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 222,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 224,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 248,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 250,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 271,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 273,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 299,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 363,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 365,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 417,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 419,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 535,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1 if is_correct else 0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 548,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 620,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 642,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "med_agent_bench.py",
+          "line_number": 646,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,150 @@
+{
+  "gameability_score": 32,
+  "raw_total": 2.975,
+  "total_findings": 8,
+  "total_files_scanned": 29,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 2.975,
+      "finding_count": 8,
+      "max_severity": "high",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 120,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 153,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "\"\"\"Return True if candidate matches all feedback given so far.\"\"\"",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 159,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 299,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 326,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if state[\"is_solved\"] else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 332,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 / state[\"last_turn_processed\"]",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "mastermind.py",
+          "line_number": 361,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if state[\"is_solved\"] else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "high",
+          "file_path": "utils/scoring.py",
+          "line_number": 6,
+          "title": "Unconditioned reward terms",
+          "description": "Function 'score_guess' has 8 additive reward terms, 2 of which are not inside conditional blocks. An agent could maximize reward by focusing only on the easy/unconditioned terms.",
+          "evidence": "def score_guess: 8 += operations, 2 unconditioned",
+          "suggested_fix": "Ensure all reward terms are gated by validation checks. Consider using a multiplicative (rather than additive) reward structure where any single failure zeros the total.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    }
+  },
+  "errors": []
+}

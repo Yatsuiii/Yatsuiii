@@ -1,0 +1,138 @@
+{
+  "gameability_score": 27,
+  "raw_total": 2.45,
+  "total_findings": 7,
+  "total_files_scanned": 11,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 2.45,
+      "finding_count": 7,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 67,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if predicted_time == ground_truth else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 82,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 102,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if pred_hm == true_hm else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 109,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if parsed is not None else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 213,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 214,
+          "title": "Broad exception handler",
+          "description": "Catching all exceptions could silently swallow verification failures and return a passing score.",
+          "evidence": "except:",
+          "suggested_fix": "Catch specific exceptions only. Log and re-raise unexpected errors rather than silently swallowing them.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "synthetic_clocks.py",
+          "line_number": 215,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    }
+  },
+  "errors": []
+}

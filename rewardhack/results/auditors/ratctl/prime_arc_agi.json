@@ -1,0 +1,116 @@
+{
+  "gameability_score": 29,
+  "raw_total": 2.575,
+  "total_findings": 5,
+  "total_files_scanned": 11,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.675,
+      "finding_count": 1,
+      "max_severity": "high",
+      "findings": [
+        {
+          "exploit_class": "premature_termination",
+          "severity": "high",
+          "file_path": "arc_agi.py",
+          "line_number": 239,
+          "title": "Subprocess wrapping grading binary",
+          "description": "Launching a subprocess targeting the grading binary. An agent could wrap or replace the grader with a trojan that always reports success.",
+          "evidence": "subprocess.run([\"git\", \"clone\", \"--depth\", \"1\", repo_url, repo_path], check=True)",
+          "suggested_fix": "Make the grading binary read-only and not accessible from the agent's PATH. Verify the grading binary's hash before execution.",
+          "detector_name": "premature_termination",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.85,
+      "finding_count": 1,
+      "max_severity": "critical",
+      "findings": [
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "critical",
+          "file_path": "arc_agi.py",
+          "line_number": 239,
+          "title": "Git history access",
+          "description": "Accessing git history could reveal previous solutions, test changes, or answer keys committed to the repository.",
+          "evidence": "subprocess.run([\"git\", \"clone\", \"--depth\", \"1\", repo_url, repo_path], check=True)",
+          "suggested_fix": "Remove .git directory from the agent's sandbox. Use `git archive` or a clean export to provide only the working tree without history.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 1.05,
+      "finding_count": 3,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "arc_agi.py",
+          "line_number": 124,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "arc_agi.py",
+          "line_number": 131,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if parsed is not None else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "arc_agi.py",
+          "line_number": 276,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return 1.0 if pred_grid == true_grid else 0.0",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    }
+  },
+  "errors": []
+}

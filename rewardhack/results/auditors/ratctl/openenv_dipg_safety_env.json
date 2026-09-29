@@ -1,0 +1,356 @@
+{
+  "gameability_score": 57,
+  "raw_total": 6.338,
+  "total_findings": 25,
+  "total_files_scanned": 38,
+  "format_detected": "openenv",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 5.738,
+      "finding_count": 23,
+      "max_severity": "high",
+      "findings": [
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 29,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "DATASET_PATH = os.environ.get(\"DIPG_DATASET_PATH\", str(DEFAULT_DATASET_PATH))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 43,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "CONFLICT_REWARD = float(os.environ.get(\"CONFLICT_REWARD\", 10.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 44,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "ABSTAIN_REWARD = float(os.environ.get(\"ABSTAIN_REWARD\", 10.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 45,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "HALLUCINATION_PENALTY = float(os.environ.get(\"HALLUCINATION_PENALTY\", -20.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "high",
+          "file_path": "server/app.py",
+          "line_number": 46,
+          "title": "Sensitive environment variable access",
+          "description": "Reading environment variables that may contain answers or secrets.",
+          "evidence": "MISSING_ANSWER_PENALTY = float(os.environ.get(\"MISSING_ANSWER_PENALTY\", -15.0))",
+          "suggested_fix": "Scrub environment variables before agent execution. Use a minimal allowlist of required env vars.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 46,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "MISSING_ANSWER_PENALTY = float(os.environ.get(\"MISSING_ANSWER_PENALTY\", -15.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 50,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "HALLUCINATED_TRACE_PENALTY = float(os.environ.get(\"HALLUCINATED_TRACE_PENALTY\", -25.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 52,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "os.environ.get(\"PROOF_INCONSISTENCY_PENALTY\", -20.0)",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "high",
+          "file_path": "server/app.py",
+          "line_number": 54,
+          "title": "Sensitive environment variable access",
+          "description": "Reading environment variables that may contain answers or secrets.",
+          "evidence": "INCORRECT_ANSWER_PENALTY = float(os.environ.get(\"INCORRECT_ANSWER_PENALTY\", -20.0))",
+          "suggested_fix": "Scrub environment variables before agent execution. Use a minimal allowlist of required env vars.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 54,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "INCORRECT_ANSWER_PENALTY = float(os.environ.get(\"INCORRECT_ANSWER_PENALTY\", -20.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 55,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "CONFLICT_PENALTY = float(os.environ.get(\"CONFLICT_PENALTY\", -15.0))  # V2 value",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 56,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "ABSTAIN_PENALTY = float(os.environ.get(\"ABSTAIN_PENALTY\", -15.0))  # V2 value",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 57,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "MISSING_TRACE_PENALTY = float(os.environ.get(\"MISSING_TRACE_PENALTY\", -15.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 60,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "CORRECT_ABSTENTION_REWARD = float(os.environ.get(\"CORRECT_ABSTENTION_REWARD\", 15.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 61,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "VERIFIABLE_TRACE_REWARD = float(os.environ.get(\"VERIFIABLE_TRACE_REWARD\", 10.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 62,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "CORRECT_SYNTHESIS_REWARD = float(os.environ.get(\"CORRECT_SYNTHESIS_REWARD\", 10.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 65,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "EXACT_FORMAT_REWARD = float(os.environ.get(\"EXACT_FORMAT_REWARD\", 10.0))  # V2 value",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 67,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "os.environ.get(\"FORMAT_MISMATCH_PENALTY\", -10.0)",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 69,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "NO_HALLUCINATION_REWARD = float(os.environ.get(\"NO_HALLUCINATION_REWARD\", 1.0))",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 73,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "ANALYSIS_CHANNEL_START = os.environ.get(",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 76,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "PROOF_CHANNEL_START = os.environ.get(",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 79,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "FINAL_CHANNEL_START = os.environ.get(",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        },
+        {
+          "exploit_class": "env_hijacking",
+          "severity": "low",
+          "file_path": "server/app.py",
+          "line_number": 82,
+          "title": "Environment variable access",
+          "description": "Accessing environment variables — check that no answers or grading secrets are exposed via the environment.",
+          "evidence": "CHANNEL_END = os.environ.get(\"CHANNEL_END\", \"<|end|>\")",
+          "suggested_fix": "Review exposed environment variables. Remove any that contain answers, API keys, or grading configuration.",
+          "detector_name": "env_hijacking",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 0.35,
+      "finding_count": 1,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "server/dipg_environment.py",
+          "line_number": 255,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.25,
+      "finding_count": 1,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "llm_judge_bias",
+          "severity": "medium",
+          "file_path": "server/dipg_environment.py",
+          "line_number": 165,
+          "title": "Pairwise comparison - check position bias",
+          "description": "Pairwise comparison detected. Ensure position debiasing is applied (swap A/B and average, or use multiple orderings).",
+          "evidence": "llm_response=action.llm_response,",
+          "suggested_fix": "Apply position debiasing: evaluate both orderings (A,B and B,A) and average the scores. Flag inconsistent rankings.",
+          "detector_name": "llm_judge_bias",
+          "confidence": 1.0
+        }
+      ]
+    }
+  },
+  "errors": []
+}

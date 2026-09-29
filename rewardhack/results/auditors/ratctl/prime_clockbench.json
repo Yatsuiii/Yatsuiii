@@ -1,0 +1,79 @@
+{
+  "gameability_score": 10,
+  "raw_total": 0.85,
+  "total_findings": 2,
+  "total_files_scanned": 11,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.5,
+      "finding_count": 1,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "grader_manipulation",
+          "severity": "medium",
+          "file_path": "clockbench.py",
+          "line_number": 36,
+          "title": "Dynamic code execution",
+          "description": "Using exec() or eval() which could execute modified grading logic or inject code into the grading pipeline.",
+          "evidence": "lambda x: ast.literal_eval(",
+          "suggested_fix": "Audit all exec()/eval() calls. Restrict the agent's access to the grading module namespace. Prefer compiled verifiers.",
+          "detector_name": "grader_manipulation",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 0.35,
+      "finding_count": 1,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "reward_skipping",
+          "severity": "medium",
+          "file_path": "clockbench.py",
+          "line_number": 119,
+          "title": "Unconditional success return",
+          "description": "Function returns a success value unconditionally. If this is a reward component, it never penalizes incorrect behavior.",
+          "evidence": "return True, details",
+          "suggested_fix": "Add conditional logic that actually validates the agent's output before returning a success value.",
+          "detector_name": "reward_skipping",
+          "confidence": 1.0
+        }
+      ]
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    }
+  },
+  "errors": []
+}

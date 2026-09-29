@@ -1,0 +1,66 @@
+{
+  "gameability_score": 3,
+  "raw_total": 0.25,
+  "total_findings": 1,
+  "total_files_scanned": 11,
+  "format_detected": "verifiers_spec",
+  "format_confidence": 0.99,
+  "class_scores": {
+    "test_tampering": {
+      "exploit_class": "test_tampering",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "grader_manipulation": {
+      "exploit_class": "grader_manipulation",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "premature_termination": {
+      "exploit_class": "premature_termination",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "env_hijacking": {
+      "exploit_class": "env_hijacking",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "reward_skipping": {
+      "exploit_class": "reward_skipping",
+      "raw_score": 0.0,
+      "finding_count": 0,
+      "max_severity": null,
+      "findings": []
+    },
+    "llm_judge_bias": {
+      "exploit_class": "llm_judge_bias",
+      "raw_score": 0.25,
+      "finding_count": 1,
+      "max_severity": "medium",
+      "findings": [
+        {
+          "exploit_class": "llm_judge_bias",
+          "severity": "medium",
+          "file_path": "lisanbench.py",
+          "line_number": 155,
+          "title": "Pairwise comparison - check position bias",
+          "description": "Pairwise comparison detected. Ensure position debiasing is applied (swap A/B and average, or use multiple orderings).",
+          "evidence": "FORMAT your response as a comma-separated list. DO NOT RESPOND WITH ANYTHING ELSE BUT THIS LIST!",
+          "suggested_fix": "Apply position debiasing: evaluate both orderings (A,B and B,A) and average the scores. Flag inconsistent rankings.",
+          "detector_name": "llm_judge_bias",
+          "confidence": 1.0
+        }
+      ]
+    }
+  },
+  "errors": []
+}
