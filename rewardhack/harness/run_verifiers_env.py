@@ -25,6 +25,7 @@ def main(argv=None) -> int:
     ap.add_argument("--log", default=None, help="JSONL log of model requests and replies")
     ap.add_argument("--out", default=None, help="JSON file for the rollout outputs")
     ap.add_argument("--rollouts", type=int, default=1)
+    ap.add_argument("--max-concurrent", type=int, default=32, help="cap on parallel rollouts")
     a = ap.parse_args(argv)
 
     import verifiers as vf
@@ -43,8 +44,10 @@ def main(argv=None) -> int:
             from openai import AsyncOpenAI
             client = AsyncOpenAI(base_url=url, api_key="scripted", max_retries=0)
         run = getattr(env, "evaluate_sync", None) or env.evaluate
-        results = run(client=client, model="scripted", num_examples=a.n,
-                      rollouts_per_example=a.rollouts)
+        kw = {"num_examples": a.n, "rollouts_per_example": a.rollouts}
+        if "max_concurrent" in inspect.signature(run).parameters:
+            kw["max_concurrent"] = a.max_concurrent
+        results = run(client=client, model="scripted", **kw)
         if inspect.iscoroutine(results):
             results = asyncio.run(results)
     finally:
