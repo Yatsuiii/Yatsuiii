@@ -1,0 +1,615 @@
+{
+ "per_lambda": {
+  "low": {
+   "C0": {
+    "n": 20438,
+    "valid": 20067,
+    "invalid": 5,
+    "rejected": 366,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 262,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C1": {
+    "n": 19926,
+    "valid": 19887,
+    "invalid": 3,
+    "rejected": 36,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 774,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C2": {
+    "n": 20396,
+    "valid": 20069,
+    "invalid": 1,
+    "rejected": 2,
+    "avoided": 324,
+    "gave_up": 0,
+    "diverged": 304,
+    "false_aborts": 56,
+    "true_aborts": 327,
+    "replan_time": 14614.675070392672,
+    "tokens": 708755,
+    "far": 0.002745636399293979
+   },
+   "C3": {
+    "n": 20361,
+    "valid": 20065,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 295,
+    "gave_up": 1,
+    "diverged": 339,
+    "false_aborts": 351,
+    "true_aborts": 296,
+    "replan_time": 24930.66218750301,
+    "tokens": 1209437,
+    "far": 0.017238838956829233
+   },
+   "C4": {
+    "n": 20396,
+    "valid": 20070,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 326,
+    "gave_up": 0,
+    "diverged": 304,
+    "false_aborts": 157,
+    "true_aborts": 330,
+    "replan_time": 18709.914472259148,
+    "tokens": 916277,
+    "far": 0.007697587762306335
+   }
+  },
+  "medium": {
+   "C0": {
+    "n": 20092,
+    "valid": 19408,
+    "invalid": 28,
+    "rejected": 656,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 608,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C1": {
+    "n": 18255,
+    "valid": 17951,
+    "invalid": 19,
+    "rejected": 285,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 2445,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C2": {
+    "n": 20016,
+    "valid": 19413,
+    "invalid": 17,
+    "rejected": 24,
+    "avoided": 562,
+    "gave_up": 0,
+    "diverged": 684,
+    "false_aborts": 383,
+    "true_aborts": 573,
+    "replan_time": 38598.944498614655,
+    "tokens": 1686457,
+    "far": 0.01913469224620304
+   },
+   "C3": {
+    "n": 19926,
+    "valid": 19400,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 514,
+    "gave_up": 12,
+    "diverged": 774,
+    "false_aborts": 2122,
+    "true_aborts": 535,
+    "replan_time": 107606.2126318684,
+    "tokens": 4870139,
+    "far": 0.106494027903242
+   },
+   "C4": {
+    "n": 20012,
+    "valid": 19418,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 592,
+    "gave_up": 2,
+    "diverged": 688,
+    "false_aborts": 1134,
+    "true_aborts": 620,
+    "replan_time": 70624.01526039251,
+    "tokens": 3115371,
+    "far": 0.05666600039976014
+   }
+  },
+  "high": {
+   "C0": {
+    "n": 16749,
+    "valid": 13966,
+    "invalid": 154,
+    "rejected": 2629,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 3951,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C1": {
+    "n": 9707,
+    "valid": 8304,
+    "invalid": 90,
+    "rejected": 1313,
+    "avoided": 0,
+    "gave_up": 0,
+    "diverged": 10993,
+    "false_aborts": 0,
+    "true_aborts": 0,
+    "replan_time": 0.0,
+    "tokens": 0,
+    "far": 0.0
+   },
+   "C2": {
+    "n": 16362,
+    "valid": 13773,
+    "invalid": 110,
+    "rejected": 172,
+    "avoided": 2298,
+    "gave_up": 9,
+    "diverged": 4338,
+    "false_aborts": 2301,
+    "true_aborts": 2328,
+    "replan_time": 184112.09574901103,
+    "tokens": 7981194,
+    "far": 0.14063072973964064
+   },
+   "C3": {
+    "n": 15821,
+    "valid": 12085,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 2487,
+    "gave_up": 1249,
+    "diverged": 4879,
+    "false_aborts": 11929,
+    "true_aborts": 2701,
+    "replan_time": 535985.8029129563,
+    "tokens": 23812763,
+    "far": 0.753997850957588
+   },
+   "C4": {
+    "n": 16200,
+    "valid": 13349,
+    "invalid": 0,
+    "rejected": 0,
+    "avoided": 2594,
+    "gave_up": 257,
+    "diverged": 4500,
+    "false_aborts": 6596,
+    "true_aborts": 2766,
+    "replan_time": 363762.6112131356,
+    "tokens": 15856489,
+    "far": 0.4071604938271605
+   }
+  }
+ },
+ "pooled": {
+  "C0": {
+   "n": 57279,
+   "valid": 53441,
+   "invalid": 187,
+   "rejected": 3651,
+   "avoided": 0,
+   "gave_up": 0,
+   "diverged": 4821,
+   "false_aborts": 0,
+   "true_aborts": 0,
+   "replan_time": 0.0,
+   "tokens": 0,
+   "far": 0.0
+  },
+  "C1": {
+   "n": 47888,
+   "valid": 46142,
+   "invalid": 112,
+   "rejected": 1634,
+   "avoided": 0,
+   "gave_up": 0,
+   "diverged": 14212,
+   "false_aborts": 0,
+   "true_aborts": 0,
+   "replan_time": 0.0,
+   "tokens": 0,
+   "far": 0.0
+  },
+  "C2": {
+   "n": 56774,
+   "valid": 53255,
+   "invalid": 128,
+   "rejected": 198,
+   "avoided": 3184,
+   "gave_up": 9,
+   "diverged": 5326,
+   "false_aborts": 2740,
+   "true_aborts": 3228,
+   "replan_time": 237325.71531801837,
+   "tokens": 10376406,
+   "far": 0.04826152816430056
+  },
+  "C3": {
+   "n": 56108,
+   "valid": 51550,
+   "invalid": 0,
+   "rejected": 0,
+   "avoided": 3296,
+   "gave_up": 1262,
+   "diverged": 5992,
+   "false_aborts": 14402,
+   "true_aborts": 3532,
+   "replan_time": 668522.6777323278,
+   "tokens": 29892339,
+   "far": 0.25668353888928497
+  },
+  "C4": {
+   "n": 56608,
+   "valid": 52837,
+   "invalid": 0,
+   "rejected": 0,
+   "avoided": 3512,
+   "gave_up": 259,
+   "diverged": 5492,
+   "false_aborts": 7887,
+   "true_aborts": 3716,
+   "replan_time": 453096.5409457872,
+   "tokens": 19888137,
+   "far": 0.13932659694742794
+  }
+ },
+ "rules": {
+  "K_a": {
+   "invalid_C0": 187,
+   "invalid_C2": 128,
+   "prevention": 0.31550802139037437,
+   "kill": false
+  },
+  "K_b": {
+   "invalid_C3": 0,
+   "invalid_C4": 0,
+   "far_C3": 0.25668353888928497,
+   "far_C4": 0.13932659694742794,
+   "ratio": 1.8423154265810373,
+   "kill": false
+  },
+  "K_c": {
+   "median_check_s": 0.16314268614076577,
+   "median_task_wall_s": 294.98884486048655,
+   "share": 0.0005530469676503302,
+   "kill": false
+  }
+ },
+ "bootstrap": {
+  "prevention_ci": [
+   0.23454609500805157,
+   0.3850014367816092
+  ],
+  "far_ratio_ci": [
+   1.810541106580573,
+   1.8735687914916503
+  ]
+ },
+ "c1_makespan_ratio": 2.5787741646759015,
+ "sensitivity": {
+  "sens_user10": {
+   "summary": {
+    "C0": {
+     "n": 3360,
+     "valid": 3278,
+     "invalid": 0,
+     "rejected": 82,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 90,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C1": {
+     "n": 3166,
+     "valid": 3134,
+     "invalid": 2,
+     "rejected": 30,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 284,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C2": {
+     "n": 3352,
+     "valid": 3278,
+     "invalid": 0,
+     "rejected": 1,
+     "avoided": 73,
+     "gave_up": 0,
+     "diverged": 98,
+     "false_aborts": 39,
+     "true_aborts": 72,
+     "replan_time": 2316.3978685734587,
+     "tokens": 194096,
+     "far": 0.011634844868735084
+    },
+    "C3": {
+     "n": 3338,
+     "valid": 3275,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 62,
+     "gave_up": 1,
+     "diverged": 112,
+     "false_aborts": 214,
+     "true_aborts": 61,
+     "replan_time": 6005.9483044412145,
+     "tokens": 507212,
+     "far": 0.06411024565608149
+    },
+    "C4": {
+     "n": 3352,
+     "valid": 3277,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 75,
+     "gave_up": 0,
+     "diverged": 98,
+     "false_aborts": 110,
+     "true_aborts": 74,
+     "replan_time": 3981.04901412196,
+     "tokens": 325528,
+     "far": 0.03281622911694511
+    }
+   },
+   "rules": {
+    "K_a": {
+     "invalid_C0": 0,
+     "invalid_C2": 0,
+     "prevention": NaN,
+     "kill": true
+    },
+    "K_b": {
+     "invalid_C3": 0,
+     "invalid_C4": 0,
+     "far_C3": 0.06411024565608149,
+     "far_C4": 0.03281622911694511,
+     "ratio": 1.9536140312653196,
+     "kill": false
+    },
+    "K_c": {
+     "median_check_s": 0.1586176105898503,
+     "median_task_wall_s": 154.25721637913068,
+     "share": 0.001028267035494811,
+     "kill": false
+    }
+   }
+  },
+  "sens_user60": {
+   "summary": {
+    "C0": {
+     "n": 3290,
+     "valid": 3120,
+     "invalid": 10,
+     "rejected": 160,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 160,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C1": {
+     "n": 2804,
+     "valid": 2698,
+     "invalid": 9,
+     "rejected": 97,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 646,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C2": {
+     "n": 3277,
+     "valid": 3121,
+     "invalid": 8,
+     "rejected": 7,
+     "avoided": 141,
+     "gave_up": 0,
+     "diverged": 173,
+     "false_aborts": 132,
+     "true_aborts": 143,
+     "replan_time": 21808.605389683828,
+     "tokens": 473190,
+     "far": 0.04028074458346048
+    },
+    "C3": {
+     "n": 3248,
+     "valid": 3107,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 129,
+     "gave_up": 12,
+     "diverged": 202,
+     "false_aborts": 675,
+     "true_aborts": 135,
+     "replan_time": 63372.213766560526,
+     "tokens": 1434339,
+     "far": 0.20782019704433496
+    },
+    "C4": {
+     "n": 3268,
+     "valid": 3123,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 144,
+     "gave_up": 1,
+     "diverged": 182,
+     "false_aborts": 380,
+     "true_aborts": 154,
+     "replan_time": 41909.18161713414,
+     "tokens": 921430,
+     "far": 0.11627906976744186
+    }
+   },
+   "rules": {
+    "K_a": {
+     "invalid_C0": 10,
+     "invalid_C2": 8,
+     "prevention": 0.19999999999999996,
+     "kill": false
+    },
+    "K_b": {
+     "invalid_C3": 0,
+     "invalid_C4": 0,
+     "far_C3": 0.20782019704433496,
+     "far_C4": 0.11627906976744186,
+     "ratio": 1.7872536945812807,
+     "kill": false
+    },
+    "K_c": {
+     "median_check_s": 0.1627893927812325,
+     "median_task_wall_s": 608.0093562119966,
+     "share": 0.0002677415916679943,
+     "kill": false
+    }
+   }
+  },
+  "sens_relevant": {
+   "summary": {
+    "C0": {
+     "n": 3306,
+     "valid": 3149,
+     "invalid": 4,
+     "rejected": 153,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 144,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C1": {
+     "n": 2886,
+     "valid": 2802,
+     "invalid": 4,
+     "rejected": 80,
+     "avoided": 0,
+     "gave_up": 0,
+     "diverged": 564,
+     "false_aborts": 0,
+     "true_aborts": 0,
+     "replan_time": 0.0,
+     "tokens": 0,
+     "far": 0.0
+    },
+    "C2": {
+     "n": 3296,
+     "valid": 3148,
+     "invalid": 4,
+     "rejected": 6,
+     "avoided": 138,
+     "gave_up": 0,
+     "diverged": 154,
+     "false_aborts": 33,
+     "true_aborts": 138,
+     "replan_time": 6665.536450212585,
+     "tokens": 296000,
+     "far": 0.010012135922330098
+    },
+    "C3": {
+     "n": 3269,
+     "valid": 3148,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 121,
+     "gave_up": 0,
+     "diverged": 181,
+     "false_aborts": 335,
+     "true_aborts": 124,
+     "replan_time": 17737.405635303094,
+     "tokens": 839341,
+     "far": 0.10247782196390333
+    },
+    "C4": {
+     "n": 3296,
+     "valid": 3151,
+     "invalid": 0,
+     "rejected": 0,
+     "avoided": 145,
+     "gave_up": 0,
+     "diverged": 154,
+     "false_aborts": 162,
+     "true_aborts": 148,
+     "replan_time": 12506.46551262978,
+     "tokens": 552398,
+     "far": 0.0491504854368932
+    }
+   },
+   "rules": {
+    "K_a": {
+     "invalid_C0": 4,
+     "invalid_C2": 4,
+     "prevention": 0.0,
+     "kill": false
+    },
+    "K_b": {
+     "invalid_C3": 0,
+     "invalid_C4": 0,
+     "far_C3": 0.10247782196390333,
+     "far_C4": 0.0491504854368932,
+     "ratio": 2.084980871561885,
+     "kill": false
+    },
+    "K_c": {
+     "median_check_s": 0.15631446640230162,
+     "median_task_wall_s": 288.5825946156922,
+     "share": 0.0005416628352464115,
+     "kill": false
+    }
+   }
+  }
+ }
+}
