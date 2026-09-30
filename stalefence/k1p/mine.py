@@ -13,9 +13,8 @@ import time
 import orjson
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from pipeline.gha import _fetch  # noqa: E402
+from pipeline.gha import _fetch, hour_urls  # noqa: E402
 import gzip, io  # noqa: E402
-from pipeline.run_study import days  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results", "k1p")
 LO, HI = "2026-06-30", "2026-09-27"
@@ -28,6 +27,11 @@ STALE = re.compile(
     r"|lost update|clobber|changed (since|while|before|after|underneath)|toctou|out of sync"
     r"|already (merged|closed|deleted|cancell?ed|shipped|deployed|refunded|paid)|state (has )?changed"
     r"|while (it|the agent) was (working|running|thinking)", re.I)
+
+
+def days(lo: str, hi: str) -> list:
+    """Calendar days lo..hi inclusive (same list as pipeline.run_study.days, which parses argv on import)."""
+    return list(dict.fromkeys(u.rsplit("/", 1)[1].rsplit("-", 1)[0] for u in hour_urls(lo, hi)))
 
 
 def all_done() -> set:

@@ -1,0 +1,23 @@
+{
+ "total_candidates": 20675,
+ "coded": 300,
+ "incidents_in_sample": 3,
+ "share": 0.01,
+ "share_ci": [
+  0.0034065567627181124,
+  0.028984004635062833
+ ],
+ "estimate": 206.75,
+ "estimate_ci": [
+  70.43056106919697,
+  599.2442958299241
+ ],
+ "categories": {
+  "systems": 1,
+  "code": 2
+ },
+ "opened_issues_in_corpus": 580798,
+ "days": 90,
+ "missing_hours": 0,
+ "verdict": "PASS (weak)"
+}

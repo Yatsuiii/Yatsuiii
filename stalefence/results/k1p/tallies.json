@@ -1,0 +1,62 @@
+{
+ "labels": {
+  "adjacent": 11,
+  "no": 284,
+  "INCIDENT (systems)": 1,
+  "probable": 1,
+  "INCIDENT (code)": 2,
+  "near-miss": 1
+ },
+ "fence_builders": [
+  {
+   "i": 27,
+   "url": "https://github.com/E-merging-digital/agency-website-drupal/issues/1218",
+   "reason": "Ops work item; its runbook requires a 'stale-plan check immediately before mutation' (hand-rolled fence), no occurrence."
+  },
+  {
+   "i": 30,
+   "url": "https://github.com/prajoria/OpenBB/issues/2045",
+   "reason": "Pagination bug in a stale-claim audit for agent work claims (claims + heartbeats are a hand-rolled lease)."
+  },
+  {
+   "i": 35,
+   "url": "https://github.com/MythologIQ-Labs-LLC/agent-memory/issues/392",
+   "reason": "Design for mutation evidence where a 'stale pre-state refutes' (hand-rolled precondition), no occurrence."
+  },
+  {
+   "i": 47,
+   "url": "https://github.com/adrirubio/claude-deck/issues/280",
+   "reason": "Deferred design finding: stale ready_for_review on a red head. The harmful auto-merge is hypothetical; proposed fix is re-confirming head CI right before auto-merge."
+  },
+  {
+   "i": 54,
+   "url": "https://github.com/darwin-finch/finch/issues/365",
+   "reason": "Design proposal; requires that stale results cannot authorize edits (hand-rolled fence requirement)."
+  },
+  {
+   "i": 62,
+   "url": "https://github.com/hadoan/PatchCTL/issues/12",
+   "reason": "Planned feature: block a patch if any record changed after its snapshot (someone building a stale-write fence); no occurrence."
+  },
+  {
+   "i": 99,
+   "url": "https://github.com/jwulf/c8ctl-plugin-nano/issues/240",
+   "reason": "Design to fence agent git side effects (force-with-lease CAS + lease-bound push tokens) against split-brain workers; the collision is a failure mode, not a described occurrence."
+  },
+  {
+   "i": 170,
+   "url": "https://github.com/talkincode/sshx/issues/71",
+   "reason": "Roadmap for an agent remote-exec tool: plan hash + --expect-plan so a changed input cannot run an old plan (planned fence), no occurrence."
+  },
+  {
+   "i": 232,
+   "url": "https://github.com/pooya79/TorobRent/issues/114",
+   "reason": "Feature requirement: work under a superseded profile cannot publish (planned fence)."
+  },
+  {
+   "i": 265,
+   "url": "https://github.com/ORESoftware/ai-agent-coordinator.rs/issues/195",
+   "reason": "Review gate requirements (dismiss stale approvals on head drift)."
+  }
+ ]
+}
