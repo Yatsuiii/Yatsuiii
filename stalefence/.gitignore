@@ -1,0 +1,6 @@
+__pycache__/
+# K1' mining working files; merged copies are committed once mining is done
+results/k1p/candidates*.jsonl
+results/k1p/daily*.jsonl
+results/k1p/progress*.json
+results/k1p_*.log

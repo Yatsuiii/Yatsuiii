@@ -1,0 +1,131 @@
+{
+ "day": "2026-08-18",
+ "hours": 24,
+ "events": 2212347,
+ "by_type": {
+  "PushEvent": 2101598,
+  "CreateEvent": 57034,
+  "DeleteEvent": 24023,
+  "PullRequestEvent": 10911,
+  "IssueCommentEvent": 5532,
+  "IssuesEvent": 4157,
+  "PullRequestReviewEvent": 2635,
+  "WatchEvent": 2439,
+  "PullRequestReviewCommentEvent": 2358,
+  "ReleaseEvent": 832,
+  "ForkEvent": 483,
+  "MemberEvent": 143,
+  "CommitCommentEvent": 96,
+  "GollumEvent": 46,
+  "PublicEvent": 41,
+  "DiscussionEvent": 19
+ },
+ "issues_opened": 1144,
+ "busiest_repos": [
+  {
+   "repo": "Aur-Dev-re/veille-jeux-retro",
+   "issues_opened_seen": 15,
+   "prs_opened_seen": 0,
+   "number_span": 1123,
+   "seen_share_of_span": 0.013357079252003561
+  },
+  {
+   "repo": "vinicius3333/aegis-digimon-tcg",
+   "issues_opened_seen": 10,
+   "prs_opened_seen": 0,
+   "number_span": 4070,
+   "seen_share_of_span": 0.002457002457002457
+  },
+  {
+   "repo": "anthony-chaudhary/fak",
+   "issues_opened_seen": 8,
+   "prs_opened_seen": 0,
+   "number_span": 593,
+   "seen_share_of_span": 0.013490725126475547
+  },
+  {
+   "repo": "EffortlessMetrics/perl-lsp-swarm",
+   "issues_opened_seen": 7,
+   "prs_opened_seen": 0,
+   "number_span": 622,
+   "seen_share_of_span": 0.011254019292604502
+  },
+  {
+   "repo": "pawoao-ouo/keke",
+   "issues_opened_seen": 7,
+   "prs_opened_seen": 0,
+   "number_span": 682,
+   "seen_share_of_span": 0.010263929618768328
+  },
+  {
+   "repo": "AI1411/my-github",
+   "issues_opened_seen": 5,
+   "prs_opened_seen": 0,
+   "number_span": 72,
+   "seen_share_of_span": 0.06944444444444445
+  },
+  {
+   "repo": "yosuke2001aoyama/us-japan-alert",
+   "issues_opened_seen": 4,
+   "prs_opened_seen": 0,
+   "number_span": 395,
+   "seen_share_of_span": 0.010126582278481013
+  },
+  {
+   "repo": "KdGithubIt/GameEngine",
+   "issues_opened_seen": 4,
+   "prs_opened_seen": 0,
+   "number_span": 49,
+   "seen_share_of_span": 0.08163265306122448
+  },
+  {
+   "repo": "coalesce-labs/catalyst",
+   "issues_opened_seen": 4,
+   "prs_opened_seen": 0,
+   "number_span": 58,
+   "seen_share_of_span": 0.06896551724137931
+  },
+  {
+   "repo": "Intus-AS/Types-status",
+   "issues_opened_seen": 4,
+   "prs_opened_seen": 0,
+   "number_span": 31,
+   "seen_share_of_span": 0.12903225806451613
+  },
+  {
+   "repo": "woahwhattheheck/commons",
+   "issues_opened_seen": 3,
+   "prs_opened_seen": 0,
+   "number_span": 213,
+   "seen_share_of_span": 0.014084507042253521
+  },
+  {
+   "repo": "LEEKIYOON-SEC/Argus-AI-Threat-Intelligence",
+   "issues_opened_seen": 3,
+   "prs_opened_seen": 0,
+   "number_span": 201,
+   "seen_share_of_span": 0.014925373134328358
+  },
+  {
+   "repo": "knowall-ai/zaplie-bot",
+   "issues_opened_seen": 3,
+   "prs_opened_seen": 0,
+   "number_span": 38,
+   "seen_share_of_span": 0.07894736842105263
+  },
+  {
+   "repo": "Derbush/bot",
+   "issues_opened_seen": 3,
+   "prs_opened_seen": 0,
+   "number_span": 29,
+   "seen_share_of_span": 0.10344827586206896
+  },
+  {
+   "repo": "trinhtanphat/QS3D-BricsCAD",
+   "issues_opened_seen": 3,
+   "prs_opened_seen": 1,
+   "number_span": 79,
+   "seen_share_of_span": 0.05063291139240506
+  }
+ ]
+}
