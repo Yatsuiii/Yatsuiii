@@ -57,6 +57,9 @@ buyer rather than killing the idea — and it is what K1′ (demand) has to conf
 - One domain (retail customer service) and a designed outside world (entity menus,
   lognormal timings), anchored to K2's measured rate; sensitivity runs cover timing and churn.
 - Entity-level versions, as in real ETag APIs; field-level fencing would do better.
+- The "low" rate comes from K2's 11.6%, which is a lower bound because GH Archive only
+  partly captures events (`RESULT.md` addendum). The realistic rate may sit between low and
+  medium.
 - C5 (plan repair) not run.
 
 Files: `day2/` (simulator, runner, analysis), `tests/test_day2.py` (8 tests),

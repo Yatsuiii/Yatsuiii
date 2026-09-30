@@ -73,3 +73,16 @@ its cost. The prevalence signal (≈12 %, 2× placebo) is, if anything, mildly e
   many systems, are exactly where the thesis is strongest and are unobservable here.
 - The secondary P1 (all linked) is not the preregistered primary population; treat 11.6 % as
   suggestive, not confirmatory.
+
+## Addendum (2026-09-30, after K1′ mining): the archive's capture swings day to day
+
+K1′ mining showed that GH Archive's 2026 capture of issue events varies about 100× between
+days (294 to 70,357 opened issues per day). On a thin day (2026-08-18) busy repos show ~1% of
+their new issue numbers; on a well-captured day (2026-09-15) roughly a fifth or less
+(`results/k1p/coverage_*.json`). 163 of the 164 linked sessions fall on well-captured days
+(≥ 5,000 opened issues), so thin days don't distort the population
+(`pipeline/capture_check.py` → `results/gh/capture_check.json`). But events inside a session's
+window can still go uncaptured, so **K2's absolute rates (P1 11.6%, base moved 9.1%) are lower
+bounds**. The comparison with the placebo window is unaffected, since both windows are
+captured the same way. Day 2's "low" churn rate was anchored to 11.6%, so it is a floor too.
+The medium (10×) rate covers anything up to ten times that.
