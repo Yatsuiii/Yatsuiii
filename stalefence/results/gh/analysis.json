@@ -1,0 +1,109 @@
+{
+ "n_sessions": 753,
+ "ambiguous": 103,
+ "no_pr": 486,
+ "linked": 164,
+ "primary_linked": 34,
+ "windows": {
+  "1800": {
+   "p1": 0.0,
+   "p1_lo": 0.0,
+   "p1_hi": 0.10151790621961015,
+   "exposed": 0,
+   "n_primary": 34,
+   "pre_rate": 0.029411764705882353,
+   "base_rate": 0.058823529411764705,
+   "moot_rate": 0.0,
+   "n_resolved": 24,
+   "exposed_resolved": 3,
+   "rr_in": 0.0,
+   "rr_in_ci": [
+    0.0,
+    0.0
+   ],
+   "tab_in": {
+    "a": 0,
+    "b": 3,
+    "c": 3,
+    "d": 11
+   },
+   "rr_pre": NaN,
+   "tab_pre": {
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0
+   }
+  },
+  "3600": {
+   "p1": 0.0,
+   "p1_lo": 0.0,
+   "p1_hi": 0.10151790621961015,
+   "exposed": 0,
+   "n_primary": 34,
+   "pre_rate": 0.029411764705882353,
+   "base_rate": 0.058823529411764705,
+   "moot_rate": 0.0,
+   "n_resolved": 24,
+   "exposed_resolved": 3,
+   "rr_in": 0.0,
+   "rr_in_ci": [
+    0.0,
+    0.0
+   ],
+   "tab_in": {
+    "a": 0,
+    "b": 3,
+    "c": 3,
+    "d": 11
+   },
+   "rr_pre": NaN,
+   "tab_pre": {
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0
+   }
+  },
+  "10800": {
+   "p1": 0.0,
+   "p1_lo": 0.0,
+   "p1_hi": 0.10151790621961015,
+   "exposed": 0,
+   "n_primary": 34,
+   "pre_rate": 0.058823529411764705,
+   "base_rate": 0.20588235294117646,
+   "moot_rate": 0.0,
+   "n_resolved": 24,
+   "exposed_resolved": 4,
+   "rr_in": 0.0,
+   "rr_in_ci": [
+    0.0,
+    0.0
+   ],
+   "tab_in": {
+    "a": 0,
+    "b": 4,
+    "c": 3,
+    "d": 10
+   },
+   "rr_pre": NaN,
+   "tab_pre": {
+    "a": 0,
+    "b": 0,
+    "c": 0,
+    "d": 0
+   }
+  }
+ },
+ "secondary_all_linked": {
+  "n": 164,
+  "p1": 0.11585365853658537,
+  "p1_lo": 0.0754344455270167,
+  "p1_hi": 0.17385774425191775,
+  "exposed": 19,
+  "placebo_rate": 0.054878048780487805
+ },
+ "verdict": "INCONCLUSIVE(too_small)",
+ "reason": "primary (team-repo, promptly-linked) pool = 34 < 300; earlier months are sparser, so it cannot reach 300; secondary all-linked P1=11.6% (n=164, placebo 5.5%); harm unmeasurable: only 24 resolved / 3 exposed-resolved (<50); 140/164 PRs still open"
+}
