@@ -19,6 +19,9 @@ from pipeline.run_study import days  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results", "k1p")
 LO, HI = "2026-06-30", "2026-09-27"
+TAG = os.environ.get("K1P_TAG", "")          # second miner writes *_<tag> files
+REVERSE = os.environ.get("K1P_REVERSE") == "1"
+WORKER = os.environ.get("K1P_WORKER", "")    # "i/k": parallel worker i of k, stride over the full day list
 AGENT = re.compile(r"\b(ai agent|agents?|agentic|llm|copilot|claude|codex|cursor|devin|mcp|tool[ -]?call|autonomous)\b", re.I)
 STALE = re.compile(
     r"stale|outdated|out[ -]of[ -]date|race condition|concurrent(ly)?|conflicting|overwr(o|i)te|overwritten"
@@ -27,15 +30,34 @@ STALE = re.compile(
     r"|while (it|the agent) was (working|running|thinking)", re.I)
 
 
+def all_done() -> set:
+    """Days finished by any miner (union of every progress*.json)."""
+    s = set()
+    for f in os.listdir(OUT):
+        if f.startswith("progress") and f.endswith(".json"):
+            s |= set(orjson.loads(open(os.path.join(OUT, f), "rb").read()))
+    return s
+
+
 def main(budget: float):
     os.makedirs(OUT, exist_ok=True)
-    prog_p = os.path.join(OUT, "progress.json")
+    sfx = f"_{TAG}" if TAG else ""
+    mine = days(LO, HI)
+    if WORKER:
+        i, k = map(int, WORKER.split("/"))
+        mine = mine[i::k]
+        sfx = sfx or f"_w{i}"
+    prog_p = os.path.join(OUT, f"progress{sfx}.json")
     done = set(orjson.loads(open(prog_p, "rb").read())) if os.path.exists(prog_p) else set()
-    todo = [d for d in days(LO, HI) if d not in done]
+    todo = [d for d in mine if d not in all_done()]
+    if REVERSE:
+        todo = todo[::-1]
     t0 = time.time()
     for d in todo:
         if time.time() - t0 > budget:
             break
+        if d in all_done():
+            continue
         n_open = n_cand = 0
         recs = []
         missing = 0
@@ -62,16 +84,16 @@ def main(budget: float):
                                      url=iss.get("html_url"), created_at=e.get("created_at"),
                                      actor=e["actor"]["login"], title=iss.get("title") or "",
                                      body=(iss.get("body") or "")[:6000]))
-        with open(os.path.join(OUT, "candidates.jsonl"), "ab") as fh:
+        with open(os.path.join(OUT, f"candidates{sfx}.jsonl"), "ab") as fh:
             for r in recs:
                 fh.write(orjson.dumps(r) + b"\n")
-        with open(os.path.join(OUT, "daily.jsonl"), "ab") as fh:
+        with open(os.path.join(OUT, f"daily{sfx}.jsonl"), "ab") as fh:
             fh.write(orjson.dumps(dict(day=d, opened=n_open, candidates=n_cand, missing_hours=missing)) + b"\n")
         done.add(d)
         with open(prog_p, "wb") as fh:
             fh.write(orjson.dumps(sorted(done)))
-        print(f"[K1'] {d}: opened={n_open} candidates={n_cand}  ({len(done)}/{len(days(LO, HI))} days)", flush=True)
-    left = len(days(LO, HI)) - len(done)
+        print(f"[K1'{sfx}] {d}: opened={n_open} candidates={n_cand}  ({len(all_done())}/{len(days(LO, HI))} days)", flush=True)
+    left = len(days(LO, HI)) - len(all_done())
     print(f"[K1'] {left} days left", flush=True)
     return left == 0
 
