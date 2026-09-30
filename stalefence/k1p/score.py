@@ -41,7 +41,7 @@ def main():
     rep = dict(total_candidates=total, coded=n, incidents_in_sample=k, share=p, share_ci=[lo, hi],
                estimate=est, estimate_ci=[est_lo, est_hi], categories=dict(cats),
                opened_issues_in_corpus=sum(d["opened"] for d in daily), days=len(daily),
-               missing_hours=sum(d["missing_hours"] for d in daily),
+               missing_hours=sum(d.get("missing_hours", 0) for d in daily),
                verdict=("KILL" if est < 10 else "PASS (weak)"))
     json.dump(rep, open(os.path.join(OUT, "score.json"), "w"), indent=1)
     print(json.dumps(rep, indent=1))

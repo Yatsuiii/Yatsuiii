@@ -1,0 +1,131 @@
+{
+ "day": "2026-09-15",
+ "hours": 24,
+ "events": 1789869,
+ "by_type": {
+  "PushEvent": 903224,
+  "PullRequestEvent": 300774,
+  "IssueCommentEvent": 152609,
+  "IssuesEvent": 106188,
+  "PullRequestReviewEvent": 80216,
+  "PullRequestReviewCommentEvent": 66017,
+  "CreateEvent": 56732,
+  "WatchEvent": 55500,
+  "ReleaseEvent": 23919,
+  "DeleteEvent": 21251,
+  "ForkEvent": 12976,
+  "MemberEvent": 5012,
+  "CommitCommentEvent": 2477,
+  "PublicEvent": 1327,
+  "GollumEvent": 1184,
+  "DiscussionEvent": 463
+ },
+ "issues_opened": 31975,
+ "busiest_repos": [
+  {
+   "repo": "lbgraham/claudine-feedback",
+   "issues_opened_seen": 1114,
+   "prs_opened_seen": 0,
+   "number_span": 7255,
+   "seen_share_of_span": 0.15354927636113025
+  },
+  {
+   "repo": "Kuberwastaken/math-gambling",
+   "issues_opened_seen": 315,
+   "prs_opened_seen": 0,
+   "number_span": 2278,
+   "seen_share_of_span": 0.1382791922739245
+  },
+  {
+   "repo": "Aur-Dev-re/veille-jeux-retro",
+   "issues_opened_seen": 220,
+   "prs_opened_seen": 0,
+   "number_span": 1219,
+   "seen_share_of_span": 0.1804757998359311
+  },
+  {
+   "repo": "LIghtJUNction/sing-box",
+   "issues_opened_seen": 198,
+   "prs_opened_seen": 1,
+   "number_span": 999,
+   "seen_share_of_span": 0.1991991991991992
+  },
+  {
+   "repo": "Jordan-Hall/browser",
+   "issues_opened_seen": 155,
+   "prs_opened_seen": 0,
+   "number_span": 776,
+   "seen_share_of_span": 0.19974226804123713
+  },
+  {
+   "repo": "rameshtarini/mba-internship-engine",
+   "issues_opened_seen": 110,
+   "prs_opened_seen": 0,
+   "number_span": 624,
+   "seen_share_of_span": 0.1762820512820513
+  },
+  {
+   "repo": "dotnet/roslyn",
+   "issues_opened_seen": 79,
+   "prs_opened_seen": 0,
+   "number_span": 362,
+   "seen_share_of_span": 0.21823204419889503
+  },
+  {
+   "repo": "githubnext/gh-aw-cao",
+   "issues_opened_seen": 72,
+   "prs_opened_seen": 19,
+   "number_span": 462,
+   "seen_share_of_span": 0.19696969696969696
+  },
+  {
+   "repo": "novryn094/gpt4-pdf-chatbot-langchain",
+   "issues_opened_seen": 68,
+   "prs_opened_seen": 10,
+   "number_span": 485,
+   "seen_share_of_span": 0.16082474226804125
+  },
+  {
+   "repo": "iptv-org/iptv",
+   "issues_opened_seen": 67,
+   "prs_opened_seen": 0,
+   "number_span": 340,
+   "seen_share_of_span": 0.19705882352941176
+  },
+  {
+   "repo": "vlopes-uk/fleetOS",
+   "issues_opened_seen": 67,
+   "prs_opened_seen": 0,
+   "number_span": 279,
+   "seen_share_of_span": 0.24014336917562723
+  },
+  {
+   "repo": "yrn-dev/Operator",
+   "issues_opened_seen": 65,
+   "prs_opened_seen": 0,
+   "number_span": 355,
+   "seen_share_of_span": 0.18309859154929578
+  },
+  {
+   "repo": "dmzoneill/Seedarr",
+   "issues_opened_seen": 65,
+   "prs_opened_seen": 0,
+   "number_span": 279,
+   "seen_share_of_span": 0.23297491039426524
+  },
+  {
+   "repo": "xorob0/OpenDash",
+   "issues_opened_seen": 63,
+   "prs_opened_seen": 0,
+   "number_span": 292,
+   "seen_share_of_span": 0.21575342465753425
+  },
+  {
+   "repo": "Atlus-Trojan/AtlusBack",
+   "issues_opened_seen": 63,
+   "prs_opened_seen": 0,
+   "number_span": 285,
+   "seen_share_of_span": 0.22105263157894736
+  }
+ ]
+}
