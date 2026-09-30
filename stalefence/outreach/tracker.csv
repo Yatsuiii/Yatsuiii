@@ -1,0 +1,15 @@
+priority,issue,url,type,posted_on,replied_on,real_occurrence,cost_described,wants_tool,current_workaround,notes
+1,thienphung00/Juli-AI#2036,https://github.com/thienphung00/Juli-AI/issues/2036,incident,,,,,,,
+2,muhammadbayoumi/ScrapeX#664,https://github.com/muhammadbayoumi/ScrapeX/issues/664,incident,,,,,,,
+3,plow-pbc/hermes-plugin-plow#139,https://github.com/plow-pbc/hermes-plugin-plow/issues/139,incident (systems),,,,,,,
+4,hadoan/PatchCTL#12,https://github.com/hadoan/PatchCTL/issues/12,fence-builder,,,,,,,building the database version
+5,jwulf/c8ctl-plugin-nano#240,https://github.com/jwulf/c8ctl-plugin-nano/issues/240,fence-builder,,,,,,,
+6,HPAC-Safety/safety-report#319,https://github.com/HPAC-Safety/safety-report/issues/319,probable incident,,,,,,,answer settles whether the sessions were AI agents
+7,adrirubio/claude-deck#280,https://github.com/adrirubio/claude-deck/issues/280,fence-builder,,,,,,,
+8,ORESoftware/ai-agent-coordinator.rs#195,https://github.com/ORESoftware/ai-agent-coordinator.rs/issues/195,fence-builder,,,,,,,
+9,talkincode/sshx#71,https://github.com/talkincode/sshx/issues/71,fence-builder,,,,,,,issue is mostly Chinese
+10,E-merging-digital/agency-website-drupal#1218,https://github.com/E-merging-digital/agency-website-drupal/issues/1218,fence-builder,,,,,,,
+11,prajoria/OpenBB#2045,https://github.com/prajoria/OpenBB/issues/2045,fence-builder,,,,,,,fork of OpenBB
+12,MythologIQ-Labs-LLC/agent-memory#392,https://github.com/MythologIQ-Labs-LLC/agent-memory/issues/392,fence-builder,,,,,,,
+13,pooya79/TorobRent#114,https://github.com/pooya79/TorobRent/issues/114,fence-builder,,,,,,,
+14,darwin-finch/finch#365,https://github.com/darwin-finch/finch/issues/365,fence-builder,,,,,,,
