@@ -269,15 +269,16 @@
     return words.some((w) => bound(w[0].toUpperCase() + w.slice(1), 'u').test(text));
   }
 
-  // The facts a scene's brief carries: everyone on the page, anything named in the pins, notes or
-  // the story just before, and every rule of the world. Secrets are split out by chapter.
+  // The facts a scene's brief carries: everyone on the page, anything named in the chapter's title,
+  // pins and notes (a place named once is the setting of the whole chapter) or in the story just
+  // before, and every rule of the world. Secrets are split out by chapter.
   function sceneFacts({ world, entities, chapter, chapterId, k, extraText }) {
     const list = valuesOf(entities);
     const onPage = castIn(chapter, k).map((c) => c.id);
     const text = [
       chapter.title,
-      ...(chapter.pins || []).filter((p) => p.scene === k).map((p) => p.text),
-      ...(chapter.notes || []).filter((n) => n.scene === k).map((n) => n.text),
+      ...(chapter.pins || []).map((p) => p.text),
+      ...(chapter.notes || []).map((n) => n.text),
       extraText || '',
     ].join('\n');
     const chosen = new Set(onPage);
@@ -366,7 +367,7 @@
       shape.push("- Include these lines of the author's word for word, exactly as written:");
       pins.forEach((p, i) => shape.push(`  ${i + 1}. ${p.text}`));
     }
-    if (notes.length) shape.push("- The author's notes for this scene: " + notes.map((x) => `"${x.text}"`).join('; ') + '.');
+    if (notes.length) shape.push("- The author's notes for this scene:", ...notes.map((x) => `    "${x.text}"`));
 
     const canonPart = facts.canon.length
       ? 'CANON (facts you may rely on; never contradict them)\n' + factBlock(facts.canon, tag)

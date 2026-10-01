@@ -581,3 +581,12 @@ test('changing the scene count keeps each scene’s painting under it', () => {
   assert.equal(two.pins.length, 0, 'pins on a removed scene go with it');
   assert.ok(two.tension.slice(...C.sceneRange(2, 1)).every((v) => v === 0.9));
 });
+
+test('a place named anywhere in a chapter’s notes is the setting of every scene in it', () => {
+  const { w, entities, chapters } = hollowMoon();
+  const b0 = C.buildBrief({ world: w, entities, chapters, chapterId: 'c1', k: 0 });
+  assert.ok(b0.parts.canon.includes('The Brass Ladder is always one rung too long.'), 'named in scene 2’s note, carried in scene 1');
+  const b1 = C.buildBrief({ world: w, entities, chapters, chapterId: 'c1', k: 1 });
+  assert.ok(b1.parts.shape.includes("- The author's notes for this scene:\n    \"she doesn't trust him yet; the Ladder creaks\""), 'one note per line, no doubled punctuation');
+  assert.ok(!b0.parts.shape.includes('notes for this scene'), 'notes stay with their own scene');
+});

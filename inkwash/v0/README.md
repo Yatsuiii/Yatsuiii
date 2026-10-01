@@ -57,7 +57,7 @@ They never see the studio, because the access rules make `studio/` readable by t
 | `build.mjs` | Inlines everything into `dist/index.html` and copies the example world beside it |
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene and a scene ready to ink. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
-| `test/core.test.mjs` | 21 unit tests |
+| `test/core.test.mjs` | 22 unit tests |
 | `test/e2e.mjs` | 19 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish

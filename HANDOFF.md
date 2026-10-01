@@ -27,7 +27,9 @@ reliability, evals and protocols.
 > built and published** as a private claude.ai artifact: https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK.
 > Its code, tests and the ways it differs from the design are in `inkwash/v0/` (start with its
 > README). The next step is stage 0: Raghav builds a first world in it and shows it to ten fantasy
-> readers.
+> readers. That first world, from one of Raghav's private game projects, is already loaded in the
+> studio. **Keep that world's content out of this public repo.** It lives only in the artifact's
+> private studio data, and its source docs say parts of the story must never be made public.
 >
 > Don't run it through the kill screen in `stalefence/DECISION.md`. That screen was written for
 > business tools that sell relief from a pain, and Raghav pushed back on kill-testing this one
@@ -57,7 +59,7 @@ What's on the branch:
 | `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, none posted, **now optional** |
 | `stalefence/DECISION.md` | Why the business was killed, what would reopen it, and the screen for the next idea | Read this first |
 | `inkwash/DESIGN.md` | Design for the creative product: the brush, the canon and its ledgers, the library, the market, the architecture and the v0 scope | Design draft; open questions in its section 15 |
-| `inkwash/v0/` | The first working version, a single-page claude.ai artifact, with 21 unit tests and 19 browser steps | Built and published (private) |
+| `inkwash/v0/` | The first working version, a single-page claude.ai artifact, with 22 unit tests and 19 browser steps | Built and published (private) |
 | `mcp-drift/`, `pagedrift/`, `rewardhack/` | Earlier, unrelated kill tests (INCONCLUSIVE, KILLED, KILLED) | Finished, no action needed |
 
 ---
@@ -184,8 +186,9 @@ reproduce the incidents. Run `examples/demo.sh` to see two agents end to end; it
 The stalefence work is finished. In order:
 
 1. **Inkwash.** Read `inkwash/DESIGN.md`, then `inkwash/v0/README.md`.
-   - v0 is live. Help Raghav through stage 0: build a first world in it and show it to ten
-     fantasy readers.
+   - v0 is live, and Raghav's first world is loaded in it. Help Raghav through stage 0: write
+     that world's first chapter and show it to ten fantasy readers. Never commit that world's
+     content to this repo.
    - Fix what Raghav finds. Republish to the same artifact URL, and run both test suites first.
    - The design's open questions are in its section 15. The name is still a placeholder.
    - Don't apply the screen below to it.
