@@ -792,7 +792,7 @@
 
   // ---------------------------------------------------------------- the canvas score
 
-  const L = { label: 96, pad: 14, head: 34, tension: 118, gap: 12, mood: 58, row: 26, pins: 86 };
+  const L = { label: 96, pad: 14, head: 34, tension: 118, gap: 12, mood: 58, row: 26, pins: 104 };
   const Score = {
     canvas: null, ctx: null, ro: null, lay: null, stroke: null, frame: 0, grain: null, grainKey: '', moodCanvas: null,
     mount(wrap, ch) {
@@ -1002,50 +1002,68 @@
         }
         ctx.stroke();
       });
-      // first meetings: a brush tick joining the two lines
+      // First meetings: a brush tick joining each pair's lines, and one label per scene.
       const rowOf = new Map(cast.map((id, r) => [id, r]));
+      const rowY = (id) => lay.threads.y + rowOf.get(id) * L.row + L.row / 2;
       for (let k = 0; k < ch.scenes; k++) {
-        for (const [a, b] of C.firstMeetings(world(), S.chapters, S.cid, k)) {
-          if (!rowOf.has(a) || !rowOf.has(b)) continue;
-          const [i0, i1] = C.sceneRange(ch.scenes, k);
+        const pairs = C.firstMeetings(world(), S.chapters, S.cid, k).filter(([a, b]) => rowOf.has(a) && rowOf.has(b));
+        if (!pairs.length) continue;
+        const [i0, i1] = C.sceneRange(ch.scenes, k);
+        let lastX = 0, top = Infinity, bottom = -Infinity;
+        pairs.forEach(([a, b], j) => {
           let at = i0;
           for (let i = i0; i < i1; i++) if (ch.threads[a][i] && ch.threads[b][i]) { at = i; break; }
-          const x = sx(at) + 6;
-          const ya = lay.threads.y + rowOf.get(a) * L.row + L.row / 2, yb = lay.threads.y + rowOf.get(b) * L.row + L.row / 2;
+          const x = sx(at) + 6 + j * 9;
+          const ya = rowY(a), yb = rowY(b);
           ctx.strokeStyle = col.seal; ctx.lineWidth = 1.6;
           ctx.beginPath(); ctx.moveTo(x - 3, ya); ctx.quadraticCurveTo(x + 6, (ya + yb) / 2, x - 3, yb); ctx.stroke();
-          ctx.font = `italic 11px ${bookFont()}`; ctx.fillStyle = col.seal; ctx.textBaseline = 'middle';
-          ctx.fillText('they meet', x + 8, (ya + yb) / 2);
-        }
+          lastX = Math.max(lastX, x);
+          top = Math.min(top, ya, yb); bottom = Math.max(bottom, ya, yb);
+        });
+        ctx.font = `italic 11px ${bookFont()}`; ctx.fillStyle = col.seal; ctx.textBaseline = 'middle';
+        ctx.fillText('they meet', lastX + 8, top + L.row / 2); // in the gap below the top line, never on a line
       }
     },
+    // Pins as paper slips, notes in a hand, both wrapped to the scene's column.
     drawPins(ctx, col, ch, lay) {
+      const LINE = 16;
       for (let k = 0; k < ch.scenes; k++) {
         const a = lay.x0 + ((lay.x1 - lay.x0) * k) / ch.scenes, b = lay.x0 + ((lay.x1 - lay.x0) * (k + 1)) / ch.scenes;
         const items = pinsOf(ch, k).map((p) => ['pin', p.text]).concat(notesOf(ch, k).map((n) => ['note', n.text]));
-        let y = lay.pins.y + 4;
         const maxW = b - a - 20;
-        items.slice(0, 3).forEach(([kind, text], i) => {
-          ctx.save();
-          ctx.translate(a + 10, y);
-          ctx.rotate(((i % 2 ? 1 : -1) * 0.8 * Math.PI) / 180);
+        const bottom = lay.pins.y + lay.pins.h - 6;
+        let y = lay.pins.y + 4, shown = 0;
+        for (const [kind, text] of items) {
+          const room = Math.floor((bottom - y - (shown < items.length - 1 ? LINE : 0)) / LINE);
+          if (room < 1) break;
+          ctx.textBaseline = 'middle';
           if (kind === 'pin') {
             ctx.font = `13px ${bookFont()}`;
-            const t = fit(ctx, text, maxW - 22);
-            const tw = ctx.measureText(t).width;
+            const lines = wrapLines(ctx, text, maxW - 22, Math.min(2, room));
+            const w = Math.max(...lines.map((ln) => ctx.measureText(ln).width)) + 22, hgt = lines.length * LINE + 5;
+            ctx.save();
+            ctx.translate(a + 10, y);
+            ctx.rotate(((shown % 2 ? 1 : -1) * 0.6 * Math.PI) / 180);
             ctx.fillStyle = col.sheet; ctx.strokeStyle = col.rule; ctx.lineWidth = 1;
-            ctx.fillRect(0, 0, tw + 22, 21); ctx.strokeRect(0.5, 0.5, tw + 21, 20);
+            ctx.fillRect(0, 0, w, hgt); ctx.strokeRect(0.5, 0.5, w - 1, hgt - 1);
             ctx.fillStyle = col.seal; ctx.beginPath(); ctx.arc(9, 10.5, 3.2, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = col.ink; ctx.textBaseline = 'middle'; ctx.fillText(t, 17, 11);
+            ctx.fillStyle = col.ink;
+            lines.forEach((ln, i) => ctx.fillText(ln, 17, 11 + i * LINE));
+            ctx.restore();
+            y += hgt + 5;
           } else {
-            ctx.font = `14px ${handFont()}`;
-            ctx.fillStyle = col.soft; ctx.textBaseline = 'middle';
-            ctx.fillText(fit(ctx, text, maxW), 2, 11);
+            ctx.font = `13px ${handFont()}`;
+            ctx.fillStyle = col.soft;
+            const lines = wrapLines(ctx, text, maxW, Math.min(4, room));
+            lines.forEach((ln, i) => ctx.fillText(ln, a + 12, y + 9 + i * LINE));
+            y += lines.length * LINE + 5;
           }
-          ctx.restore();
-          y += 25;
-        });
-        if (items.length > 3) { ctx.font = `12px ${uiFont()}`; ctx.fillStyle = col.faint; ctx.textBaseline = 'middle'; ctx.fillText(`+${items.length - 3} more`, a + 12, y + 8); }
+          shown++;
+        }
+        if (shown < items.length) {
+          ctx.font = `12px ${uiFont()}`; ctx.fillStyle = col.faint; ctx.textBaseline = 'middle';
+          ctx.fillText(`+${items.length - shown} more`, a + 12, Math.min(y + 8, bottom));
+        }
       }
     },
     point(e) {
@@ -1182,6 +1200,24 @@
     let lo = 0, hi = text.length;
     while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ctx.measureText(text.slice(0, mid) + '…').width <= maxW) lo = mid; else hi = mid - 1; }
     return text.slice(0, lo).trimEnd() + '…';
+  }
+  // Greedy word wrap; the last allowed line ends in an ellipsis if the text runs on.
+  function wrapLines(ctx, text, maxW, maxLines) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? cur + ' ' + w : w;
+      if (!cur || ctx.measureText(next).width <= maxW) cur = next;
+      else { lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      const rest = lines.slice(maxLines - 1).join(' ');
+      lines.length = maxLines - 1;
+      lines.push(fit(ctx, rest, maxW));
+    }
+    return lines.map((ln) => (ctx.measureText(ln).width > maxW ? fit(ctx, ln, maxW) : ln));
   }
   function hexRgb(hex) {
     const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());

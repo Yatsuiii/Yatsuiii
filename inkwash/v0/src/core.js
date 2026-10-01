@@ -307,17 +307,23 @@
     return [Math.round((t * 0.75) / 10) * 10, Math.round((t * 1.25) / 10) * 10];
   }
 
+  // Facts grouped by who or what they are about, numbered in the order they are shown.
   function factBlock(items, tag) {
     const groups = new Map();
     for (const { e, f } of items) {
       const label = e.kind === 'rule' ? 'Rules of the world' : `${e.name} (${e.kind})`;
       if (!groups.has(label)) groups.set(label, []);
-      groups.get(label).push(`  [${tag(f)}] ${f.text}`);
+      groups.get(label).push(f);
     }
     const out = [];
-    for (const [label, lines] of groups) out.push(label, ...lines);
+    for (const [label, facts] of groups) {
+      out.push(label);
+      for (const f of facts) out.push(`  [${tag(f)}] ${f.text}`);
+    }
     return out.join('\n');
   }
+  // "The Hollow Queen" reads as "the Hollow Queen" in the middle of a sentence.
+  const inSentence = (name) => String(name).replace(/^The /, 'the ');
 
   // Everything the model gets for one scene, built only from what the author painted, pinned,
   // noted and wrote. `parts` lets repaint reuse the same canon and voice sections.
@@ -359,9 +365,9 @@
         const bits = [];
         if (c.enters) bits.push('enters partway through');
         if (c.leaves) bits.push('leaves before the end');
-        return byId.get(c.id).name + (bits.length ? ` (${bits.join(', ')})` : '');
+        return inSentence(byId.get(c.id).name) + (bits.length ? ` (${bits.join(', ')})` : '');
       }).join(', ') + '.');
-      for (const [a, b] of firsts.slice(0, 3)) shape.push(`- This is the first time ${byId.get(a).name} and ${byId.get(b).name} share a scene.`);
+      for (const [a, b] of firsts.slice(0, 3)) shape.push(`- This is the first time ${inSentence(byId.get(a).name)} and ${inSentence(byId.get(b).name)} share a scene.`);
     } else shape.push('- In the scene: not painted. Choose who appears from the story so far.');
     if (pins.length) {
       shape.push("- Include these lines of the author's word for word, exactly as written:");

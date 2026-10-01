@@ -177,8 +177,10 @@ test('the brief carries the painted shape, pins, cast, canon and secrets', () =>
   const b = C.buildBrief({ world: w, entities, chapters, chapterId: 'c1', k: 1, prevText: 'Kael counted the stairs: one, two, three.', nextText: '' });
   assert.match(b.prompt, /Tension: (high|at breaking point) .*rising sharply/);
   assert.match(b.prompt, /Mood: dread 100% \(strong\)/);
-  assert.match(b.prompt, /In the scene: Kael, The Hollow Queen\./);
-  assert.match(b.prompt, /first time Kael and The Hollow Queen share a scene/);
+  assert.match(b.prompt, /In the scene: Kael, the Hollow Queen\./);
+  assert.match(b.prompt, /first time Kael and the Hollow Queen share a scene/);
+  const order = [...b.prompt.matchAll(/\[F(\d+)\]/g)].map((m) => Number(m[1]));
+  assert.deepEqual(order.slice(0, new Set(order).size), [...new Set(order)].sort((x, y) => x - y), 'facts are numbered in the order shown');
   assert.ok(b.prompt.includes('1. The moon had a door in it, and the door was open.'), 'pin verbatim');
   assert.ok(b.prompt.includes('"she doesn\'t trust him yet; the Ladder creaks"'));
   // The Ladder is named in a note, so its fact comes along; the rule always does.
@@ -561,7 +563,7 @@ test('the bundled example world loads and shows set, stale and wet scenes', () =
   assert.equal(b.parts.reveals, '', 'the Queen is not in scene 1, so her secret stays out of its brief');
   const b2 = C.buildBrief({ world: data.world, entities: data.entities, chapters, chapterId: 'c_door', k: 1 });
   assert.ok(b2.parts.reveals.includes('Kael’s mother'));
-  assert.match(b2.prompt, /first time Kael and The Hollow Queen share a scene/);
+  assert.match(b2.prompt, /first time Kael and the Hollow Queen share a scene/);
 });
 
 test('changing the scene count keeps each scene’s painting under it', () => {
