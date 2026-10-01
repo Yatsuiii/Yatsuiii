@@ -19,23 +19,32 @@ Pins (your own sentences) and notes attach to scenes. Arrow keys and number keys
 **Ink.** "Ink this scene" sends the scene's brief to Claude on the viewer's own Claude account and streams the scene in as wet ink. You can see the brief under the scene. It is built from what you painted, your pins and notes, the relevant canon (with secrets fenced off until their chapter), the text around the scene, and your voice sample.
 
 - **Repaint:** select words and give a direction; only that range changes.
-- **Set with your seal:** dries the ink. It's blocked while a pinned line is missing.
+- **Set with your seal:** dries the ink. It's blocked while a pinned line is missing, and while a contradiction with the canon is open: change the words, or keep them on purpose (a lie, a character's mistake, canon you're about to change).
 
-**Ledger.** Setting a scene records the version of every fact it used. When you reword or retire a fact, the scenes that relied on it glow as stale, with the old and new wording side by side. From there you can:
+**Ledger.** Setting a scene records the version of every fact it relies on. Three witnesses decide which facts those are, and the ledger keeps everything any of them found:
+- the model's own list of the facts it used;
+- the scene's words: a fact whose distinctive words are on the page;
+- the continuity check, which lists every fact the scene depends on.
+
+A scene you write by hand gets its premises from the last two. The facts are listed under each set scene.
+
+When you reword or retire a fact, the scenes that relied on it glow as stale, with the old and new wording side by side. From there you can:
 - mark the scene **Still true**;
 - edit it;
 - repaint the part that's wrong;
 - ink it again.
 
-This is stalefence's premise ledger applied to a story. Scenes are also checked against the canon after inking, and contradictions are highlighted.
+This is stalefence's premise ledger applied to a story. Scenes are also checked against the canon after inking. A contradiction is highlighted in the text and blocks setting and publishing until it's resolved. Exporting a book with a stale or contradicted set scene asks first.
 
-**Authorship.** Every character of a scene is recorded as **typed**, **pinned** or **inked** (by the model). The hand meter shows your share for each scene and for the whole book. The provenance export lists who wrote what.
+**Authorship.** Every character of a scene is recorded as **typed**, **pinned**, **inked** (by the model) or **pasted** (from outside the studio). The hand meter shows your share, typed and pinned words, for each scene and for the whole book. The provenance export lists who wrote what.
+
+Text keeps its origin when it moves. Cut and paste it back, drag it, undo a deletion, or copy a sentence elsewhere: the words stay whoever's they were. The model's words for a scene are remembered after they're deleted, so pasting them back later still counts as ink. Text pasted from outside can't be traced, so it isn't counted as anyone's hand.
 
 **Canon, Dreams, Book.**
 - **Canon:** versioned facts, each showing which scenes use it.
 - **Dreams:** an inbox where Claude suggests seeds from a fragment, and nothing joins the canon until you keep it.
 - **Book:** shows the whole book. From here you can:
-  - publish a chapter (blocked while any scene is wet, stale, a draft, or missing a pin);
+  - publish a chapter (blocked while any scene is wet, stale, a draft, missing a pin, or contradicting the canon);
   - preview the reader view;
   - export as EPUB, HTML, Markdown, the bible as JSON, the provenance report as Markdown and JSON, or a full backup.
 
@@ -57,8 +66,8 @@ They never see the studio, because the access rules make `studio/` readable by t
 | `build.mjs` | Inlines everything into `dist/index.html` and copies the example world beside it |
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene and a scene ready to ink. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
-| `test/core.test.mjs` | 22 unit tests |
-| `test/e2e.mjs` | 19 browser steps against a fake claude.ai runtime |
+| `test/core.test.mjs` | 27 unit tests |
+| `test/e2e.mjs` | 21 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish
 
@@ -109,9 +118,12 @@ published/<world>/chapters/<id>     published chapter text
 ## Known limits
 
 - **One author.** Readers must be signed in to claude.ai, and the page must be shared with them.
-- **The "facts used" list comes from the model.**
-  - When the model returns no list, Inkwash records every fact about anyone the scene names. It flags too much rather than too little.
+- **What a scene relies on is a judgment.**
+  - The words witness matches word forms, not meaning. A scene that relies on a fact without sharing its words is caught only if the model or the check names it.
+  - It errs toward flagging: a fact that shares a few words with a scene may flag it when it changes. "Still true" clears that in one click.
+  - When the model returns no list, Inkwash records every fact about anyone the scene names.
   - Strict continuity is coarse: any change to anyone on the page.
+- **Pasted text is nobody's hand.** That includes your own drafts pasted from another editor: Inkwash can't tell where they came from. Your own words removed in an earlier visit and pasted back count the same way; the model's are recognized.
 - **There's no undo.** Back up a world before big changes.
 - **A repaint can't include a pinned line.**
 - **Untested here:**

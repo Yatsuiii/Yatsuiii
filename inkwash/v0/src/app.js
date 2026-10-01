@@ -72,7 +72,7 @@
     confirmReink: null, selection: null, flash: null,
     publishTried: {}, preview: false,
     reader: { wid: null, chapters: new Map(), pos: 0, unsub: null },
-    editBase: {}, editTimers: {},
+    editBase: {}, editTimers: {}, removed: [],
     unsub: [], ver: 0,
     dbError: null,
   };
@@ -1304,13 +1304,10 @@
       return sec;
     }
     const wet = C.isWet(p);
+    const hs = C.handStats(p.text, p.spans);
     sec.append(h('h3', null, wet ? 'Wet ink' : p.setAt ? 'Set' : 'Your draft'));
     sec.append(editorView(key, p, ch));
-    sec.append(h('div', { class: 'legend', 'aria-hidden': 'true' },
-      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--seal)' } }), 'your hand'),
-      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--ink-faint)' } }), 'inked'),
-      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--wet)' } }), 'wet ink'),
-      h('label', { class: 'key' }, h('input', { type: 'checkbox', id: 'show-hand', checked: S.showHand, onchange: (e) => { S.showHand = e.target.checked; local.set('showHand', S.showHand); render(); } }), 'underline your hand')));
+    sec.append(legendView(hs));
     sec.append(h('div', { id: 'selection-slot' }, selectionBar(key, p)));
     sec.append(h('div', { id: 'set-row' }, setRow(key, p, ch)));
     const repaintBusy = S.busy['repaint:' + key];
@@ -1330,6 +1327,16 @@
     sec.append(actions);
     return sec;
   }
+  // Who wrote what, as the editor colors it. Pasted text gets a key only when there is some.
+  function legendView(hs) {
+    const swatch = (style, cls) => h('i', { style, class: cls, 'aria-hidden': 'true' });
+    return h('div', { class: 'legend', id: 'legend' },
+      h('span', { class: 'key' }, swatch({ borderColor: 'var(--seal)' }), 'your hand'),
+      h('span', { class: 'key' }, swatch({ borderColor: 'var(--ink-faint)' }), 'inked'),
+      h('span', { class: 'key' }, swatch({ borderColor: 'var(--wet)' }), 'wet ink'),
+      hs && hs.words.pasted ? h('span', { class: 'key', title: 'Pasted in from outside the studio. Inkwash can’t tell who wrote it, so it doesn’t count as your hand.' }, swatch(null, 'dotted'), 'pasted in') : null,
+      h('label', { class: 'key' }, h('input', { type: 'checkbox', id: 'show-hand', checked: S.showHand, onchange: (e) => { S.showHand = e.target.checked; local.set('showHand', S.showHand); render(); } }), 'underline your hand'));
+  }
   function fillStream(el, text) {
     clear(el);
     if (!text) { el.append(h('span', { class: 'thinking' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Thinking. Claude reads the brief before it writes, which can take up to a minute.')); return; }
@@ -1344,7 +1351,7 @@
     fillBackdrop(back, p);
     const ta = h('textarea', { id: 'passage-text', 'aria-label': `Text of scene ${p.scene + 1}`, spellcheck: 'true', readonly: S.readOnly || !!S.busy['repaint:' + key] });
     ta.value = p.text;
-    ta.addEventListener('input', () => onPassageInput(key, ta, back));
+    ta.addEventListener('input', (ev) => onPassageInput(key, ta, back, ev.inputType));
     const sel = () => onSelect(key, ta);
     ta.addEventListener('select', sel);
     ta.addEventListener('keyup', sel);
@@ -1382,13 +1389,21 @@
     }
     back.append('\n​');
   }
-  function onPassageInput(key, ta, back) {
+  // How an edit came in, from the browser's input type: typed keys are the author's; a paste, a
+  // drop or an undo brings text whose origin is traced (see C.traceInsert).
+  const HOW = {
+    insertFromPaste: 'paste', insertFromPasteAsQuotation: 'paste', insertFromDrop: 'paste', insertFromYank: 'paste',
+    historyUndo: 'restore', historyRedo: 'restore',
+  };
+  function onPassageInput(key, ta, back, inputType) {
     const p = S.passages.get(key);
     if (!p) return;
     const ch = S.chapters.get(p.chapter);
     if (S.editBase[key] == null) S.editBase[key] = p.text;
     const d = C.diffRange(p.text, ta.value);
-    let next = C.editPassage(p, ta.value, pinsOf(ch, p.scene), now());
+    const how = HOW[inputType] || 'type';
+    let next = C.editPassage(p, ta.value, pinsOf(ch, p.scene), now(), { how, sources: how === 'type' ? null : traceSources(key) });
+    if (d.del) S.removed = C.rememberRemoved(S.removed, { text: d.del, at: d.at, spans: C.sliceSpans(p.spans, p.text.length, d.at, d.at + d.del.length), kind: inputType || 'delete', key });
     next = Object.assign({}, next, { conflicts: shiftConflicts(p.conflicts || [], d) });
     put('passages', key, next, { quiet: true });
     fillBackdrop(back, next);
@@ -1396,6 +1411,21 @@
     refreshSheetBits(key);
     clearTimeout(S.editTimers[key]);
     S.editTimers[key] = setTimeout(() => commitEditLog(key), 2500);
+  }
+  // Where pasted or restored words may have come from: text removed lately from any scene (newest
+  // first), and every other scene of this world with the model's earlier words for it. The scene
+  // being edited adds its own text and ink history itself.
+  function traceSources(key) {
+    const out = S.removed.slice().reverse();
+    let total = out.reduce((n, x) => n + x.text.length, 0);
+    for (const q of S.passages.values()) {
+      if (q.id === key || !q.text) continue;
+      if (total > 400000) break;
+      out.push({ text: q.text, spans: q.spans });
+      total += q.text.length;
+      for (const t of q.inkSource || []) { out.push({ text: t, spans: [{ s: 0, e: t.length, o: 'inked', wet: true }] }); total += t.length; }
+    }
+    return out;
   }
   function shiftConflicts(list, d) {
     const delEnd = d.at + d.del.length, shift = d.ins.length - d.del.length;
@@ -1422,7 +1452,10 @@
     const pillEl = $('#scene-pill');
     if (pillEl) pillEl.replaceWith(pill(info.state, 'scene-pill'));
     const m = $('#scene-meter');
-    if (m) { clear(m); const hs = C.handStats(p.text, p.spans); if (hs.total) m.append(meter(hs.hand)); }
+    const hs = C.handStats(p.text, p.spans);
+    if (m) { clear(m); if (hs.total) m.append(meter(hs.hand)); }
+    const lg = $('#legend');
+    if (lg) lg.replaceWith(legendView(hs));
     const row = $('#set-row');
     if (row) { clear(row); row.append(setRow(key, p, ch)); }
   }
@@ -1467,15 +1500,30 @@
         h('span', { class: 'pin-text' }, m.text),
         S.readOnly ? null : h('button', { class: 'btn small', type: 'button', onclick: () => insertPin(key, m.text) }, 'Insert it')));
     }
+    const open = C.openConflicts(p).length;
     if (!wet && p.setAt) {
-      box.append(h('p', { class: 'muted' }, `Set ${when(p.setAt)}. The ledger recorded ${plural((p.premises || []).length, 'fact')} this scene relies on.`));
+      box.append(ledgerList(p, `Set ${when(p.setAt)}. The ledger recorded ${plural((p.premises || []).length, 'fact')} this scene relies on.`));
+      if (open) box.append(h('p', { class: 'muted' }, 'A check found a contradiction since this scene was set. Resolve it above before you publish the chapter.'));
       return box;
     }
     const empty = !p.text.trim();
+    const checking = !!S.busy['check:' + key];
     box.append(h('div', { class: 'btn-row' },
-      h('button', { class: 'btn seal', type: 'button', id: 'set-button', disabled: S.readOnly || empty || missing.length > 0, onclick: () => setScene(key) }, 'Set with your seal'),
-      h('span', { class: 'faint' }, empty ? 'Write something first.' : missing.length ? 'Every pinned line has to be in the scene, word for word.' : wet ? 'Setting dries the ink. Only set scenes can be published.' : 'Setting marks this draft as done.')));
+      h('button', { class: 'btn seal', type: 'button', id: 'set-button', disabled: S.readOnly || empty || missing.length > 0 || open > 0 || checking, onclick: () => setScene(key) }, 'Set with your seal'),
+      h('span', { class: 'faint' }, empty ? 'Write something first.'
+        : missing.length ? 'Every pinned line has to be in the scene, word for word.'
+        : checking ? 'Wait for the check against the canon to finish.'
+        : open ? 'Resolve the contradiction above first: change the words, or keep them if you meant them.'
+        : wet ? 'Setting dries the ink. Only set scenes can be published.' : 'Setting marks this draft as done.')));
     return box;
+  }
+  // The facts a set scene relies on, so the author can see what a change to the canon will flag.
+  function ledgerList(p, summary) {
+    const facts = (p.premises || []).map((x) => idx().get(x.f)).filter(Boolean);
+    return h('details', { class: 'ledger' }, h('summary', { class: 'muted' }, summary),
+      facts.length
+        ? h('ul', { class: 'list' }, facts.map(({ entity, fact }) => h('li', null, h('span', null, h('strong', null, (entity.kind === 'rule' ? 'Rule' : entity.name) + ': '), fact.text))))
+        : h('p', { class: 'faint' }, 'None recorded. Check the scene against the canon to find the facts it relies on.'));
   }
 
   function suggestionsSection(key, p) {
@@ -1484,15 +1532,21 @@
     const conflicts = p.conflicts || [];
     if (!busy && !props.length && !conflicts.length && !p.checkedAt) return null;
     const sec = h('section', { class: 'section', 'aria-label': 'Continuity and suggestions' }, h('h3', null, 'Continuity'));
+    const open = C.openConflicts(p);
     if (busy) sec.append(h('p', { class: 'muted' }, 'Checking this scene against the canon…'));
     else if (p.checkedAt && !conflicts.length) sec.append(h('p', { class: 'muted' }, `Checked against the canon ${when(p.checkedAt)}: no contradictions found.`));
-    for (const c of conflicts) {
+    else if (open.length) sec.append(h('p', { class: 'muted' }, `${open.length === 1 ? 'A contradiction' : `${open.length} contradictions`} with the canon. Change the words, or keep them if you meant them (a lie, a mistake the character makes, canon you’re about to change). The scene can’t be set until each one is resolved.`));
+    conflicts.forEach((c, i) => {
       const hit = c.f ? idx().get(c.f) : null;
-      sec.append(h('div', { class: 'conflict' },
+      const ref = c.id != null ? c.id : i;
+      sec.append(h('div', { class: 'conflict' + (c.kept ? ' kept' : '') },
         h('span', null, c.start >= 0 ? `“${c.quote}”` : `“${c.quote}” (couldn’t find these exact words in the scene)`),
         hit ? h('span', { class: 'muted' }, `Canon: ${hit.fact.text}`) : null,
-        c.why ? h('span', { class: 'faint' }, c.why) : null));
-    }
+        c.why ? h('span', { class: 'faint' }, c.why) : null,
+        S.readOnly ? null : h('div', { class: 'btn-row' }, c.kept
+          ? [h('span', { class: 'faint' }, `Kept as written ${when(c.kept)}.`), h('button', { class: 'btn ghost small', type: 'button', onclick: () => keepConflict(key, ref, false) }, 'Undo')]
+          : [h('button', { class: 'btn small', type: 'button', onclick: () => keepConflict(key, ref, true) }, 'Keep it as written')])));
+    });
     if (props.length) {
       sec.append(h('h3', null, 'Suggested canon'));
       sec.append(h('p', { class: 'faint' }, 'Facts the ink introduced. Keep the ones that are true in your world; nothing becomes canon until you do.'));
@@ -1621,7 +1675,8 @@
   function finishInk(cid, k, raw, brief, prev, partial) {
     const out = C.parseInkOutput(raw, brief.factMap);
     if (!out.prose.trim()) { toast('Claude didn’t return any prose. Try again.', 'error'); render(); return false; }
-    const used = out.ledger ? out.used : C.guessUsed(out.prose, brief.factMap, S.canon);
+    const listed = out.ledger ? out.used : C.guessUsed(out.prose, brief.factMap, S.canon);
+    const used = C.mergePremises(C.relies(out.prose, C.briefItems(brief.factMap, idx())), listed);
     const passage = C.inkedPassage({ chapterId: cid, k, prose: out.prose, used, fresh: partial ? [] : out.fresh, pins: brief.pins, now: now(), prev });
     put('passages', passage.id, passage);
     if (!partial) runContinuity(passage.id);
@@ -1644,7 +1699,11 @@
     try {
       const json = await S.sample.json(prompt, { modelTier: 'default', signal: busy.ctl.signal });
       const cur = S.passages.get(key);
-      if (cur) put('passages', key, Object.assign({}, cur, { conflicts: C.parseContinuity(json, cur.text, factMap), checkedAt: now() }));
+      if (cur) {
+        const found = C.parseRelies(json, factMap);
+        const ledger = cur.setAt && !C.isWet(cur) ? { premises: C.mergePremises(found, cur.premises) } : { pending: C.mergePremises(found, cur.pending) };
+        put('passages', key, Object.assign({}, cur, ledger, { conflicts: C.mergeConflicts(cur.conflicts, C.parseContinuity(json, cur.text, factMap)), checkedAt: now() }));
+      }
     } catch (e) { aiError(e, 'checking continuity'); }
     finally { delete S.busy['check:' + key]; render(); }
   }
@@ -1679,7 +1738,9 @@
       else if (!out.prose) toast('Claude returned nothing for the repaint. Try again.', 'error');
       else {
         const ch = S.chapters.get(cur.chapter);
-        const next = C.repaintPassage(cur, s, e, out.prose, out.ledger ? out.used : C.guessUsed(out.prose, factMap, S.canon), out.fresh, pinsOf(ch, cur.scene), now());
+        const listed = out.ledger ? out.used : C.guessUsed(out.prose, factMap, S.canon);
+        const used = C.mergePremises(C.relies(out.prose, C.briefItems(factMap, idx())), listed);
+        const next = C.repaintPassage(cur, s, e, out.prose, used, out.fresh, pinsOf(ch, cur.scene), now());
         S.selection = null;
         put('passages', key, next);
         toast('Repainted. The new words are wet until you set the scene.');
@@ -1708,12 +1769,24 @@
     const p = S.passages.get(key);
     const ch = p && S.chapters.get(p.chapter);
     if (!p || !ch) return;
-    const r = C.setPassage(p, pinsOf(ch, p.scene), now());
-    if (!r.ok) { toast(r.reason === 'pins' ? 'A pinned line is missing from the scene. Insert it before setting.' : 'There is nothing to set yet.', 'warn'); return; }
+    if (S.busy['check:' + key]) { toast('Wait for the check against the canon to finish.', 'warn'); return; }
+    const facts = C.sceneFacts({ world: world(), entities: S.canon, chapter: ch, chapterId: p.chapter, k: p.scene, extraText: p.text });
+    const r = C.setPassage(p, pinsOf(ch, p.scene), now(), C.relies(p.text, facts.canon.concat(facts.secrets, facts.reveals)));
+    if (!r.ok) {
+      toast(r.reason === 'pins' ? 'A pinned line is missing from the scene. Insert it before setting.'
+        : r.reason === 'conflicts' ? 'The scene contradicts the canon. Change the words, or keep them if you meant them, before setting.'
+        : 'There is nothing to set yet.', 'warn');
+      return;
+    }
     S.flash = key;
     put('passages', key, r.passage);
     setTimeout(() => { S.flash = null; }, 700);
     toast(`Set. The ledger recorded ${plural(r.passage.premises.length, 'fact')} this scene relies on.`);
+  }
+  function keepConflict(key, ref, keep) {
+    const p = S.passages.get(key);
+    if (!p) return;
+    put('passages', key, C.keepConflict(p, ref, now(), keep));
   }
   function markStillTrue(key) {
     const p = S.passages.get(key);
@@ -1801,7 +1874,7 @@
       const r = C.chapterProblems({ chapter: ch, chapterId: cid, passages: S.passages, idx: idx(), strict: !!world().strict, entities: S.canon });
       const blocking = r.problems.filter((x) => x.block);
       if (blocking.length) {
-        const say = { wet: 'is still wet: set it first', stale: 'is stale: review it', pins: 'is missing a pinned line', unset: 'is a draft: set it first', nothing: '' };
+        const say = { wet: 'is still wet: set it first', stale: 'is stale: review it', conflict: 'contradicts the canon: resolve it', pins: 'is missing a pinned line', unset: 'is a draft: set it first', nothing: '' };
         sec.append(h('ul', { class: 'problems' }, blocking.map((x) => h('li', null, x.kind === 'nothing' ? 'No scene in this chapter has text yet.' : `Scene ${x.k + 1} ${say[x.kind]}.`))));
       }
     }
@@ -1859,13 +1932,27 @@
     const w = world();
     const base = slug(w.title);
     const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds });
-    const model = () => C.bookModel({ world: w, chapters: S.chapters, passages: S.passages });
+    const book = (filename, make) => async () => {
+      const model = C.bookModel({ world: w, chapters: S.chapters, passages: S.passages, entities: S.canon });
+      if (model.problems.length) {
+        const say = { stale: 'is stale: a fact it relies on changed', conflict: 'contradicts the canon' };
+        const ok = await ask({
+          title: 'Some set scenes need attention',
+          body: h('div', null,
+            h('ul', { class: 'problems' }, model.problems.map((x) => h('li', null, `Chapter ${x.order + 1}, scene ${x.k + 1} ${say[x.kind]}.`))),
+            h('p', { class: 'muted' }, 'You can review them first, or export the book as it stands.')),
+          confirm: 'Export anyway',
+        });
+        if (!ok) return;
+      }
+      saveFile(filename, make(model));
+    };
     panel.append(
       h('p', { class: 'faint' }, 'The book includes set scenes only.'),
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.epub`, C.exportEpub(model(), now())) }, 'EPUB'),
-        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.html`, C.exportHtml(model())) }, 'HTML'),
-        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.md`, C.exportMarkdown(model())) }, 'Markdown')),
+        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.epub`, (m) => C.exportEpub(m, now())) }, 'EPUB'),
+        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.html`, (m) => C.exportHtml(m)) }, 'HTML'),
+        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.md`, (m) => C.exportMarkdown(m)) }, 'Markdown')),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-bible.json`, JSON.stringify(C.exportBible(all(), now()), null, 2)) }, 'The bible (JSON)')),
       h('div', { class: 'btn-row' },
@@ -2204,7 +2291,7 @@
       root.append(h('div', { class: 'modal-backdrop', onclick: (e) => { if (e.target === e.currentTarget) done(false); } },
         h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title' },
           h('h2', { id: 'modal-title' }, title),
-          body ? h('p', { class: 'muted' }, body) : null,
+          typeof body === 'string' ? h('p', { class: 'muted' }, body) : body || null,
           h('div', { class: 'btn-row' }, yes, h('button', { class: 'btn ghost', type: 'button', onclick: () => done(false) }, 'Cancel')))));
       document.addEventListener('keydown', onKey);
       yes.focus();

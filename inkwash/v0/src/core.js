@@ -445,6 +445,16 @@
     return m ? s.slice(0, m.index) : s;
   }
 
+  // Fact keys from a model's answer ("F3", "[F3]", "f3") as premises, once each.
+  function refsFrom(list, factMap) {
+    const out = [], seen = new Set();
+    for (const key of Array.isArray(list) ? list : []) {
+      const ref = factMap[String(key).trim().toUpperCase().replace(/^\[|\]$/g, '')];
+      if (ref && !seen.has(ref.id)) { seen.add(ref.id); out.push({ f: ref.id, v: ref.v }); }
+    }
+    return out;
+  }
+
   function parseInkOutput(raw, factMap, opts) {
     raw = String(raw || '').replace(/\r\n?/g, '\n');
     let prose = raw, meta = null;
@@ -455,11 +465,7 @@
       if (at >= 0) { const cand = parseJsonLoose(raw.slice(at)); if (cand) { meta = cand; prose = raw.slice(0, at); } }
     }
     prose = cleanProse(prose, opts);
-    const used = [], seen = new Set();
-    for (const key of meta && Array.isArray(meta.used) ? meta.used : []) {
-      const ref = factMap[String(key).trim().toUpperCase().replace(/^\[|\]$/g, '')];
-      if (ref && !seen.has(ref.id)) { seen.add(ref.id); used.push({ f: ref.id, v: ref.v }); }
-    }
+    const used = refsFrom(meta && meta.used, factMap);
     const fresh = (meta && Array.isArray(meta.new) ? meta.new : [])
       .filter((x) => x && typeof x.fact === 'string' && x.fact.trim())
       .slice(0, 5)
@@ -478,6 +484,66 @@
       if (hit && hit.entity.kind !== 'rule' && mentions(prose, hit.entity.name)) out.push({ f: ref.id, v: ref.v });
     }
     return out;
+  }
+
+  // ---------------------------------------------------------------- what a scene relies on
+  // The model's list of the facts it used can miss some, and a scene written by hand has no list
+  // at all. Two more witnesses: the scene's own words (a fact whose distinctive words are on the
+  // page) and the continuity check, which lists every fact the scene depends on. A scene's
+  // premises are everything any witness found, so a change flags too much rather than too little.
+  const STOP = new Set(('a an the and or but if then than so as of in on at to from by with without for into onto upon over under '
+    + 'about after before when while where who whom whose which what that this these those is are was were be been being am '
+    + 'has have had do does did not no nor can could will would shall should may might must it its he him his she her hers '
+    + 'they them their theirs we us our you your i me my mine one ones there here also only just very too more most less '
+    + 'some any all each every own same such up down out off again once ever never always still yet now like '
+    // Words too common in prose to say a fact is on the page.
+    + 'time times way ways thing things people person place places part parts piece pieces side sides kind lot '
+    + 'take takes took taken taking keep keeps kept keeping move moves moved moving make makes made making '
+    + 'come comes came coming go goes went gone going get gets got look looks looked looking seem seems seemed '
+    + 'give gives gave given say says said tell tells told know knows knew see sees saw seen '
+    + 'toward towards back away across around through along between behind inside outside near far '
+    + 'new old first last next other another many much little big small large long short good bad whole fresh different real '
+    + 'actually nearly almost already really quite rather perhaps maybe').split(' '));
+  function textWords(text) {
+    return String(text || '').toLowerCase().replace(/[’']s(?![\p{L}\p{N}])/gu, '').match(/[\p{L}\p{N}]+/gu) || [];
+  }
+  // A word and its plain inflections: counts, counted, counting all meet at "count".
+  function wordForms(w) {
+    const out = [w];
+    if (w.length > 3) {
+      if (w.endsWith('ies')) out.push(w.slice(0, -3) + 'y');
+      if (w.endsWith('es')) out.push(w.slice(0, -2));
+      if (w.endsWith('s')) out.push(w.slice(0, -1));
+      if (w.endsWith('ed')) out.push(w.slice(0, -2), w.slice(0, -1));
+      if (w.endsWith('ing')) out.push(w.slice(0, -3), w.slice(0, -3) + 'e');
+    }
+    return out;
+  }
+  // The words that make a fact this fact: not its subject's name, not the small words.
+  function factTerms(e, f) {
+    const name = new Set(e.kind === 'rule' ? [] : textWords(e.name));
+    return [...new Set(textWords(f.text).filter((t) => (t.length >= 3 || /\d/.test(t)) && !STOP.has(t) && !name.has(t)))];
+  }
+  // Facts whose distinctive words are on the page. `items` are {e, f} pairs, optionally with the
+  // version `v` the writer was shown.
+  function relies(text, items) {
+    const have = new Set();
+    for (const w of textWords(text)) for (const x of wordForms(w)) have.add(x);
+    const out = [], seen = new Set();
+    for (const it of items || []) {
+      const { e, f } = it;
+      if (!e || !f || f.retired || seen.has(f.id)) continue;
+      const terms = factTerms(e, f);
+      if (!terms.length) continue;
+      const hits = terms.filter((t) => wordForms(t).some((x) => have.has(x))).length;
+      const need = terms.length === 1 ? 1 : Math.max(2, Math.ceil(terms.length * 0.4));
+      if (hits >= need) { seen.add(f.id); out.push({ f: f.id, v: it.v != null ? it.v : f.v }); }
+    }
+    return out;
+  }
+  // The facts a brief showed the writer, as items for `relies`, at the versions it showed.
+  function briefItems(factMap, idx) {
+    return Object.values(factMap || {}).map((ref) => { const hit = idx.get(ref.id); return hit ? { e: hit.entity, f: hit.fact, v: ref.v } : null; }).filter(Boolean);
   }
 
   // ---------------------------------------------------------------- matching the author's pins
@@ -509,12 +575,24 @@
     n = n.replace(/^["']+/, '').replace(/[.!?,;:"']+$/, '').trim();
     return n;
   }
+  // Where `core` occurs in `norm` as whole words: "he" is not found inside "The".
+  const WORD_CH = /[\p{L}\p{N}]/u;
+  function findWhole(norm, core) {
+    const head = WORD_CH.test(core[0]), tail = WORD_CH.test(core[core.length - 1]);
+    for (let at = norm.indexOf(core); at >= 0; at = norm.indexOf(core, at + 1)) {
+      if (head && at > 0 && WORD_CH.test(norm[at - 1])) continue;
+      const end = at + core.length;
+      if (tail && end < norm.length && WORD_CH.test(norm[end])) continue;
+      return at;
+    }
+    return -1;
+  }
   function findPins(text, pins) {
     const { norm, map } = normMap(text);
     return (pins || []).map((p) => {
       const core = pinCore(p.text);
       if (!core) return { id: p.id, text: p.text, found: true, start: -1, end: -1 };
-      const at = norm.indexOf(core);
+      const at = findWhole(norm, core);
       if (at < 0) return { id: p.id, text: p.text, found: false, start: -1, end: -1 };
       return { id: p.id, text: p.text, found: true, start: map[at], end: map[at + core.length - 1] + 1 };
     });
@@ -522,8 +600,10 @@
 
   // ---------------------------------------------------------------- authorship spans
   // A passage's text is covered by spans {s, e, o, wet}: o is 'typed' or 'pinned' (the author's
-  // hand) or 'inked' (the model's). Ink stays wet until the author sets it.
+  // hand), 'inked' (the model's) or 'pasted' (came in from outside the studio, so nobody's hand
+  // as far as the record knows). Ink stays wet until the author sets it.
 
+  const ORIGINS = new Set(['typed', 'pinned', 'pasted']);
   function normSpans(spans, len) {
     const out = [];
     const push = (y) => {
@@ -532,7 +612,7 @@
       else out.push(y);
     };
     const sorted = (spans || [])
-      .map((x) => ({ s: clamp(x.s | 0, 0, len), e: clamp(x.e | 0, 0, len), o: x.o === 'typed' || x.o === 'pinned' ? x.o : 'inked', wet: !!x.wet }))
+      .map((x) => ({ s: clamp(x.s | 0, 0, len), e: clamp(x.e | 0, 0, len), o: ORIGINS.has(x.o) ? x.o : 'inked', wet: !!x.wet }))
       .filter((x) => x.e > x.s)
       .sort((a, b) => a.s - b.s);
     let pos = 0;
@@ -555,18 +635,119 @@
     while (s < max - p && a.charCodeAt(a.length - 1 - s) === b.charCodeAt(b.length - 1 - s)) s++;
     return { at: p, del: a.slice(p, a.length - s), ins: b.slice(p, b.length - s) };
   }
-  // The author changed oldText into newText: whatever they inserted is theirs.
-  function applyEdit(oldText, spans, newText) {
-    if (oldText === newText) return { spans: normSpans(spans, newText.length), edit: null };
+  // The spans of text[s, e), relative to s.
+  function sliceSpans(spans, len, s, e) {
+    const out = [];
+    for (const x of normSpans(spans, len)) {
+      const a = Math.max(x.s, s), b = Math.min(x.e, e);
+      if (b > a) out.push({ s: a - s, e: b - s, o: x.o, wet: x.wet });
+    }
+    return out;
+  }
+
+  // Where inserted text came from. Each source is {text, spans}. A source equal to the whole
+  // insertion (an undo, a cut pasted back) is taken whole, whatever its length; otherwise runs of
+  // at least TRACE characters found in a source keep the origin they have there. The rest gets
+  // `fallback`. Runs are found through a rolling hash of every TRACE-long window of the sources.
+  // TRACE is long enough that common phrases (" all the way to the ", 20 characters) don't match
+  // by chance, even against the 400,000 characters of sources a world can offer.
+  const TRACE = 24;
+  function traceInsert(ins, sources, fallback) {
+    const L = ins.length;
+    const srcs = (sources || []).filter((x) => x && x.text);
+    const norm = new Map();
+    const spansOf = (si) => { if (!norm.has(si)) norm.set(si, normSpans(srcs[si].spans, srcs[si].text.length)); return norm.get(si); };
+    const out = [];
+    const take = (si, at, n, to) => {
+      for (const x of spansOf(si)) {
+        const s = Math.max(x.s, at), e = Math.min(x.e, at + n);
+        if (e > s) out.push({ s: to + s - at, e: to + e - at, o: x.o, wet: x.wet });
+      }
+    };
+    const whole = srcs.findIndex((x) => x.text === ins);
+    if (whole >= 0) { take(whole, 0, L, 0); return normSpans(out, L); }
+    const hashAt = [];
+    const index = new Map();
+    if (L >= TRACE) {
+      let BK = 1;
+      for (let i = 1; i < TRACE; i++) BK = Math.imul(BK, 257);
+      const roll = (t, fn) => {
+        let hh = 0;
+        for (let j = 0; j < t.length; j++) {
+          if (j >= TRACE) hh = (hh - Math.imul(t.charCodeAt(j - TRACE), BK)) | 0;
+          hh = (Math.imul(hh, 257) + t.charCodeAt(j)) | 0;
+          if (j >= TRACE - 1) fn(hh, j - TRACE + 1);
+        }
+      };
+      roll(ins, (hh, at) => { hashAt[at] = hh; });
+      const want = new Set(hashAt);
+      srcs.forEach((x, si) => roll(x.text, (hh, at) => {
+        if (!want.has(hh)) return;
+        const list = index.get(hh);
+        if (!list) index.set(hh, [si, at]);
+        else if (list.length < 16) list.push(si, at);
+      }));
+    }
+    let i = 0, miss = -1;
+    const endMiss = (to) => { if (miss >= 0) { out.push({ s: miss, e: to, o: fallback, wet: false }); miss = -1; } };
+    while (i < L) {
+      let best = null;
+      const list = i + TRACE <= L ? index.get(hashAt[i]) : null;
+      if (list) {
+        for (let q = 0; q < list.length; q += 2) {
+          const t = srcs[list[q]].text, at = list[q + 1];
+          let n = 0;
+          while (i + n < L && at + n < t.length && ins.charCodeAt(i + n) === t.charCodeAt(at + n)) n++;
+          if (n >= TRACE && (!best || n > best.n)) best = { si: list[q], at, n };
+        }
+      }
+      if (best) { endMiss(i); take(best.si, best.at, best.n, i); i += best.n; }
+      else { if (miss < 0) miss = i; i++; }
+    }
+    endMiss(L);
+    return normSpans(out, L);
+  }
+
+  // The author changed oldText into newText. What they type is theirs. What they paste, drop or
+  // bring back with undo (`how`: 'paste' or 'restore') keeps the origin it had where it came
+  // from: this scene, text removed earlier, the model's own output (`sources`). What can't be
+  // traced is 'pasted'. Returns the new spans, the edit, and what was removed with its origins.
+  function applyEdit(oldText, spans, newText, opts) {
+    if (oldText === newText) return { spans: normSpans(spans, newText.length), edit: null, removed: null };
+    const how = (opts && opts.how) || 'type';
     const d = diffRange(oldText, newText);
     const delEnd = d.at + d.del.length, shift = d.ins.length - d.del.length;
+    const old = normSpans(spans, oldText.length);
     const out = [];
-    for (const x of normSpans(spans, oldText.length)) {
+    for (const x of old) {
       if (x.s < d.at) out.push(Object.assign({}, x, { e: Math.min(x.e, d.at) }));
       if (x.e > delEnd) out.push(Object.assign({}, x, { s: Math.max(x.s, delEnd) + shift, e: x.e + shift }));
     }
-    if (d.ins.length) out.push({ s: d.at, e: d.at + d.ins.length, o: 'typed', wet: false });
-    return { spans: normSpans(out, newText.length), edit: d };
+    if (d.ins.length && how === 'type') out.push({ s: d.at, e: d.at + d.ins.length, o: 'typed', wet: false });
+    else if (d.ins.length) {
+      const sources = ((opts && opts.sources) || []).concat([{ text: oldText, spans: old }]);
+      for (const x of traceInsert(d.ins, sources, 'pasted')) out.push(Object.assign({}, x, { s: x.s + d.at, e: x.e + d.at }));
+    }
+    const removed = d.del ? { text: d.del, at: d.at, spans: sliceSpans(old, oldText.length, d.at, delEnd) } : null;
+    return { spans: normSpans(out, newText.length), edit: d, removed };
+  }
+
+  // Text the author removed, kept for a while so that an undo or a paste can give it back its
+  // origin. A run of backspaces (or of deletes) is one piece, the way the browser undoes it.
+  // Pieces are {text, spans, at, kind, key}: kind is the browser's input type, key the scene.
+  function rememberRemoved(list, piece) {
+    const out = (list || []).slice();
+    if (!piece || !piece.text) return out;
+    const join = (a, b) => ({ text: a.text + b.text, spans: (a.spans || []).concat((b.spans || []).map((x) => Object.assign({}, x, { s: x.s + a.text.length, e: x.e + a.text.length }))) });
+    const last = out[out.length - 1];
+    if (last && /^delete/.test(piece.kind || '') && last.kind === piece.kind && last.key === piece.key) {
+      if (piece.at + piece.text.length === last.at) out[out.length - 1] = Object.assign({}, last, join(piece, last), { at: piece.at });
+      else if (piece.at === last.at) out[out.length - 1] = Object.assign({}, last, join(last, piece));
+      else out.push(piece);
+    } else out.push(piece);
+    let total = 0, from = out.length;
+    while (from > 0 && out.length - from < 40 && total + out[from - 1].text.length <= 60000) total += out[--from].text.length;
+    return out.slice(Math.min(from, out.length - 1));
   }
   function overlay(spans, len, s, e, attrs) {
     const out = [];
@@ -597,10 +778,12 @@
   }
   function isWet(p) { return !!(p && (p.spans || []).some((x) => x.wet)); }
 
+  // Words by origin. A word belongs to whoever wrote its first letter. Only typed and pinned
+  // words are the author's hand; pasted words are counted, but not as anyone's.
   function handStats(text, spans) {
     text = String(text || '');
-    const words = { typed: 0, pinned: 0, inked: 0 };
-    const chars = { typed: 0, pinned: 0, inked: 0 };
+    const words = { typed: 0, pinned: 0, inked: 0, pasted: 0 };
+    const chars = { typed: 0, pinned: 0, inked: 0, pasted: 0 };
     const ns = normSpans(spans, text.length);
     for (const x of ns) chars[x.o] += x.e - x.s;
     const re = /\S+/g;
@@ -609,13 +792,13 @@
       while (j < ns.length && ns[j].e <= m.index) j++;
       words[ns[j] ? ns[j].o : 'inked']++;
     }
-    const total = words.typed + words.pinned + words.inked;
+    const total = words.typed + words.pinned + words.inked + words.pasted;
     return { words, chars, total, hand: total ? (words.typed + words.pinned) / total : 0 };
   }
   function sumStats(list) {
-    const words = { typed: 0, pinned: 0, inked: 0 };
-    for (const s of list) for (const k of Object.keys(words)) words[k] += s.words[k];
-    const total = words.typed + words.pinned + words.inked;
+    const words = { typed: 0, pinned: 0, inked: 0, pasted: 0 };
+    for (const s of list) for (const k of Object.keys(words)) words[k] += s.words[k] || 0;
+    const total = words.typed + words.pinned + words.inked + words.pasted;
     return { words, total, hand: total ? (words.typed + words.pinned) / total : 0 };
   }
 
@@ -629,13 +812,29 @@
     return [...m].map(([f, v]) => ({ f, v }));
   }
 
+  // Everything the model has written for a scene, newest first, so that its words are known as
+  // its words even after they were deleted and pasted back. Kept under 30,000 characters.
+  const INK_KEEP = 30000;
+  function inkedRuns(p) {
+    if (!p || !p.text) return [];
+    return normSpans(p.spans, p.text.length).filter((x) => x.o === 'inked').map((x) => p.text.slice(x.s, x.e)).filter((t) => t.trim().length >= TRACE);
+  }
+  function inkHistory(newer, p) {
+    const all = (newer || []).concat(p ? p.inkSource || inkedRuns(p) : []);
+    const out = [];
+    let total = 0;
+    for (const t of all) { if (!t || total + t.length > INK_KEEP) continue; out.push(t); total += t.length; }
+    return out;
+  }
+  const inkPiece = (t) => ({ text: t, spans: [{ s: 0, e: t.length, o: 'inked', wet: true }] });
+
   // A freshly inked scene: all of it wet, except the author's pinned lines.
   function inkedPassage({ chapterId, k, prose, used, fresh, pins, now, prev }) {
     const base = [{ s: 0, e: prose.length, o: 'inked', wet: true }];
     const { spans, results } = markPins(prose, base, pins);
     return {
       id: passageId(chapterId, k), chapter: chapterId, scene: k,
-      text: prose, spans,
+      text: prose, spans, inkSource: inkHistory([prose], prev),
       premises: [], pending: used || [],
       proposals: (fresh || []).map((x) => ({ id: uid('nf'), about: x.about, text: x.text, status: 'new' })),
       pinChecks: results.map((r) => ({ id: r.id, found: r.found })),
@@ -658,7 +857,7 @@
     const r = splice(p.text, p.spans, s, e, repl, { o: 'inked', wet: true });
     const { spans, results } = markPins(r.text, r.spans, pins);
     return Object.assign({}, p, {
-      text: r.text, spans,
+      text: r.text, spans, inkSource: inkHistory([repl], p),
       pending: mergePremises(p.pending, used),
       proposals: (p.proposals || []).concat((fresh || []).map((x) => ({ id: uid('nf'), about: x.about, text: x.text, status: 'new' }))).slice(-12),
       pinChecks: results.map((x) => ({ id: x.id, found: x.found })),
@@ -669,15 +868,16 @@
       repaints: (p.repaints || 0) + 1, updatedAt: now || 0,
     });
   }
-  // The author edited the text by hand.
-  function editPassage(p, newText, pins, now) {
+  // The author edited the text: typed it (the default), or pasted, dropped or restored it
+  // (`opts.how`), in which case the model's earlier words for this scene are a source too.
+  function editPassage(p, newText, pins, now, opts) {
     if (newText === p.text) return p;
-    const r = applyEdit(p.text, p.spans, newText);
-    const { spans, results } = markPinsTypedOnly(newText, r.spans, pins);
-    return Object.assign({}, p, { text: newText, spans, pinChecks: results.map((x) => ({ id: x.id, found: x.found })), updatedAt: now || 0 });
+    const inkSource = p.inkSource || inkHistory([], p);
+    const how = (opts && opts.how) || 'type';
+    const r = applyEdit(p.text, p.spans, newText, how === 'type' ? null : { how, sources: ((opts && opts.sources) || []).concat(inkSource.map(inkPiece)) });
+    const { spans, results } = markPins(newText, r.spans, pins);
+    return Object.assign({}, p, { text: newText, spans, inkSource, pinChecks: results.map((x) => ({ id: x.id, found: x.found })), updatedAt: now || 0 });
   }
-  // Pins found in the author's own edits are already theirs; pins inside ink become pinned.
-  function markPinsTypedOnly(text, spans, pins) { return markPins(text, spans, pins); }
 
   function recordEdit(p, before, after, now) {
     const d = diffRange(before, after);
@@ -687,17 +887,22 @@
   }
 
   // Setting a passage dries the ink and records its premises: the version of every fact it used.
-  function setPassage(p, pins, now) {
+  // `found` adds what the finished text shows it relies on (see `relies`); a premise the ledger
+  // already holds keeps its version, so setting never hides a change. A scene with a missing pin
+  // or an open contradiction can't be set.
+  function setPassage(p, pins, now, found) {
     if (!p.text.trim()) return { ok: false, reason: 'empty', missing: [] };
     const results = findPins(p.text, pins);
     const missing = results.filter((r) => !r.found);
     if (missing.length) return { ok: false, reason: 'pins', missing };
+    const open = openConflicts(p);
+    if (open.length) return { ok: false, reason: 'conflicts', missing: [], conflicts: open };
     let spans = normSpans(p.spans.map((x) => Object.assign({}, x, { wet: false })), p.text.length);
     for (const r of results) if (r.start >= 0) spans = overlay(spans, p.text.length, r.start, r.end, { o: 'pinned', wet: false });
     return {
       ok: true,
       passage: Object.assign({}, p, {
-        spans, premises: mergePremises(p.premises, p.pending), pending: [],
+        spans, premises: mergePremises(found || [], mergePremises(p.premises, p.pending)), pending: [],
         pinChecks: results.map((x) => ({ id: x.id, found: true })),
         setAt: now || 0, reviewedAt: null, updatedAt: now || 0,
       }),
@@ -771,12 +976,13 @@
       lines.push(`[${key}] ${e.kind === 'rule' ? 'World rule' : e.name}: ${f.text}`);
     }
     const prompt = `You are checking one scene of the novel "${world.title || 'Untitled'}" against the author's canon. `
-      + 'List only clear contradictions: places where the scene states or implies something that conflicts with a canon fact. '
-      + "Ignore style, and ignore anything the canon doesn't cover.\n\n"
+      + 'First, list only clear contradictions: places where the scene states or implies something that conflicts with a canon fact. '
+      + "Ignore style, and ignore anything the canon doesn't cover. "
+      + 'Second, list every canon fact the scene relies on: facts it states, shows, or would have to change if the fact changed, whether or not it contradicts them.\n\n'
       + 'CANON\n' + (lines.join('\n') || '(none)') + '\n\n'
       + 'SCENE\n"""\n' + String(text || '') + '\n"""\n\n'
-      + 'Reply with only JSON in this form: {"conflicts": [{"fact": "F2", "quote": "exact words copied from the scene, under 20 words", "why": "one short sentence"}]}. '
-      + 'If there are none, reply {"conflicts": []}.';
+      + 'Reply with only JSON in this form: {"conflicts": [{"fact": "F2", "quote": "exact words copied from the scene, under 20 words", "why": "one short sentence"}], "relies": ["F1", "F2"]}. '
+      + 'If there are no contradictions, "conflicts" is []. If the scene relies on none of the facts, "relies" is [].';
     return { prompt, factMap };
   }
   function parseContinuity(json, text, factMap) {
@@ -788,11 +994,30 @@
       let start = -1, end = -1;
       const core = normMap(q.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')).norm.trim();
       if (core) {
-        const at = norm.indexOf(core);
+        let at = findWhole(norm, core);
+        if (at < 0) at = norm.indexOf(core);
         if (at >= 0) { start = map[at]; end = map[at + core.length - 1] + 1; }
       }
-      return { f: ref ? ref.id : null, quote: q.slice(0, 200), why: String((c && c.why) || '').slice(0, 240), start, end };
+      return { id: uid('cf'), f: ref ? ref.id : null, quote: q.slice(0, 200), why: String((c && c.why) || '').slice(0, 240), start, end, kept: null };
     }).filter((c) => c.f || c.start >= 0);
+  }
+  // The facts the check says the scene depends on, contradicted or not.
+  function parseRelies(json, factMap) { return refsFrom(json && json.relies, factMap); }
+
+  // Contradictions the author has neither fixed nor kept. Each one blocks setting the scene.
+  function openConflicts(p) { return ((p && p.conflicts) || []).filter((c) => !c.kept); }
+  // The author keeps a contradiction on purpose (a lie, a mistake the character makes, canon
+  // about to change), or takes that back. `ref` is the conflict's id, or its index for old ones.
+  function keepConflict(p, ref, now, keep) {
+    const on = keep !== false;
+    const conflicts = (p.conflicts || []).map((c, i) => ((c.id != null ? c.id === ref : i === ref) ? Object.assign({}, c, { kept: on ? now || 1 : null }) : c));
+    return Object.assign({}, p, { conflicts, updatedAt: now || 0 });
+  }
+  // A re-check reports the same contradictions again; the ones the author kept stay kept.
+  function mergeConflicts(old, fresh) {
+    const key = (c) => (c.f || '') + '|' + normMap(String(c.quote || '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')).norm.trim();
+    const kept = new Map((old || []).filter((c) => c.kept).map((c) => [key(c), c.kept]));
+    return (fresh || []).map((c) => (kept.has(key(c)) ? Object.assign({}, c, { kept: kept.get(key(c)) }) : c));
   }
 
   // ---------------------------------------------------------------- the dream inbox
@@ -850,6 +1075,8 @@
       if (isWet(p)) problems.push({ k, kind: 'wet', block: true });
       const st = staleness(p, idx, { strict, onPage: castIn(chapter, k).map((c) => c.id), entities });
       if (st.stale) problems.push({ k, kind: 'stale', block: true, reasons: st.reasons });
+      const open = openConflicts(p);
+      if (open.length) problems.push({ k, kind: 'conflict', block: true, conflicts: open });
       const miss = findPins(p.text, (chapter.pins || []).filter((x) => x.scene === k)).filter((r) => !r.found);
       if (miss.length) problems.push({ k, kind: 'pins', block: true, missing: miss });
       if (!p.setAt && !isWet(p)) problems.push({ k, kind: 'unset', block: true });
@@ -907,9 +1134,11 @@
 
   // ---------------------------------------------------------------- the book and exports
 
-  // Exports carry set scenes only: wet ink never leaves the studio.
-  function bookModel({ world, chapters, passages }) {
-    const out = [];
+  // Exports carry set scenes only: wet ink never leaves the studio. Given the canon, the model
+  // also lists set scenes that are stale or contradict it, so an export can't carry them silently.
+  function bookModel({ world, chapters, passages, entities }) {
+    const out = [], problems = [];
+    const idx = entities ? factIndex(entities) : null;
     (world.chapterOrder || []).forEach((cid, order) => {
       const ch = getFrom(chapters, cid);
       if (!ch) return;
@@ -918,18 +1147,25 @@
         const p = getFrom(passages, passageId(cid, k));
         if (!p || !String(p.text || '').trim() || isWet(p) || !p.setAt) continue;
         scenes.push({ k, text: p.text, spans: p.spans, stats: handStats(p.text, p.spans), setAt: p.setAt });
+        if (!idx) continue;
+        const st = staleness(p, idx, { strict: !!world.strict, onPage: castIn(ch, k).map((c) => c.id), entities });
+        if (st.stale) problems.push({ chapter: cid, order, title: ch.title, k, kind: 'stale', reasons: st.reasons });
+        const open = openConflicts(p);
+        if (open.length) problems.push({ chapter: cid, order, title: ch.title, k, kind: 'conflict', conflicts: open });
       }
       out.push({ id: cid, order, title: ch.title, scenes });
     });
     const sum = sumStats(out.flatMap((c) => c.scenes.map((s) => s.stats)));
-    return { title: world.title || 'Untitled', byline: world.byline || '', premise: world.premise || '', chapters: out, stats: sum };
+    return { title: world.title || 'Untitled', byline: world.byline || '', premise: world.premise || '', chapters: out, stats: sum, problems };
   }
   function paragraphs(text) { return String(text || '').split(/\n\s*\n|\n/).map((x) => x.trim()).filter(Boolean); }
   function pct(x) { return Math.round((x || 0) * 100) + '%'; }
   function howMade(model) {
     const s = model.stats;
     if (!s.total) return 'Made with Inkwash.';
+    const pasted = s.words.pasted || 0;
     return `Made with Inkwash. The author painted the shape of every scene and wrote ${pct(s.hand)} of the words by hand. `
+      + (pasted ? `${pct(pasted / s.total)} was pasted in from elsewhere. ` : '')
       + 'An AI model inked the rest from the author\'s design, and the author kept or edited every line before setting it.';
   }
 
@@ -1113,16 +1349,16 @@
       chapter: ch.order + 1, title: ch.title,
       scenes: ch.scenes.map((s) => {
         const p = getFrom(passages, passageId(ch.id, s.k)) || {};
-        return { scene: s.k + 1, words: s.stats.total, byAuthor: s.stats.words.typed + s.stats.words.pinned, typed: s.stats.words.typed, pinned: s.stats.words.pinned, inked: s.stats.words.inked, edits: p.editCount || 0, inks: p.inks || 0, repaints: p.repaints || 0, setAt: s.setAt ? new Date(s.setAt).toISOString() : null, spans: s.spans };
+        return { scene: s.k + 1, words: s.stats.total, byAuthor: s.stats.words.typed + s.stats.words.pinned, typed: s.stats.words.typed, pinned: s.stats.words.pinned, inked: s.stats.words.inked, pasted: s.stats.words.pasted, edits: p.editCount || 0, inks: p.inks || 0, repaints: p.repaints || 0, setAt: s.setAt ? new Date(s.setAt).toISOString() : null, spans: s.spans };
       }),
     }));
     const edits = rows.reduce((s, c) => s + c.scenes.reduce((t, x) => t + x.edits, 0), 0);
     const json = {
       format: 'inkwash-provenance/1', exportedAt: new Date(now || Date.now()).toISOString(),
       world: model.title, byline: model.byline,
-      summary: { words: model.stats.total, byAuthor: model.stats.words.typed + model.stats.words.pinned, inkedKept: model.stats.words.inked, authorShare: round2(model.stats.hand), edits, direction, canon },
+      summary: { words: model.stats.total, byAuthor: model.stats.words.typed + model.stats.words.pinned, inkedKept: model.stats.words.inked, pastedIn: model.stats.words.pasted, authorShare: round2(model.stats.hand), edits, direction, canon },
       chapters: rows,
-      note: 'Inkwash records, for every passage, which text the author typed or pinned, which text an AI model inked, and when the author set it. This is a record of process, not legal advice.',
+      note: 'Inkwash records, for every passage, which text the author typed or pinned, which text an AI model inked, which text was pasted in from outside the studio (its origin unknown, so it is not counted as the author\'s), and when the author set it. This is a record of process, not legal advice.',
     };
     const s = json.summary;
     const md = [
@@ -1133,6 +1369,7 @@
         `- Words in set scenes: ${s.words}`,
         `- Written by the author (typed or pinned): ${s.byAuthor} (${pct(s.authorShare)})`,
         `- Inked by an AI model and kept by the author: ${s.inkedKept}`,
+        ...(s.pastedIn ? [`- Pasted in from outside the studio, origin unknown: ${s.pastedIn}`] : []),
         `- Edits by the author: ${s.edits}`,
         `- Direction: ${direction.strokes} brush strokes, ${direction.notes} notes, ${direction.pins} pinned lines`,
         `- Canon: ${canon.total} facts, ${canon.author} written by the author and ${canon.accepted} suggested by AI and kept by the author`,
@@ -1179,12 +1416,13 @@
     sceneRange, sceneAt, newChapter, paintTension, eraseLine, paintWash, paintLine, nudgeTension, washScene, setPresence, resampleScenes,
     tensionSummary, moodMix, castIn, firstMeetings,
     newEntity, newFact, factIndex, reviseFact, retireFact, factTextAt, chapterIndex, sceneFacts,
-    buildBrief, wordRange, parseJsonLoose, cleanProse, streamingProse, parseInkOutput, guessUsed,
+    buildBrief, wordRange, parseJsonLoose, cleanProse, streamingProse, parseInkOutput, guessUsed, relies, briefItems,
     normMap, pinCore, findPins,
-    normSpans, diffRange, applyEdit, overlay, splice, markPins, isWet, handStats, sumStats,
+    normSpans, diffRange, sliceSpans, traceInsert, applyEdit, rememberRemoved, overlay, splice, markPins, isWet, handStats, sumStats,
     passageId, mergePremises, inkedPassage, handPassage, repaintPassage, editPassage, recordEdit, setPassage,
     staleness, stillTrue, passageState, dependents,
-    buildContinuityPrompt, parseContinuity, buildSeedPrompt, parseSeeds, buildRepaintPrompt, parseRepaint,
+    buildContinuityPrompt, parseContinuity, parseRelies, openConflicts, keepConflict, mergeConflicts,
+    buildSeedPrompt, parseSeeds, buildRepaintPrompt, parseRepaint,
     chapterProblems, publishedChapter, publishedWorld, visibleLore,
     bookModel, exportMarkdown, exportHtml, exportEpub, exportBible, exportProvenance, exportBackup, readBackup,
     zipStore, crc32, esc, paragraphs, howMade, describeScene,

@@ -268,6 +268,11 @@ input[type="color"] { width: 34px; height: 30px; padding: 2px; border: 1px solid
   text-decoration-thickness: 1.5px; text-underline-offset: 4px;
 }
 .h-pinned { background: color-mix(in srgb, var(--seal) 9%, transparent); }
+.h-pasted { color: var(--ink); }
+.show-hand .h-pasted {
+  text-decoration: underline dotted; text-decoration-color: var(--ink-faint);
+  text-decoration-thickness: 1.5px; text-underline-offset: 4px;
+}
 .wet { color: var(--wet); text-shadow: 0 0 7px color-mix(in srgb, var(--wet) 40%, transparent); }
 .h-conflict { background: color-mix(in srgb, var(--stale) 28%, transparent); }
 .ink-stream {
@@ -282,6 +287,7 @@ input[type="color"] { width: 34px; height: 30px; padding: 2px; border: 1px solid
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--step--1); color: var(--ink-faint); }
 .legend .key { display: inline-flex; align-items: center; gap: 5px; }
 .legend .key i { width: 16px; height: 0; border-bottom: 2px solid; display: inline-block; }
+.legend .key i.dotted { border-bottom: 2px dotted var(--ink-faint); }
 .seal-mark {
   position: absolute; top: 6px; right: 10px; width: 30px; height: 30px; border: 2.5px solid var(--seal); border-radius: 4px;
   color: var(--seal); display: grid; place-items: center; font-family: var(--font-book); font-weight: 700; font-size: 1.05rem;
@@ -298,7 +304,10 @@ input[type="color"] { width: 34px; height: 30px; padding: 2px; border: 1px solid
 .meter-fill { height: 100%; background: var(--ink); display: block; border-radius: 6px; }
 .proposal { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 3px; }
 .proposal .about { font-weight: 500; }
-.conflict { border-left: 3px solid var(--stale); padding: 4px 10px; display: grid; gap: 2px; }
+.conflict { border-left: 3px solid var(--stale); padding: 4px 10px; display: grid; gap: 4px; }
+.conflict.kept { border-left-color: var(--rule); opacity: 0.8; }
+details.ledger summary { cursor: pointer; }
+details.ledger .list { margin-top: 6px; }
 details.brief summary { cursor: pointer; color: var(--ink-soft); }
 details.brief pre {
   white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-ui); font-size: var(--step--1);

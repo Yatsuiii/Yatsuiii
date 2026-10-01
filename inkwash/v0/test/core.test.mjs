@@ -592,3 +592,153 @@ test('a place named anywhere in a chapter’s notes is the setting of every scen
   assert.ok(b1.parts.shape.includes("- The author's notes for this scene:\n    \"she doesn't trust him yet; the Ladder creaks\""), 'one note per line, no doubled punctuation');
   assert.ok(!b0.parts.shape.includes('notes for this scene'), 'notes stay with their own scene');
 });
+
+// ---------------------------------------------------------------- found by an outside review
+
+test('a pinned line matches whole words only', () => {
+  assert.equal(C.findPins('The lamp went out.', [{ id: 'a', text: 'he' }])[0].found, false, '"he" is not inside "The"');
+  assert.equal(C.findPins('She stood in the doorway.', [{ id: 'b', text: 'in the door' }])[0].found, false);
+  assert.equal(C.findPins('The lamps went out.', [{ id: 'c', text: 'the lamp' }])[0].found, false);
+  const t = 'The cat knew he was gone.';
+  const [hit] = C.findPins(t, [{ id: 'd', text: 'he' }]);
+  assert.equal(hit.found, true, 'a whole-word match after a part-word one is still found');
+  assert.equal(hit.start, 13);
+  const q = 'He lit it. “He said it,” he said.';
+  const [said] = C.findPins(q, [{ id: 'e', text: 'he said' }]);
+  assert.equal(q.slice(said.start, said.end), 'He said');
+  // A pin found only inside other words is missing: it can't be set, and it isn't the author's hand.
+  const pins = [{ id: 'a', scene: 0, text: 'he' }];
+  const p = C.inkedPassage({ chapterId: 'c1', k: 0, prose: 'The lamp went out.', used: [], fresh: [], pins, now: 1 });
+  assert.equal(C.handStats(p.text, p.spans).words.pinned, 0);
+  assert.equal(C.setPassage(p, pins, 2).reason, 'pins');
+});
+
+test('moved, copied, restored or pasted words keep an honest origin', () => {
+  const T = 'The lamps came on one by one.\n\nKael climbed the stairs, counting.\n\nThe moon had a door in it.';
+  const ink = [{ s: 0, e: T.length, o: 'inked', wet: true }];
+  // Cut everything and paste it back: the text is the same, and so is who wrote it.
+  const cut = C.applyEdit(T, ink, '');
+  assert.equal(cut.removed.text, T);
+  assert.deepEqual(C.applyEdit('', cut.spans, T, { how: 'paste', sources: [cut.removed] }).spans, ink);
+  // Delete everything and undo.
+  assert.deepEqual(C.applyEdit('', cut.spans, T, { how: 'restore', sources: [cut.removed] }).spans, ink);
+  // Move the first paragraph to the end.
+  const first = 'The lamps came on one by one.';
+  let text = T.slice(first.length + 2);
+  let r = C.applyEdit(T, ink, text);
+  const moved = r.removed;
+  r = C.applyEdit(text, r.spans, text + '\n\n', { how: 'type' }); text += '\n\n';
+  r = C.applyEdit(text, r.spans, text + first, { how: 'paste', sources: [moved] }); text += first;
+  assert.equal(C.handStats(text, r.spans).hand, 0);
+  // Copy one of the model's sentences and paste it again: still the model's.
+  const copied = T + ' Kael climbed the stairs, counting.';
+  const hc = C.handStats(copied, C.applyEdit(T, ink, copied, { how: 'paste', sources: [] }).spans);
+  assert.equal(hc.words.inked, hc.total);
+  // Words pasted from outside are nobody's hand as far as the record knows.
+  const outside = T + ' A crow sat on the lamp and said nothing.';
+  const ho = C.handStats(outside, C.applyEdit(T, ink, outside, { how: 'paste', sources: [] }).spans);
+  assert.equal(ho.words.pasted, 9);
+  assert.equal(ho.words.typed, 0);
+  assert.equal(ho.hand, 0);
+  // A phrase it merely shares with the model's text ("climbed the stairs, ", 20 characters) isn't enough.
+  const echo = T + ' He climbed the stairs, slowly, alone.';
+  assert.equal(C.handStats(echo, C.applyEdit(T, ink, echo, { how: 'paste', sources: [] }).spans).words.pasted, 6);
+  // A pasted block that is half the model's sentence and half new words is split between them.
+  const mixed = T + ' Kael climbed the stairs, counting, and a crow watched.';
+  const hm = C.handStats(mixed, C.applyEdit(T, ink, mixed, { how: 'paste', sources: [] }).spans);
+  assert.equal(hm.words.pasted, 4);
+  // Typing is still the author's, and the author's own words cut and pasted back stay theirs.
+  assert.equal(C.handStats(T + ' Then nothing.', C.applyEdit(T, ink, T + ' Then nothing.').spans).words.typed, 2);
+  const mine = [{ s: 0, e: T.length, o: 'typed', wet: false }];
+  const c2 = C.applyEdit(T, mine, '');
+  assert.deepEqual(C.applyEdit('', c2.spans, T, { how: 'paste', sources: [c2.removed] }).spans, mine);
+  // Backspacing a word letter by letter and undoing gives the word back as it was.
+  const W = 'The lamps came on.';
+  let sp = [{ s: 0, e: 4, o: 'typed', wet: false }, { s: 4, e: W.length, o: 'inked', wet: true }];
+  let cur = W, list = [];
+  for (let pos = 9; pos > 4; pos--) {
+    const next = cur.slice(0, pos - 1) + cur.slice(pos);
+    const e = C.applyEdit(cur, sp, next);
+    list = C.rememberRemoved(list, Object.assign({}, e.removed, { kind: 'deleteContentBackward', key: 's1' }));
+    cur = next; sp = e.spans;
+  }
+  assert.equal(cur, 'The  came on.');
+  assert.equal(list.length, 1, 'one backspace run is one piece, as the browser undoes it');
+  assert.deepEqual(C.applyEdit(cur, sp, W, { how: 'restore', sources: list }).spans, [{ s: 0, e: 4, o: 'typed', wet: false }, { s: 4, e: W.length, o: 'inked', wet: true }]);
+  // A scene remembers the model's words even after they are deleted, so pasting them back later
+  // (after a reload, from the clipboard) is still recognized as ink.
+  let p = C.inkedPassage({ chapterId: 'c1', k: 0, prose: T, used: [], fresh: [], pins: [], now: 1 });
+  p = C.editPassage(p, T.slice(first.length + 2), [], 2);
+  p = C.editPassage(p, p.text + '\n\n' + first, [], 3, { how: 'paste', sources: [] });
+  const hp = C.handStats(p.text, p.spans);
+  assert.equal(hp.words.inked, hp.total);
+  assert.ok(p.inkSource.join('').includes(first));
+});
+
+test('a scene relies on what its words show, not only on the facts the model listed', () => {
+  const { entities } = hollowMoon();
+  const idx = C.factIndex(entities);
+  const items = [...idx.values()].map(({ entity, fact }) => ({ e: entity, f: fact }));
+  const prose = 'Kael counted the stairs under his breath, the way he did whenever he was afraid. Below him the lamps of Vesk went on.';
+  assert.deepEqual(C.relies(prose, items).map((x) => x.f), ['fk2'], 'counting stairs when afraid is on the page; nine hundred lamps is not');
+  // The model listed only fk1. The scene still goes stale when fk2 changes.
+  const used = C.mergePremises(C.relies(prose, items), [{ f: 'fk1', v: 1 }]);
+  const set = C.setPassage(C.inkedPassage({ chapterId: 'c1', k: 0, prose, used, fresh: [], pins: [], now: 1 }), [], 2).passage;
+  C.reviseFact(entities[0].facts[1], 'Kael counts lamps when he is afraid.', 3);
+  assert.equal(C.passageState(set, C.factIndex(entities)), 'stale');
+  // A scene written by hand has no list from a model. Setting it reads its words.
+  let hp = C.handPassage({ chapterId: 'c1', k: 0, now: 4 });
+  hp = C.editPassage(hp, 'Kael, at seventeen, still counted stairs when he was afraid.', [], 5);
+  const items2 = [...C.factIndex(entities).values()].map(({ entity, fact }) => ({ e: entity, f: fact }));
+  const hs = C.setPassage(hp, [], 6, C.relies(hp.text, items2)).passage;
+  assert.deepEqual(hs.premises.map((x) => x.f).sort(), ['fk1', 'fk2']);
+  // What the words show never refreshes an older version the ledger already holds.
+  const wet = C.inkedPassage({ chapterId: 'c1', k: 1, prose: 'Kael was seventeen.', used: [{ f: 'fk1', v: 1 }], fresh: [], pins: [], now: 7 });
+  C.reviseFact(entities[0].facts[0], 'Kael is now seventeen.', 8);
+  const items3 = [...C.factIndex(entities).values()].map(({ entity, fact }) => ({ e: entity, f: fact }));
+  const s3 = C.setPassage(wet, [], 9, C.relies(wet.text, items3)).passage;
+  assert.deepEqual(s3.premises, [{ f: 'fk1', v: 1 }]);
+  assert.equal(C.passageState(s3, C.factIndex(entities)), 'stale');
+  // The continuity check is a second witness: it lists every fact the scene depends on.
+  const { prompt } = C.buildContinuityPrompt({ world: { title: 'X' }, text: 'Kael ran.', items: items3.slice(0, 2) });
+  assert.match(prompt, /"relies"/);
+  assert.deepEqual(C.parseRelies({ conflicts: [], relies: ['F2', 'F9', 'f1', 'F2'] }, { F1: { id: 'fk1', v: 2 }, F2: { id: 'fv1', v: 1 } }), [{ f: 'fv1', v: 1 }, { f: 'fk1', v: 2 }]);
+  assert.deepEqual(C.parseRelies({ conflicts: [] }, {}), []);
+});
+
+test('a contradiction blocks setting until the author fixes it or keeps it', () => {
+  const map = { F1: { id: 'fk1', v: 1 } };
+  let p = C.inkedPassage({ chapterId: 'c1', k: 0, prose: 'Kael was sixteen that winter.', used: [], fresh: [], pins: [], now: 1 });
+  p = Object.assign({}, p, { conflicts: C.parseContinuity({ conflicts: [{ fact: 'F1', quote: 'Kael was sixteen', why: 'Canon says seventeen.' }] }, p.text, map), checkedAt: 2 });
+  const r = C.setPassage(p, [], 3);
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'conflicts');
+  const kept = C.keepConflict(p, p.conflicts[0].id, 4);
+  assert.equal(kept.conflicts[0].kept, 4);
+  assert.equal(C.openConflicts(kept).length, 0);
+  assert.equal(C.setPassage(kept, [], 5).ok, true);
+  // A re-check that finds the same contradiction remembers that it was kept.
+  const again = C.mergeConflicts(kept.conflicts, C.parseContinuity({ conflicts: [{ fact: 'F1', quote: '“Kael was sixteen”', why: 'Still.' }] }, p.text, map));
+  assert.equal(C.openConflicts({ conflicts: again }).length, 0);
+  // Keeping can be undone.
+  assert.equal(C.openConflicts(C.keepConflict(kept, kept.conflicts[0].id, 6, false)).length, 1);
+});
+
+test('publishing and exports name stale and contradicted scenes', () => {
+  const { w, entities, chapters, c1 } = hollowMoon();
+  const passages = new Map();
+  const a = C.setPassage(C.inkedPassage({ chapterId: 'c1', k: 0, prose: 'Kael was seventeen.', used: [{ f: 'fk1', v: 1 }], fresh: [], pins: [], now: 1 }), [], 2).passage;
+  passages.set(a.id, a);
+  const pins1 = c1.pins.filter((x) => x.scene === 1);
+  let b = C.setPassage(C.inkedPassage({ chapterId: 'c1', k: 1, prose: 'The moon had a door in it, and the door was open. Kael knocked.', used: [], fresh: [], pins: pins1, now: 1 }), pins1, 2).passage;
+  // A check run after the scene was set finds a contradiction.
+  b = Object.assign({}, b, { conflicts: C.parseContinuity({ conflicts: [{ fact: 'F1', quote: 'Kael knocked', why: 'She never opens it.' }] }, b.text, { F1: { id: 'fq1', v: 1 } }) });
+  passages.set(b.id, b);
+  C.reviseFact(entities[0].facts[0], 'Kael is sixteen.', 3);
+  const idx = C.factIndex(entities);
+  const r = C.chapterProblems({ chapter: c1, chapterId: 'c1', passages, idx });
+  assert.deepEqual(r.problems.filter((x) => x.block).map((x) => [x.k, x.kind]), [[0, 'stale'], [1, 'conflict']]);
+  const model = C.bookModel({ world: w, chapters, passages, entities });
+  assert.deepEqual(model.problems.map((x) => [x.chapter, x.k, x.kind]), [['c1', 0, 'stale'], ['c1', 1, 'conflict']]);
+  assert.deepEqual(C.bookModel({ world: w, chapters, passages }).problems, [], 'no canon given, nothing to judge');
+});

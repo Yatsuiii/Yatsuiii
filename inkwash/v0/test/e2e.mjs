@@ -95,7 +95,7 @@ function mockClaude(cfg) {
   }
   sample.json = async (input, opts) => {
     M.calls.push({ kind: 'json', input: String(input), tier: opts && opts.modelTier });
-    if (String(input).startsWith('You are checking one scene')) return { conflicts: [{ fact: 'F1', quote: 'forgot what came after four', why: 'A test contradiction.' }] };
+    if (String(input).startsWith('You are checking one scene')) return { conflicts: [{ fact: 'F1', quote: 'forgot what came after four', why: 'A test contradiction.' }], relies: ['F1'] };
     if (String(input).includes('caught this fragment')) return { seeds: [{ kind: 'place', name: 'The Candle Gardens', fact: 'Inside the moon, candles grow like tulips.' }] };
     return {};
   };
@@ -127,10 +127,14 @@ const browser = await chromium.launch();
 let failures = 0;
 async function step(name, fn) {
   try { await fn(); console.log('ok   ' + name); }
-  catch (e) { failures++; console.log('FAIL ' + name + '\n     ' + String(e && e.stack || e).split('\n').slice(0, 6).join('\n     ')); }
+  catch (e) {
+    failures++;
+    console.log('FAIL ' + name + '\n     ' + String(e && e.stack || e).split('\n').slice(0, 6).join('\n     '));
+    if (typeof errors !== 'undefined' && errors.length) console.log('     page errors so far: ' + errors.join(' | '));
+  }
 }
 async function open(cfg, viewport, scheme) {
-  const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 950 }, colorScheme: scheme || 'light' });
+  const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 950 }, colorScheme: scheme || 'light', permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
@@ -209,7 +213,16 @@ await step('inking a scene streams wet ink, keeps the pin and checks continuity'
   assert.ok(p.text.includes('The moon had a door in it, and the door was open.'));
   assert.ok(p.spans.some((x) => x.o === 'pinned' && !x.wet));
   assert.ok(p.spans.some((x) => x.o === 'inked' && x.wet));
-  assert.equal(p.pending.length, 2, 'two known facts used; the unknown F99 is ignored');
+  const listed = await st(page, () => {
+    const S = window.__inkwash.state;
+    const call = window.__mock.calls.find((c) => c.kind === 'text').input;
+    const ids = ['F1', 'F2'].map((k) => { const m = call.match(new RegExp('\\[' + k + '\\] (.+)')); return m && m[1]; });
+    const facts = [...S.canon.values()].flatMap((e) => e.facts);
+    return ids.map((t) => (facts.find((f) => f.text === t) || {}).id);
+  });
+  const pend = p.pending.map((x) => x.f);
+  assert.ok(listed.every((f) => f && pend.includes(f)), 'the two known facts the model listed are premises; the unknown F99 is ignored');
+  assert.ok(pend.length > 2, 'facts whose words are on the page are premises too: ' + pend.join(', '));
   assert.equal(p.proposals.length, 1);
   assert.equal(await page.textContent('#scene-pill'), 'Wet ink');
   await page.waitForSelector('.conflict', { timeout: 5000 });
@@ -235,13 +248,23 @@ await step('typing by hand is recorded as the author’s', async () => {
   assert.match(await page.textContent('#scene-meter'), /\d+% your hand/);
 });
 
+await step('a contradiction blocks the seal until the author keeps it or fixes it', async () => {
+  assert.equal(await page.isDisabled('#set-button'), true);
+  assert.match(await page.textContent('#set-row'), /Resolve the contradiction above first/);
+  await page.click('.conflict button:has-text("Keep it as written")');
+  await page.waitForSelector('.conflict.kept');
+  assert.equal(await page.isDisabled('#set-button'), false);
+});
+
 await step('setting with the seal dries the ink and records premises', async () => {
+  const pending = await st(page, () => window.__inkwash.state.passages.get('c_door__s1').pending.map((x) => x.f));
   await page.click('#set-button');
   await page.waitForSelector('.seal-mark');
   await settle(page);
   const p = await st(page, () => window.__inkwash.state.passages.get('c_door__s1'));
   assert.equal(p.spans.some((x) => x.wet), false);
-  assert.equal(p.premises.length, 2);
+  assert.ok(pending.every((f) => p.premises.some((x) => x.f === f)), 'everything pending is now a premise');
+  assert.match(await page.textContent('#set-row'), new RegExp(`The ledger recorded ${p.premises.length} facts`));
   assert.equal(await page.textContent('#scene-pill'), 'Set');
   const saved = await st(page, () => JSON.parse(window.__mock.docs.get('studio/w_hollow_moon/passages/c_door__s1')));
   assert.ok(saved.setAt > 0);
@@ -259,6 +282,10 @@ await step('rewording a fact flags exactly the scenes that used it, and still-tr
   assert.match(msg, /now flagged: .*chapter 2, scene 1/);
   await page.click('.toast.warn button:has-text("Show me")');
   await page.waitForSelector('.stale-box');
+  // The fact may also be one an example scene relies on, so open chapter 2, scene 1 by name.
+  await page.evaluate(() => { window.__inkwash.state.k = 0; });
+  await page.click('.rail-item >> nth=1');
+  await page.waitForFunction(() => window.__inkwash.state.cid === 'c_door' && document.querySelector('.stale-box'));
   await page.click('.stale-box button:has-text("Still true")');
   try { await page.waitForFunction(() => document.querySelector('#scene-pill').textContent === 'Set', null, { timeout: 4000 }); }
   catch (err) {
@@ -330,8 +357,36 @@ await step('chapter 1 cannot be published while a scene is stale or wet', async 
   assert.equal(await st(page, () => window.__mock.docs.has('published/w_hollow_moon/chapters/c_lamps')), false);
 });
 
+await step('cutting and pasting back, or deleting and undoing, leaves the hand meter alone', async () => {
+  await page.click('#ch-c_lamps .scene-block >> nth=2 >> button:has-text("Open in the score")');
+  await page.waitForSelector('.sheet h2:has-text("Scene 3")');
+  const read = () => st(page, () => { const p = window.__inkwash.state.passages.get('c_lamps__s3'); return { text: p.text, spans: JSON.stringify(p.spans), meter: document.querySelector('#scene-meter').textContent }; });
+  const before = await read();
+  await page.click('#passage-text');
+  await page.keyboard.press('Control+A'); await page.keyboard.press('Control+X'); await page.keyboard.press('Control+V');
+  await settle(page);
+  assert.deepEqual(await read(), before);
+  await page.click('#passage-text');
+  await page.keyboard.press('Control+A'); await page.keyboard.press('Delete'); await page.keyboard.press('Control+Z');
+  await settle(page);
+  assert.deepEqual(await read(), before);
+  await page.evaluate(() => navigator.clipboard.writeText(' A crow sat on the lamp and said nothing.'));
+  await page.click('#passage-text');
+  await page.keyboard.press('Control+End'); await page.keyboard.press('Control+V');
+  await settle(page);
+  const after = await read();
+  assert.equal(after.meter, before.meter, 'pasted words are not the author’s hand');
+  assert.ok(JSON.parse(after.spans).some((x) => x.o === 'pasted'));
+  assert.match(await page.textContent('.legend'), /pasted in/);
+});
+
 await step('exports: EPUB, provenance report and bible', async () => {
+  await page.click('.tab >> text=Book');
+  await page.waitForSelector('.book-page');
   await page.click('.exports >> text=EPUB');
+  await page.waitForSelector('.modal');
+  assert.match(await page.textContent('.modal'), /Chapter 1, scene 2 is stale/);
+  await page.click('.modal button:has-text("Export anyway")');
   await page.click('.exports >> text=Who wrote what (Markdown)');
   await page.click('.exports >> text=The bible (JSON)');
   await page.waitForFunction(() => window.__mock.saves.length >= 3);

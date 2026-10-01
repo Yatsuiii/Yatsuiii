@@ -174,6 +174,8 @@ For every passage, Inkwash records:
 - which spans you typed or pinned;
 - which spans the model inked and you set unchanged;
 - which spans the model inked and you edited, and what you changed;
+- which spans were pasted in from outside the studio. Their origin is unknown, so they never count
+  as yours. Text moved inside the studio (cut and pasted, dragged, undone) keeps its origin;
 - the direction you gave it: strokes, notes and pins;
 - for every canon fact, whether you wrote it or accepted it from a suggestion;
 - when each of these happened.
@@ -332,7 +334,7 @@ chapter(id, world, book, position)
 stroke(id, chapter, lane, path, params)
 pin(id, chapter, position, text)
 passage(id, chapter, region, text, state: wet|set|stale)
-span(passage, start, end, origin: typed|pinned|inked|inked_edited)
+span(passage, start, end, origin: typed|pinned|inked|inked_edited|pasted)
 premise(passage, fact, version)
 claim(world, key, holder, expires)
 license(id, world, tier, terms, buyer, status)
