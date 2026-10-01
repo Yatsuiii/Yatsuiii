@@ -6,6 +6,7 @@ It runs as a single page published as a claude.ai artifact:
 - **Live:** https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK
 - **Access:** private to its owner until it's shared from the page's Share menu.
 - **Examples:** *The Drained Sea*, a world dreamed from three sentences, and *The Hollow Moon*, a book in progress.
+- **Pictures, film and worlds:** Dream Canvas (`../canvas`) turns a sketch into a real picture, a moving shot and a world you can walk through. It runs on your own computer, with your own keys.
 
 ## What it does
 

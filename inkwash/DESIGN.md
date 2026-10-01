@@ -309,6 +309,19 @@ to it.
 
 That's enough for stage 0.
 
+### Dream Canvas: pictures, film and worlds, from a small local server
+
+v0 can't make real images: a claude.ai page holds no API keys and reaches no image model. Dream
+Canvas (`canvas/`) is the first piece that runs outside it. It's a zero-dependency Node server on
+the author's own computer that holds their Google and World Labs keys:
+- you draw;
+- Gemini's picture model paints the sketch as a real place and widens it into a panorama;
+- Veo sets it moving;
+- World Labs builds a world you walk through in the page, drawn with Spark.
+
+An Inkwash backup supplies the canon, so a picture keeps to what the world says about the place.
+Each painting is a take, keeping everything that grew from it. See `canvas/README.md`.
+
 ### v1: a standalone web app, when the library opens
 
 - **Web client:** the canvas, the editor and the reader.
