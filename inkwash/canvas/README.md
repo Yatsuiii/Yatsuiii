@@ -35,13 +35,19 @@ It runs as a small server on your own computer, because a page on claude.ai can'
 ## Run it
 
 1. Get the keys:
-   - `GEMINI_API_KEY`, from https://aistudio.google.com/apikey. It covers pictures and video. Google charges for each picture and each second of video, so the key's project needs billing turned on.
-   - `WORLDLABS_API_KEY`, from https://platform.worldlabs.ai/api-keys. It covers worlds. It's optional: without it, everything but "Step inside" works.
+   - `GEMINI_API_KEY`, for pictures and video. Either kind of Google key works:
+     - an AI Studio key (`AIza…`) from https://aistudio.google.com/apikey goes through the Gemini API;
+     - a Google Cloud key (`AQ.…`, Vertex AI) goes through Vertex AI, and its videos come with sound.
+
+     The canvas tells them apart by their shape, and tries the other route if one refuses the key. Google charges for each picture and each second of video, so the key's project needs billing turned on.
+   - `WORLDLABS_API_KEY`, from https://platform.worldlabs.ai/api-keys, for worlds. It's optional: without it, everything but "Step inside" works.
 2. Start the server from the repository's root:
    ```
    GEMINI_API_KEY=... WORLDLABS_API_KEY=... node inkwash/canvas/server.mjs
    ```
 3. Open http://localhost:8787.
+
+In a Claude Code cloud environment, start it with `NODE_USE_ENV_PROXY=1` in front: Node's own fetch ignores the environment's proxy otherwise.
 
 The header shows what's connected. If Google refuses the key, it says so there.
 
@@ -60,7 +66,9 @@ Nothing is charged.
 **Other options:**
 - `--port 8787`.
 - `--data <folder>`: where scenes are kept. The default is `inkwash/canvas/data`, which git ignores.
-- `GEMINI_IMAGE_MODEL` and `GEMINI_VIDEO_MODEL` pin a model. By default the server asks Google which models the key can use. It picks the newest Nano Banana (`gemini-3.1-flash-image` first) and the cheapest Veo 3.1 (Lite first, then Fast).
+- `GEMINI_IMAGE_MODEL` and `GEMINI_VIDEO_MODEL` pin a model. By default it takes the newest Nano Banana (`gemini-3.1-flash-image` first) and the cheapest Veo 3.1 (Lite first, then Fast):
+  - with an AI Studio key, it first asks Google which models the key can use;
+  - on Vertex AI, it moves down the list past any model the project doesn't have.
 
 ## What it costs
 
@@ -114,7 +122,7 @@ The end-to-end test needs Playwright installed globally. It takes the page from 
 ## Known limits
 
 - **Not yet run against the live services.**
-  - The requests and answers follow the official SDKs (`@google/genai` 2.25 and the World Labs OpenAPI client) and are unit-tested against those shapes.
+  - The requests and answers follow the official SDKs (`@google/genai` 2.25, both its Gemini API and Vertex AI paths, and the World Labs OpenAPI client) and are unit-tested against those shapes.
   - The first real run may still turn up a detail they don't show.
   - Errors are passed through word for word, so whatever goes wrong will say what it is.
 - **The picture is a new painting, not an exact trace.** The model keeps the layout, but it may move or change small things.

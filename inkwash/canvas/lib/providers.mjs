@@ -5,6 +5,7 @@
 // provider stands in for both when testing or demonstrating without keys.
 
 export const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
+export const VERTEX = 'https://aiplatform.googleapis.com/v1beta1';
 export const WORLDLABS = 'https://api.worldlabs.ai/marble/v1';
 
 export class ProviderError extends Error {
@@ -87,10 +88,11 @@ export function readImage(json) {
 
 // ---------------------------------------------------------------- Gemini: video (Veo)
 
-export function videoBody({ image, mime, prompt, aspect, seconds, resolution }) {
+// Sound is asked for only on Vertex AI; the Gemini API refuses the setting.
+export function videoBody({ image, mime, prompt, aspect, seconds, resolution, audio }) {
   return {
     instances: [{ prompt, image: { bytesBase64Encoded: image, mimeType: mime || 'image/png' } }],
-    parameters: Object.assign({ aspectRatio: aspect || '16:9' }, seconds ? { durationSeconds: seconds } : {}, resolution ? { resolution } : {}),
+    parameters: Object.assign({ aspectRatio: aspect || '16:9' }, seconds ? { durationSeconds: seconds } : {}, resolution ? { resolution } : {}, audio != null ? { generateAudio: !!audio } : {}),
   };
 }
 const progressOf = (meta) => {
@@ -102,9 +104,11 @@ export function readVideoOp(json) {
   if (!json || typeof json.name !== 'string') throw new ProviderError('the video service answered with no operation', 'bad_answer');
   if (json.error) return { done: true, name: json.name, error: json.error.message || 'the video failed' };
   if (!json.done) return { done: false, name: json.name, progress: progressOf(json.metadata) };
+  // the Gemini API answers with generatedSamples[].video; Vertex AI with videos[], usually inline
   const resp = json.response && (json.response.generateVideoResponse || json.response);
-  const v = resp && resp.generatedSamples && resp.generatedSamples[0] && resp.generatedSamples[0].video;
-  if (v && (v.uri || v.encodedVideo)) return { done: true, name: json.name, uri: v.uri || null, bytes: v.encodedVideo || null, mime: v.encoding || 'video/mp4' };
+  const v = resp && ((resp.generatedSamples && resp.generatedSamples[0] && resp.generatedSamples[0].video) || (resp.videos && resp.videos[0]));
+  const uri = v && (v.uri || v.gcsUri), bytes = v && (v.encodedVideo || v.bytesBase64Encoded);
+  if (uri || bytes) return { done: true, name: json.name, uri: uri || null, bytes: bytes || null, mime: v.encoding || v.mimeType || 'video/mp4' };
   const reasons = resp && resp.raiMediaFilteredReasons;
   return { done: true, name: json.name, error: reasons && reasons.length ? `the video was held back: ${reasons.join('; ')}` : 'no video came back' };
 }
@@ -216,41 +220,84 @@ async function call(f, url, init, headers) {
   return json;
 }
 
-export function gemini({ key, fetch: f = globalThis.fetch, imageModel, videoModel }) {
+// Google has two doors to the same models. A key from AI Studio ("AIza…") opens the Gemini API; a
+// Google Cloud key ("AQ.…", Vertex AI's express mode) opens Vertex AI. The key's shape picks the
+// door, and if that door refuses the key, the other is tried once. Paths follow the SDK for each.
+export function googleApi(key) { return /^AIza/.test(String(key || '')) ? 'studio' : 'vertex'; }
+const DOORS = {
+  studio: { base: GEMINI, model: (m) => `models/${m}` },
+  vertex: { base: VERTEX, model: (m) => `publishers/google/models/${m}` },
+};
+// a model this key, region or door doesn't have: the next one in the list is tried
+const missing = (e) => e.status === 404 || (e.status === 400 && /not found|not supported|unsupported model|does not exist/i.test(e.message));
+
+export function gemini({ key, fetch: f = globalThis.fetch, imageModel, videoModel, api }) {
   const headers = { 'x-goog-api-key': key };
-  let chosen = null;
+  let door = api || googleApi(key), tried = !!api, chosen = null;
   async function models() {
     if (chosen) return chosen;
     let found = { image: null, video: null };
-    try {
-      const all = [];
-      let token = '';
-      for (let page = 0; page < 5; page++) {
-        const json = await call(f, `${GEMINI}/models?pageSize=1000${token ? '&pageToken=' + encodeURIComponent(token) : ''}`, { method: 'GET' }, headers);
-        all.push(...((json && json.models) || []));
-        token = json && json.nextPageToken;
-        if (!token) break;
+    if (door === 'studio') {
+      try {
+        const all = [];
+        let token = '';
+        for (let page = 0; page < 5; page++) {
+          const json = await call(f, `${GEMINI}/models?pageSize=1000${token ? '&pageToken=' + encodeURIComponent(token) : ''}`, { method: 'GET' }, headers);
+          all.push(...((json && json.models) || []));
+          token = json && json.nextPageToken;
+          if (!token) break;
+        }
+        found = pickModels(all);
+      } catch (e) {
+        if (e.code === 'bad_key') throw e; // an AI Studio key the Gemini API refuses is simply wrong
       }
-      found = pickModels(all);
-    } catch (e) {
-      if (e.code === 'bad_key') throw e;
     }
-    chosen = { image: imageModel || found.image || IMAGE_MODELS[0], video: videoModel || found.video || VIDEO_MODELS[0] };
+    chosen = { api: door, image: imageModel || found.image || IMAGE_MODELS[0], video: videoModel || found.video || VIDEO_MODELS[0] };
     return chosen;
+  }
+  // the first call learns which door takes this key
+  async function through(run) {
+    try { return await run(); } catch (e) {
+      if (e.code !== 'bad_key' || tried) throw e;
+      tried = true;
+      const was = door;
+      door = door === 'studio' ? 'vertex' : 'studio';
+      chosen = null;
+      // the other door is kept only if it got past the key; otherwise the first refusal is the news
+      try { return await run(); } catch (e2) { if (e2.code === 'bad_key' || e2.code === 'network') { door = was; chosen = null; throw e; } throw e2; }
+    }
+  }
+  // the chosen model first, then the rest of the list, until one exists here
+  async function withModel(kind, run) {
+    const m = await models(), pinned = kind === 'image' ? imageModel : videoModel;
+    const list = pinned ? [pinned] : [m[kind], ...(kind === 'image' ? IMAGE_MODELS : VIDEO_MODELS).filter((x) => x !== m[kind])];
+    let first = null;
+    for (const name of list) {
+      try { const out = await run(DOORS[door], name); m[kind] = name; return out; } catch (e) { if (!missing(e)) throw e; first = first || e; }
+    }
+    throw first;
   }
   return {
     name: 'gemini',
     models,
     async paint({ image, mime, prompt, aspect, size }) {
-      const m = await models();
-      return readImage(await call(f, `${GEMINI}/models/${m.image}:generateContent`, { method: 'POST', body: JSON.stringify(paintBody({ image, mime, prompt, aspect, size })) }, headers));
+      return through(() => withModel('image', async (d, model) =>
+        readImage(await call(f, `${d.base}/${d.model(model)}:generateContent`, { method: 'POST', body: JSON.stringify(paintBody({ image, mime, prompt, aspect, size })) }, headers))));
     },
     async startVideo({ image, mime, prompt, aspect, seconds, resolution }) {
-      const m = await models();
-      return readVideoOp(await call(f, `${GEMINI}/models/${m.video}:predictLongRunning`, { method: 'POST', body: JSON.stringify(videoBody({ image, mime, prompt, aspect, seconds, resolution })) }, headers));
+      return through(() => withModel('video', async (d, model) =>
+        readVideoOp(await call(f, `${d.base}/${d.model(model)}:predictLongRunning`, { method: 'POST', body: JSON.stringify(videoBody({ image, mime, prompt, aspect, seconds, resolution, audio: d === DOORS.vertex ? true : null })) }, headers))));
     },
-    async pollVideo(name) { return readVideoOp(await call(f, `${GEMINI}/${name}`, { method: 'GET' }, headers)); },
+    // a Vertex AI operation is read back through its model; a Gemini API one by its own name
+    async pollVideo(name) {
+      if (/^(projects|publishers)\//.test(name)) {
+        const json = await call(f, `${VERTEX}/${name.split('/operations/')[0]}:fetchPredictOperation`, { method: 'POST', body: JSON.stringify({ operationName: name }) }, headers);
+        return readVideoOp(Object.assign({ name }, json));
+      }
+      return readVideoOp(await call(f, `${GEMINI}/${name}`, { method: 'GET' }, headers));
+    },
     async download(uri) {
+      if (/^gs:\/\//.test(uri)) throw new ProviderError('the video was saved to Google Cloud Storage, which the canvas can\'t read', 'api_error');
       const url = /^https?:/.test(uri) ? uri : `${GEMINI}/${uri.replace(/^\/+/, '')}`;
       let res;
       try { res = await f(url, { headers }); } catch (e) { throw new ProviderError(`couldn't download the video (${e.message})`, 'network'); }

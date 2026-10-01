@@ -17,6 +17,7 @@ function recorder(answers) {
   };
   return { f, calls };
 }
+const STUDIO_KEY = 'AIza' + 'x'.repeat(35); // the shape of an AI Studio key; a test value
 const MODELS = { models: [
   { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
   { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] },
@@ -90,20 +91,20 @@ test('the newest picture model and the cheapest Veo are chosen from what the key
 test('the Gemini client: the key in a header, the chosen model, and errors that say what to do', async () => {
   const pages = recorder([reply(200, { models: MODELS.models.slice(0, 2), nextPageToken: 'p2' }), reply(200, { models: MODELS.models.slice(2) }),
     reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'UE5H' } }] } }] })]);
-  const g = P.gemini({ key: 'k-123', fetch: pages.f });
+  const g = P.gemini({ key: STUDIO_KEY, fetch: pages.f });
   const out = await g.paint({ image: 'U0s=', mime: 'image/png', prompt: 'paint', aspect: '16:9' });
   assert.deepEqual(out, { mime: 'image/png', data: 'UE5H', text: '' });
   assert.equal(pages.calls[0].url, `${P.GEMINI}/models?pageSize=1000`);
   assert.equal(pages.calls[1].url, `${P.GEMINI}/models?pageSize=1000&pageToken=p2`);
   assert.equal(pages.calls[2].url, `${P.GEMINI}/models/gemini-3.1-flash-image:generateContent`);
   assert.equal(pages.calls[2].method, 'POST');
-  assert.equal(pages.calls[2].headers['x-goog-api-key'], 'k-123');
+  assert.equal(pages.calls[2].headers['x-goog-api-key'], STUDIO_KEY);
   assert.equal(pages.calls[2].body.contents[0].parts[1].inlineData.data, 'U0s=');
-  assert.ok(pages.calls.every((c) => !c.url.includes('k-123')), 'the key never goes in a URL');
+  assert.ok(pages.calls.every((c) => !c.url.includes(STUDIO_KEY)), 'the key never goes in a URL');
 
   const pinned = recorder([reply(200, { models: [] }), reply(200, { name: 'models/my-veo/operations/1' }), reply(200, { name: 'models/my-veo/operations/1', done: false })]);
-  const g2 = P.gemini({ key: 'k', fetch: pinned.f, imageModel: 'my-image', videoModel: 'my-veo' });
-  assert.deepEqual(await g2.models(), { image: 'my-image', video: 'my-veo' });
+  const g2 = P.gemini({ key: STUDIO_KEY, fetch: pinned.f, imageModel: 'my-image', videoModel: 'my-veo' });
+  assert.deepEqual(await g2.models(), { api: 'studio', image: 'my-image', video: 'my-veo' });
   assert.deepEqual(await g2.startVideo({ image: 'QQ==', prompt: 'move', seconds: 4 }), { done: false, name: 'models/my-veo/operations/1', progress: null });
   assert.equal(pinned.calls[1].url, `${P.GEMINI}/models/my-veo:predictLongRunning`);
   assert.equal(pinned.calls[1].body.parameters.durationSeconds, 4);
@@ -112,14 +113,14 @@ test('the Gemini client: the key in a header, the chosen model, and errors that 
   assert.equal(pinned.calls[2].method, 'GET');
 
   const dl = recorder([reply(200, 'MP4BYTES')]);
-  const g3 = P.gemini({ key: 'k-9', fetch: dl.f, imageModel: 'i', videoModel: 'v' });
+  const g3 = P.gemini({ key: STUDIO_KEY, fetch: dl.f, imageModel: 'i', videoModel: 'v' });
   assert.equal((await g3.download('files/abc:download?alt=media')).toString(), 'MP4BYTES');
   assert.equal(dl.calls[0].url, `${P.GEMINI}/files/abc:download?alt=media`);
-  assert.equal(dl.calls[0].headers['x-goog-api-key'], 'k-9');
+  assert.equal(dl.calls[0].headers['x-goog-api-key'], STUDIO_KEY);
 
   const fail = async (status, body) => {
     const r = recorder([reply(200, { models: [] }), reply(status, body)]);
-    try { await P.gemini({ key: 'k', fetch: r.f }).paint({ image: 'x', prompt: 'p' }); } catch (e) { return [e.code, e.message]; }
+    try { await P.gemini({ key: STUDIO_KEY, fetch: r.f }).paint({ image: 'x', prompt: 'p' }); } catch (e) { return [e.code, e.message]; }
   };
   assert.deepEqual(await fail(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } }),
     ['bad_key', 'generativelanguage.googleapis.com said 400: API key not valid. Please pass a valid API key.'], 'Google says a key is wrong with a 400');
@@ -128,9 +129,65 @@ test('the Gemini client: the key in a header, the chosen model, and errors that 
   assert.equal((await fail(429, { error: { message: 'Quota exceeded' } }))[0], 'rate_limited');
   assert.equal((await fail(500, 'oops'))[1], 'generativelanguage.googleapis.com said 500: oops');
   const offline = recorder([reply(200, { models: [] }), new TypeError('fetch failed')]);
-  await assert.rejects(P.gemini({ key: 'k', fetch: offline.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'network' && /couldn't reach generativelanguage/.test(e.message));
+  await assert.rejects(P.gemini({ key: STUDIO_KEY, fetch: offline.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'network' && /couldn't reach generativelanguage/.test(e.message));
   const refused = recorder([reply(401, { error: { message: 'bad key' } })]);
-  await assert.rejects(P.gemini({ key: 'k', fetch: refused.f }).models(), (e) => e.code === 'bad_key', 'a refused key is reported, not hidden behind default models');
+  await assert.rejects(P.gemini({ key: STUDIO_KEY, fetch: refused.f }).models(), (e) => e.code === 'bad_key', 'a refused key is reported, not hidden behind default models');
+});
+
+test('a Google Cloud key goes through Vertex AI, as the SDK does in express mode', async () => {
+  const name = 'projects/p1/locations/us-central1/publishers/google/models/veo-3.1-lite-generate-001/operations/op7';
+  const r = recorder([
+    reply(404, { error: { code: 404, message: 'Publisher Model `gemini-3.1-flash-image` was not found.' } }),
+    reply(200, { candidates: [{ content: { role: 'model', parts: [{ inlineData: { mimeType: 'image/png', data: 'VlRY' } }] } }] }),
+    reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'VlRZ' } }] } }] }),
+    reply(200, { name }),
+    reply(200, { done: true, response: { '@type': 'type.googleapis.com/cloud.ai.large_models.vision.GenerateVideoResponse', videos: [{ bytesBase64Encoded: 'TVA0', mimeType: 'video/mp4' }] } }),
+  ]);
+  assert.equal(P.googleApi('AQ.Ab8-test'), 'vertex');
+  assert.equal(P.googleApi(STUDIO_KEY), 'studio');
+  const g = P.gemini({ key: 'AQ.Ab8-test', fetch: r.f });
+  assert.deepEqual(await g.models(), { api: 'vertex', image: P.IMAGE_MODELS[0], video: P.VIDEO_MODELS[0] }, 'no model list to read on Vertex');
+  assert.equal(r.calls.length, 0);
+  assert.equal((await g.paint({ image: 'U0s=', prompt: 'paint' })).data, 'VlRY');
+  assert.equal(r.calls[0].url, `${P.VERTEX}/publishers/google/models/gemini-3.1-flash-image:generateContent`);
+  assert.equal(r.calls[1].url, `${P.VERTEX}/publishers/google/models/gemini-3.1-flash-image-preview:generateContent`, 'a model Vertex lacks is skipped');
+  assert.equal(r.calls[1].headers['x-goog-api-key'], 'AQ.Ab8-test');
+  assert.equal(r.calls[1].body.contents[0].role, 'user');
+  assert.equal((await g.paint({ image: 'U0s=', prompt: 'again' })).data, 'VlRZ');
+  assert.equal(r.calls[2].url, r.calls[1].url, 'and the model that worked is remembered');
+  const op = await g.startVideo({ image: 'QQ==', prompt: 'move', seconds: 4 });
+  assert.equal(r.calls[3].url, `${P.VERTEX}/publishers/google/models/veo-3.1-lite-generate-001:predictLongRunning`);
+  assert.equal(r.calls[3].body.parameters.generateAudio, true, 'Vertex videos come with sound');
+  assert.equal(r.calls[3].body.instances[0].image.bytesBase64Encoded, 'QQ==');
+  assert.deepEqual(op, { done: false, name, progress: null });
+  const done = await g.pollVideo(name);
+  assert.equal(r.calls[4].url, `${P.VERTEX}/projects/p1/locations/us-central1/publishers/google/models/veo-3.1-lite-generate-001:fetchPredictOperation`);
+  assert.equal(r.calls[4].method, 'POST');
+  assert.deepEqual(r.calls[4].body, { operationName: name });
+  assert.deepEqual(done, { done: true, name, uri: null, bytes: 'TVA0', mime: 'video/mp4' });
+  assert.equal(P.videoBody({ image: 'x', prompt: 'p' }).parameters.generateAudio, undefined, 'never sent to the Gemini API, which refuses it');
+  await assert.rejects(g.download('gs://bucket/v.mp4'), /Google Cloud Storage/);
+  assert.equal(P.readVideoOp({ name, done: true, response: { videos: [{ gcsUri: 'gs://b/v.mp4' }] } }).uri, 'gs://b/v.mp4');
+});
+
+test('a key the first door refuses is tried at the other, and the first refusal is what you hear', async () => {
+  const swap = recorder([
+    reply(401, { error: { code: 401, message: 'API keys are not supported by this API.', status: 'UNAUTHENTICATED' } }),
+    reply(200, MODELS),
+    reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'T0s=' } }] } }] }),
+  ]);
+  const g = P.gemini({ key: 'odd-key', fetch: swap.f });
+  assert.equal((await g.paint({ image: 'x', prompt: 'p' })).data, 'T0s=');
+  assert.match(swap.calls[0].url, /^https:\/\/aiplatform\.googleapis\.com\//);
+  assert.equal(swap.calls[1].url, `${P.GEMINI}/models?pageSize=1000`);
+  assert.equal(swap.calls[2].url, `${P.GEMINI}/models/gemini-3.1-flash-image:generateContent`);
+  assert.equal((await g.models()).api, 'studio', 'and the door that worked is kept');
+
+  const both = recorder([reply(401, { error: { message: 'Vertex says no' } }), reply(400, { error: { message: 'API key not valid. Please pass a valid API key.' } })]);
+  await assert.rejects(P.gemini({ key: 'AQ.bad', fetch: both.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'bad_key' && /aiplatform\.googleapis\.com said 401: Vertex says no/.test(e.message));
+  const pinned = recorder([reply(401, { error: { message: 'no' } })]);
+  await assert.rejects(P.gemini({ key: 'AQ.x', fetch: pinned.f, api: 'vertex' }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'bad_key');
+  assert.equal(pinned.calls.length, 1, 'a chosen door is never switched');
 });
 
 test('a world request, its operation, and the world it makes', () => {
