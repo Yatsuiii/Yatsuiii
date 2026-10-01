@@ -1,5 +1,9 @@
 # Outreach: 14 GitHub comments (text only, no calls)
 
+> **Update 2026-10-01:** the business was killed (`../DECISION.md`). These comments are now
+> **optional helpful replies, not a sales test**, and the decision rule below is retired. If you
+> post any, the three incident comments are the most useful.
+
 These go to the three incidents K1′ found, the ten "fence-builders" (people already hand-rolling
 a guard), and one bonus: the "probable" case, where one answer also settles how it was coded.
 Each comment gives one idea that is useful to *that* team whether or not they ever reply, and

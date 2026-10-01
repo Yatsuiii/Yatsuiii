@@ -2,6 +2,9 @@
 
 Guards for repos where several AI agents work at once.
 
+> **Status:** open-source and working (37 tests), but not a product. The business case was
+> dropped on 2026-10-01 ([why](../stalefence/DECISION.md)), and the tool is kept as-is.
+
 When two agent sessions share a repo, the dangerous moment is not the edit. It is the push,
 made on a plan that was built from files that have since changed. stalefence keeps a
 per-worktree ledger of what the agent read, and blocks the push or merge if the target branch

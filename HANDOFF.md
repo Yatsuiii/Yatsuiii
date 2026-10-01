@@ -11,6 +11,12 @@ reliability, evals and protocols.
 - He prefers **async, text-only** outreach: no calls.
 - Keep replies short and plain.
 
+> **Status update (2026-10-01): the business is killed.** Raghav decided stalefence won't be a
+> company: people build their own guards, the pain is small, and platforms can ship it for free.
+> See `stalefence/DECISION.md`. The research and the tool stay public as portfolio work. Don't
+> treat the outreach as a sales test, and don't push publishing as a product. **Your main job now
+> is helping screen the next idea** (section 5).
+
 ---
 
 ## 1. Get the code (PowerShell)
@@ -23,7 +29,7 @@ git log --oneline -5        # newest should mention "stalefence-guard" and "K1'"
 ```
 
 - `main` holds only his GitHub profile README. **All of this work is on
-  `claude/sleepy-bardeen-shw5sj`**, 39 commits ahead of `main`. It has never been merged.
+  `claude/sleepy-bardeen-shw5sj`**, 40+ commits ahead of `main`. It has never been merged.
 - Don't push to `main`, open PRs, or force-push without his explicit OK.
 
 What's on the branch:
@@ -31,8 +37,9 @@ What's on the branch:
 | Path | What it is | Status |
 | --- | --- | --- |
 | `stalefence/` | The research: three preregistered tests of the idea | Done (verdicts below) |
-| `stalefence-guard/` | The product: an open-source CLI, `stalefence` | Built, 37 tests pass on Linux, **untested on Windows** |
-| `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, **none posted** |
+| `stalefence-guard/` | An open-source CLI, `stalefence`, kept as portfolio work (not a product) | Built, 37 tests pass on Linux, **untested on Windows** |
+| `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, none posted, **now optional** |
+| `stalefence/DECISION.md` | Why the business was killed, what would reopen it, and the screen for the next idea | Read this first |
 | `mcp-drift/`, `pagedrift/`, `rewardhack/` | Earlier, unrelated kill tests (INCONCLUSIVE, KILLED, KILLED) | Finished, no action needed |
 
 ---
@@ -58,6 +65,9 @@ pay**. The wedge is narrow:
   and merges that git calls clean but that break;
 - (b) assistants acting on a belief that went stale elsewhere.
 
+**Decision (2026-10-01): killed as a business**, as a judgment on top of the tests. See
+`stalefence/DECISION.md`.
+
 The three incidents, which everything below is built around:
 - `thienphung00/Juli-AI#2036`: two agent sessions both took migration number 061. The result
   was a forked history, and a conflicting PR that silently skipped CI.
@@ -73,7 +83,7 @@ The three incidents, which everything below is built around:
 
 ---
 
-## 3. The product: `stalefence-guard/`
+## 3. The tool: `stalefence-guard/`
 
 It's a CLI named `stalefence`: Python 3.9+, **stdlib only**, and it shells out to **git 2.38+**.
 The name `stalefence` was free on PyPI and npm on 2026-09-30; `agentfence` is taken.
@@ -140,44 +150,41 @@ reproduce the incidents. Run `examples/demo.sh` to see two agents end to end; it
   (people already hand-rolling a guard), and 1 "probable" incident (`HPAC-Safety/safety-report#319`,
   where the answer also settles whether those sessions were AI agents). Each gives one concrete
   useful idea and asks one question, with no pitch and no links.
-- It also has the posting order, the pacing (**2–3 per day**), follow-up templates and a
-  **proposed decision rule**. The rule: continue if at least 3 replies describe a real occurrence
-  with a cost **and** at least 1 wants to try the tool. The weak and no-signal outcomes are
-  defined there too.
+- It also has the posting order, the pacing (2–3 per day) and follow-up templates. Its decision
+  rule was **retired** when the business was killed.
 - `tracker.csv` is where each post and reply gets logged.
-- Status: **nothing posted yet** (as of 2026-09-30).
+- Status: nothing posted. Since 2026-10-01 these are **optional helpful replies, not a sales
+  test**. If Raghav posts any, the three incident comments are the most useful.
 - **Raghav posts these from his account.** You may post one for him only if he explicitly says
   so for that comment. Show him the final text first, then use
   `gh issue comment <url> --body-file <file>`. Check that the issue is still open before posting.
 
 ---
 
-## 5. What to do next, in order
+## 5. What to do next
 
-1. **Get the guard green on Windows** (section 6). Set it up, run the 37 tests, and fix what
-   breaks without weakening any test. Report to Raghav in two lines.
-2. **Start the outreach with him.** On day 1, post comments #1–#3 from `COMMENTS.md` (the
-   incidents) after he has edited them into his own voice. Log them in `tracker.csv`. On later
-   days, 2–3 more per day. When replies arrive (he pastes them, or you read them with `gh` if he
-   allows it), draft his answers using the follow-up templates.
-3. **Verify the coordination refs on GitHub.** With his OK, create a throwaway **private** repo,
-   then run `stalefence reserve` and `stalefence claim` against it from two clones.
-   - If GitHub rejects pushes to `refs/stalefence/*`, change the namespace. `refs/notes/stalefence/*`
-     is one candidate; test it.
-   - Update the README either way.
-4. **Prepare publishing, but only when he decides to.**
-   - Split into its own repo (`git subtree split --prefix=stalefence-guard -b stalefence-guard`)
-     and add `windows-latest` to `.github/workflows/test.yml`.
-   - Build with `python -m build` and upload with `twine`. He creates the PyPI token; never write
-     tokens into files or commits.
-5. **After 14 days of outreach,** apply the decision rule as written and write the result in the
-   same style as `K1P_RESULT.md`.
-6. **Backlog, only if demand shows up:**
-   - symbol-level premises, which cut false blocks when an unrelated part of a file changes;
-   - capturing Grep reads;
-   - integrations for Codex and Cursor;
-   - fencing for systems other than git (tickets, CRM, deploys via ETags). That is where the
-     original thesis is strongest.
+The stalefence work is finished. In order:
+
+1. **Help Raghav pick and screen the next idea**, using the screen in `stalefence/DECISION.md`:
+   1. Does a failure cost real money, to someone with a budget?
+   2. Is it hard to build yourself, and not something a platform can ship as a free feature?
+   3. Can buyers be reached in writing, with no calls?
+   4. Can a kill test run from public data in under a week?
+
+   Drop any idea that fails question 1 or 2 before building anything. For an idea that survives,
+   write a preregistration with kill rules first, in its own folder, the way
+   `stalefence/PREREGISTRATION.md` was done.
+2. **Optional, only if he asks:**
+   - get `stalefence-guard` green on Windows (section 6);
+   - publish it as its own open-source repo: `git subtree split --prefix=stalefence-guard -b stalefence-guard`,
+     then add `windows-latest` to `.github/workflows/test.yml`;
+   - help him post the three incident comments as helpful replies (section 4).
+3. **Optional:** before anyone relies on `reserve` or `claim` against GitHub, check that GitHub
+   accepts the coordination refs. With his OK, use a throwaway private repo and two clones. If
+   pushes to `refs/stalefence/*` are rejected, try `refs/notes/stalefence/*`.
+
+What would reopen stalefence is listed in `DECISION.md`. Don't reopen it without one of those
+signals.
 
 Things **not** to redo:
 - Don't re-mine GH Archive; it takes hours and the results are committed.
@@ -241,12 +248,12 @@ want to check.
 
 ## 8. Decisions that are Raghav's
 
-1. Does he post the comments himself, or does he approve you posting each one?
-2. Should `stalefence-guard` become its own public repo and a PyPI package, and when?
-3. Should this branch be merged into his profile repo's `main`? The research folders would then
+1. What the next idea is.
+2. Whether to publish `stalefence-guard` as its own open-source repo (as portfolio work), and
+   whether to post any of the comments.
+3. Whether to merge this branch into his profile repo's `main`. The research folders would then
    become public on the profile.
-4. What would change his mind? Suggested: the outreach decision rule after 14 days.
 
-**Suggested first message to him, once section 6 is done:**
-"stalefence on Windows: N/37 tests pass (fixed: …). Ready to post the first 3 comments. Want to
-edit them first, or should I show them one by one?"
+**Suggested first message to him:**
+"I've read the handoff. stalefence is closed and kept as portfolio work. What's the next idea you
+want to screen? I'll run it through the four questions in DECISION.md before we build anything."
