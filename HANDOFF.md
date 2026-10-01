@@ -23,8 +23,11 @@ reliability, evals and protocols.
 > - readers can visit;
 > - creators can license their worlds to producers and game developers.
 >
-> The design is in `inkwash/DESIGN.md`. **Nothing is built, and nothing gets built until Raghav
-> approves the design.**
+> The design is in `inkwash/DESIGN.md`. Raghav asked for the first slice to be built, and **v0 is
+> built and published** as a private claude.ai artifact: https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK.
+> Its code, tests and the ways it differs from the design are in `inkwash/v0/` (start with its
+> README). The next step is stage 0: Raghav builds a first world in it and shows it to ten fantasy
+> readers.
 >
 > Don't run it through the kill screen in `stalefence/DECISION.md`. That screen was written for
 > business tools that sell relief from a pain, and Raghav pushed back on kill-testing this one
@@ -53,7 +56,8 @@ What's on the branch:
 | `stalefence-guard/` | An open-source CLI, `stalefence`, kept as portfolio work (not a product) | Built, 37 tests pass on Linux, **untested on Windows** |
 | `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, none posted, **now optional** |
 | `stalefence/DECISION.md` | Why the business was killed, what would reopen it, and the screen for the next idea | Read this first |
-| `inkwash/DESIGN.md` | Design for the creative product: the brush, the canon and its ledgers, the library, the market, the architecture and the v0 scope | Design only, **not built**, waiting for Raghav's approval |
+| `inkwash/DESIGN.md` | Design for the creative product: the brush, the canon and its ledgers, the library, the market, the architecture and the v0 scope | Design draft; open questions in its section 15 |
+| `inkwash/v0/` | The first working version, a single-page claude.ai artifact, with 21 unit tests and 19 browser steps | Built and published (private) |
 | `mcp-drift/`, `pagedrift/`, `rewardhack/` | Earlier, unrelated kill tests (INCONCLUSIVE, KILLED, KILLED) | Finished, no action needed |
 
 ---
@@ -179,9 +183,11 @@ reproduce the incidents. Run `examples/demo.sh` to see two agents end to end; it
 
 The stalefence work is finished. In order:
 
-1. **Inkwash.** Read `inkwash/DESIGN.md`.
-   - Help Raghav finish the design. The open questions are in its section 15.
-   - Build v0 only after Raghav approves the design. The build order is in its section 12.
+1. **Inkwash.** Read `inkwash/DESIGN.md`, then `inkwash/v0/README.md`.
+   - v0 is live. Help Raghav through stage 0: build a first world in it and show it to ten
+     fantasy readers.
+   - Fix what Raghav finds. Republish to the same artifact URL, and run both test suites first.
+   - The design's open questions are in its section 15. The name is still a placeholder.
    - Don't apply the screen below to it.
 2. **For any other new idea**, use the screen in `stalefence/DECISION.md`:
    1. Does a failure cost real money, to someone with a budget?
@@ -271,8 +277,8 @@ want to check.
    whether to post any of the comments.
 3. Whether to merge this branch into his profile repo's `main`. The research folders would then
    become public on the profile.
-4. Whether the Inkwash design is approved, which unblocks v0, and what the product is called.
+4. What Inkwash is called, which world to build first, and what changes after trying v0.
 
 **Suggested first message to him:**
-"I've read the handoff and the Inkwash design. Do you want to keep shaping the design, starting
-with the open questions in its section 15, or is it approved so I can start on v0?"
+"I've read the handoff and tried Inkwash v0. Which world do you want to build first, and what
+felt wrong when you used it?"

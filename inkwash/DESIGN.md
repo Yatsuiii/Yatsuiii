@@ -1,7 +1,10 @@
 # Inkwash: design draft
 
-*Working name. Design only; nothing is built yet. 2026-10-01. "You" means Raghav, the first
-creator.*
+*Working name. 2026-10-01. "You" means Raghav, the first creator.*
+
+> **Status: v0 is built** (`v0/`, live at https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK).
+> It covers section 12, plus a minimal publish and reader view so stage 0 can happen. Where it
+> differs from this design is listed in `v0/README.md`.
 
 **In one line:** you paint the shape of a story, the AI inks it in, and the world keeps track of
 every fact. Other people can visit it, and when you choose, producers and game developers can

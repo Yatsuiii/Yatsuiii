@@ -1,0 +1,2211 @@
+/* Inkwash studio: the page. It reaches the claude.ai runtime only through claude.use(), keeps every
+ * world in the db capability (or in this browser, in sketchbook mode), and paints the score on a
+ * canvas. The logic that has to be exactly right lives in core.js (window.InkCore). */
+(function () {
+  'use strict';
+  const C = window.InkCore;
+  const N = C.SAMPLES;
+
+  // ---------------------------------------------------------------- DOM helpers
+
+  function h(tag, attrs) {
+    const el = document.createElement(tag);
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v == null || v === false) continue;
+        if (k === 'class') el.className = v;
+        else if (k === 'dataset') Object.assign(el.dataset, v);
+        else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+        else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+        else if (k === 'value') el.value = v;
+        else if (k === 'checked') el.checked = !!v;
+        else if (k === 'selected') el.selected = !!v;
+        else if (v === true) el.setAttribute(k, '');
+        else el.setAttribute(k, String(v));
+      }
+    }
+    for (let i = 2; i < arguments.length; i++) add(el, arguments[i]);
+    return el;
+  }
+  function add(el, kid) {
+    if (kid == null || kid === false) return;
+    if (Array.isArray(kid)) { for (const k of kid) add(el, k); return; }
+    el.appendChild(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  function svg(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, String(v));
+    return el;
+  }
+  function clear(el) { while (el && el.firstChild) el.removeChild(el.firstChild); }
+  const $ = (s, root) => (root || document).querySelector(s);
+  const now = () => Date.now();
+  const pct = (x) => Math.round((x || 0) * 100) + '%';
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
+  function when(ts) {
+    if (!ts) return '';
+    try { return new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+    catch (e) { return new Date(ts).toISOString().slice(0, 16).replace('T', ' '); }
+  }
+  function slug(s) { return String(s || 'world').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'world'; }
+
+  // Per-viewer conveniences only (last world, last tab). Never the work itself.
+  const local = {
+    get(k, d) { try { const v = localStorage.getItem('inkwash.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('inkwash.' + k, JSON.stringify(v)); } catch (e) { /* storage blocked: fine */ } },
+  };
+
+  // ---------------------------------------------------------------- state
+
+  const S = {
+    mode: 'loading', // loading | welcome | form | studio | reader
+    persist: null, // db | local
+    readOnly: false,
+    db: null, user: null, sample: null, downloads: null,
+    worlds: new Map(), worldsReady: false, pubWorlds: new Map(),
+    wid: null, loaded: new Set(),
+    canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), pub: new Map(),
+    view: 'score', cid: null, k: 0,
+    tool: 'brush', pigment: null,
+    showHand: local.get('showHand', true),
+    busy: {}, aiOff: null, form: null,
+    confirmReink: null, selection: null, flash: null,
+    publishTried: {}, preview: false,
+    reader: { wid: null, chapters: new Map(), pos: 0, unsub: null },
+    editBase: {}, editTimers: {},
+    unsub: [], ver: 0,
+    dbError: null,
+  };
+  const bump = () => { S.ver++; };
+
+  async function use(name) {
+    try { return window.claude && typeof window.claude.use === 'function' ? await window.claude.use(name) : null; }
+    catch (e) { return null; }
+  }
+
+  // ---------------------------------------------------------------- storage
+  // One write at a time per document, coalesced: the db capability asks for exactly this.
+
+  const P = {
+    world: (w) => `studio/${w}`,
+    canon: (w, id) => `studio/${w}/canon/${id}`,
+    chapters: (w, id) => `studio/${w}/chapters/${id}`,
+    passages: (w, id) => `studio/${w}/passages/${id}`,
+    seeds: (w, id) => `studio/${w}/seeds/${id}`,
+    pubWorld: (w) => `published/${w}`,
+    pubChapter: (w, id) => `published/${w}/chapters/${id}`,
+  };
+  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, pub: () => S.pub };
+  const W = new Map();
+  const dirty = new Set();
+
+  function queueWrite(path, data, delay) {
+    if (S.readOnly) return;
+    const size = JSON.stringify(data).length;
+    if (size > 250000) { toast("This can't be saved: it's over the 256 KB a single document can hold. Split the scene or trim its edit history.", 'error'); return; }
+    let w = W.get(path);
+    if (!w) { w = { timer: null, data: null, del: false, running: false }; W.set(path, w); }
+    w.data = data; w.del = false;
+    dirty.add(path);
+    clearTimeout(w.timer);
+    w.timer = setTimeout(() => flushPath(path), delay == null ? 500 : delay);
+    renderSaveState();
+  }
+  function queueDelete(path) {
+    if (S.readOnly) return;
+    let w = W.get(path);
+    if (!w) { w = { timer: null, data: null, del: false, running: false }; W.set(path, w); }
+    w.data = null; w.del = true;
+    dirty.add(path);
+    clearTimeout(w.timer);
+    w.timer = setTimeout(() => flushPath(path), 0);
+    renderSaveState();
+  }
+  function flushPath(path, retried) {
+    const w = W.get(path);
+    if (!w) return;
+    clearTimeout(w.timer); w.timer = null;
+    if (w.running) return; // the running write re-flushes when it finishes
+    const isDel = w.del, data = w.data;
+    w.data = null; w.del = false;
+    if (!isDel && data == null) { W.delete(path); dirty.delete(path); renderSaveState(); return; }
+    w.running = true;
+    const ref = S.db.doc(path);
+    (isDel ? ref.delete() : ref.set(data)).then(() => {
+      S.saveError = null;
+    }, (e) => {
+      const code = e && e.code;
+      if (code === 'unavailable' && !retried) {
+        if (w.data == null && !w.del) { w.data = data; w.del = isDel; }
+        setTimeout(() => flushPath(path, true), 400 + Math.random() * 900);
+      } else if (code === 'resource_exhausted') {
+        if (w.data == null && !w.del) { w.data = data; w.del = isDel; }
+        setTimeout(() => flushPath(path), 3000);
+      } else {
+        S.saveError = code === 'quota_exceeded' ? "Inkwash's storage on this page is full. Delete an old world or some dreams to make room."
+          : code === 'invalid_argument' ? "This view can't save changes to your studio." : code === 'revoked' ? 'Access to this page changed, so it can no longer save.'
+          : `Couldn't save a change (${code || 'unknown error'}).`;
+        if (code === 'invalid_argument' || code === 'revoked') { S.readOnly = true; render(); }
+        toast(S.saveError, 'error');
+      }
+    }).finally(() => {
+      w.running = false;
+      if (w.data != null || w.del) { if (!w.timer) flushPath(path); }
+      else { W.delete(path); dirty.delete(path); }
+      renderSaveState();
+    });
+  }
+  function flushAll() { for (const path of [...W.keys()]) flushPath(path); }
+
+  // Put a document into local state and queue its write. `quiet` skips the re-render (typing).
+  function put(kind, id, data, opts) {
+    opts = opts || {};
+    const doc = Object.assign({}, data, { id });
+    if (!opts.keepTime) doc.updatedAt = now();
+    if (kind === 'world') { S.worlds.set(id, doc); queueWrite(P.world(id), doc); }
+    else { MAP[kind]().set(id, doc); queueWrite(P[kind === 'pub' ? 'pubChapter' : kind](S.wid, id), doc); }
+    bump();
+    if (!opts.quiet) render();
+    return doc;
+  }
+  function removeDoc(kind, id) {
+    if (kind === 'world') { S.worlds.delete(id); queueDelete(P.world(id)); }
+    else { MAP[kind]().delete(id); queueDelete(P[kind === 'pub' ? 'pubChapter' : kind](S.wid, id)); }
+    bump();
+  }
+
+  // Sketchbook mode: the same document API, kept in this browser when the db capability is absent.
+  function makeLocalDb() {
+    let docs = {};
+    try { docs = JSON.parse(localStorage.getItem('inkwash.sketchbook') || '{}') || {}; } catch (e) { docs = {}; }
+    const listeners = new Set();
+    let timer = null;
+    const persist = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        try { localStorage.setItem('inkwash.sketchbook', JSON.stringify(docs)); }
+        catch (e) { toast("This browser won't store more. Back up your world to a file.", 'error'); }
+      }, 250);
+    };
+    const parent = (p) => p.split('/').slice(0, -1).join('/');
+    const snap = (p, body) => ({ id: p.split('/').pop(), exists: body != null, data: () => (body == null ? undefined : JSON.parse(JSON.stringify(body))), metadata: { fromCache: false, hasPendingWrites: false } });
+    const deliver = (l) => {
+      const paths = Object.keys(docs).filter((p) => parent(p) === l.coll).sort();
+      const next = new Map(paths.map((p) => [p, JSON.stringify(docs[p])]));
+      const changes = [];
+      for (const p of paths) {
+        const old = l.prev.get(p);
+        if (old === undefined) changes.push({ type: 'added', doc: snap(p, docs[p]) });
+        else if (old !== next.get(p)) changes.push({ type: 'modified', doc: snap(p, docs[p]) });
+      }
+      for (const [p, old] of l.prev) if (!next.has(p)) changes.push({ type: 'removed', doc: snap(p, JSON.parse(old)) });
+      const first = !l.started;
+      l.started = true; l.prev = next;
+      if (!first && !changes.length) return;
+      l.fn({ docs: paths.map((p) => snap(p, docs[p])), size: paths.length, empty: !paths.length, docChanges: () => changes, metadata: { fromCache: false, hasPendingWrites: false } });
+    };
+    const notify = () => setTimeout(() => { for (const l of listeners) deliver(l); }, 0);
+    const api = {
+      local: true,
+      doc(path) {
+        return {
+          id: path.split('/').pop(), path,
+          get: async () => snap(path, docs[path]),
+          set: async (data) => { docs[path] = JSON.parse(JSON.stringify(data)); persist(); notify(); },
+          delete: async () => { delete docs[path]; persist(); notify(); },
+        };
+      },
+      collection(path) {
+        return {
+          path,
+          onSnapshot(fn) {
+            const l = { coll: path, fn, prev: new Map(), started: false };
+            listeners.add(l);
+            setTimeout(() => deliver(l), 0);
+            return () => listeners.delete(l);
+          },
+        };
+      },
+    };
+    return api;
+  }
+
+  function onDbError(e) {
+    const code = e && e.code;
+    if (code === 'revoked') { S.readOnly = true; S.dbError = 'Access to this page changed, so it is read-only now.'; }
+    else S.dbError = `Lost the live connection to your studio (${code || 'unknown error'}). Reload the page to reconnect.`;
+    render();
+  }
+
+  // ---------------------------------------------------------------- studio data
+
+  // Apply a snapshot to a map, skipping documents with unsaved local changes and echoes of our own
+  // writes. Returns whether anything changed, so an echo never re-renders the page under a click.
+  function applyChanges(snap, map, pathOf) {
+    let changed = false;
+    for (const ch of snap.docChanges()) {
+      const id = ch.doc.id;
+      if (dirty.has(pathOf(id))) continue;
+      if (ch.type === 'removed') { if (map.delete(id)) changed = true; continue; }
+      const next = Object.assign(C.clone(ch.doc.data()), { id });
+      const cur = map.get(id);
+      if (cur && stable(cur) === stable(next)) continue;
+      map.set(id, next);
+      changed = true;
+    }
+    return changed;
+  }
+  function stable(x) {
+    if (Array.isArray(x)) return '[' + x.map(stable).join(',') + ']';
+    if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map((k) => JSON.stringify(k) + ':' + stable(x[k])).join(',') + '}';
+    return JSON.stringify(x === undefined ? null : x);
+  }
+
+  function startStudio(hot) {
+    S.mode = 'loading';
+    S.db.collection('studio').onSnapshot((snap) => {
+      const changed = applyChanges(snap, S.worlds, (id) => P.world(id));
+      const first = !S.worldsReady;
+      S.worldsReady = true;
+      if (!changed && !first) return;
+      bump();
+      if (S.mode === 'loading' || (S.mode === 'studio' && !S.worlds.has(S.wid))) chooseWorld(hot);
+      render();
+    }, onDbError);
+    S.db.collection('published').onSnapshot((snap) => {
+      if (applyChanges(snap, S.pubWorlds, (id) => P.pubWorld(id))) render();
+    }, onDbError);
+  }
+  function chooseWorld(hot) {
+    const ids = [...S.worlds.keys()];
+    if (!ids.length) { closeWorld(); S.mode = S.form ? 'form' : 'welcome'; return; }
+    const pick = [hot && hot.wid, local.get('lastWorld', null)].find((id) => id && S.worlds.has(id))
+      || ids.find((id) => !S.worlds.get(id).example) || ids[0];
+    openWorld(pick, hot);
+  }
+  function closeWorld() {
+    for (const u of S.unsub) { try { u(); } catch (e) { /* already closed */ } }
+    S.unsub = [];
+    S.wid = null;
+  }
+  function openWorld(wid, hot) {
+    closeWorld();
+    S.wid = wid;
+    local.set('lastWorld', wid);
+    S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.pub = new Map();
+    S.loaded = new Set();
+    S.selection = null; S.confirmReink = null; S.publishTried = {}; S.preview = false;
+    const pos = (hot && hot.wid === wid) ? hot : local.get('pos.' + wid, {});
+    S.cid = pos.cid || null; S.k = pos.k || 0;
+    const sub = (coll, kind) => S.db.collection(coll).onSnapshot((snap) => {
+      if (S.wid !== wid) return;
+      const changed = applyChanges(snap, MAP[kind](), (id) => coll + '/' + id);
+      const first = !S.loaded.has(kind);
+      S.loaded.add(kind);
+      if (changed || first) { bump(); render(); }
+    }, onDbError);
+    S.unsub = [
+      sub(`studio/${wid}/canon`, 'canon'),
+      sub(`studio/${wid}/chapters`, 'chapters'),
+      sub(`studio/${wid}/passages`, 'passages'),
+      sub(`studio/${wid}/seeds`, 'seeds'),
+      sub(`published/${wid}/chapters`, 'pub'),
+    ];
+    S.mode = 'studio';
+    S.form = null;
+    render();
+  }
+  function ready() { return ['canon', 'chapters', 'passages', 'seeds'].every((k) => S.loaded.has(k)); }
+
+  const world = () => S.worlds.get(S.wid);
+  const entities = () => [...S.canon.values()];
+  let idxMemo = { ver: -1, idx: null };
+  function idx() { if (idxMemo.ver !== S.ver) idxMemo = { ver: S.ver, idx: C.factIndex(S.canon) }; return idxMemo.idx; }
+  const pinsOf = (ch, k) => (ch.pins || []).filter((p) => p.scene === k);
+  const notesOf = (ch, k) => (ch.notes || []).filter((n) => n.scene === k);
+  const chapterOrder = () => ((world() || {}).chapterOrder || []).filter((id) => S.chapters.has(id));
+
+  function stateOpts(ch, k) {
+    const w = world();
+    return { strict: !!(w && w.strict), onPage: C.castIn(ch, k).map((c) => c.id), entities: S.canon };
+  }
+  function sceneInfo(cid, k) {
+    const ch = S.chapters.get(cid);
+    const p = S.passages.get(C.passageId(cid, k));
+    if (!ch) return { state: 'empty', reasons: [], p };
+    const opts = stateOpts(ch, k);
+    const st = C.staleness(p, idx(), opts);
+    return { state: C.passageState(p, idx(), opts), reasons: st.reasons, p };
+  }
+  // The text just before and after a scene, across chapter boundaries.
+  function neighborText(cid, k, dir) {
+    const order = chapterOrder();
+    let ci = order.indexOf(cid), kk = k + dir;
+    for (let guard = 0; guard < 400; guard++) {
+      const ch = S.chapters.get(order[ci]);
+      if (!ch) return '';
+      if (kk < 0) { ci--; if (ci < 0) return ''; kk = S.chapters.get(order[ci]).scenes - 1; continue; }
+      if (kk >= ch.scenes) { ci++; if (ci >= order.length) return ''; kk = 0; continue; }
+      const p = S.passages.get(C.passageId(order[ci], kk));
+      return p && p.text ? p.text : '';
+    }
+    return '';
+  }
+  function briefFor(cid, k) {
+    return C.buildBrief({ world: world(), entities: S.canon, chapters: S.chapters, chapterId: cid, k, prevText: neighborText(cid, k, -1), nextText: neighborText(cid, k, 1) });
+  }
+  function worldStats() {
+    if (!world()) return null;
+    return C.bookModel({ world: world(), chapters: S.chapters, passages: S.passages }).stats;
+  }
+  function savePos() { if (S.wid) local.set('pos.' + S.wid, { cid: S.cid, k: S.k }); }
+
+  // ---------------------------------------------------------------- rendering
+
+  let queued = false;
+  function render() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; renderNow(); });
+  }
+  function captureFocus() {
+    const a = document.activeElement;
+    if (!a || !a.id || a === document.body) return null;
+    const keep = { id: a.id, value: null, s: null, e: null };
+    if ('value' in a && a.hasAttribute('data-keep')) keep.value = a.value;
+    if (typeof a.selectionStart === 'number') { try { keep.s = a.selectionStart; keep.e = a.selectionEnd; } catch (e) { /* not a text input */ } }
+    return keep;
+  }
+  function restoreFocus(keep) {
+    if (!keep) return;
+    const el = document.getElementById(keep.id);
+    if (!el || el === document.activeElement) return;
+    if (keep.value != null && el.value !== keep.value) el.value = keep.value;
+    el.focus({ preventScroll: true });
+    if (keep.s != null && typeof el.setSelectionRange === 'function') { try { el.setSelectionRange(keep.s, keep.e); } catch (e) { /* ignore */ } }
+  }
+  function renderNow() {
+    const keep = captureFocus();
+    renderTopbar();
+    renderBanners();
+    const main = $('#main');
+    clear(main);
+    if (S.mode === 'loading') main.append(openingView());
+    else if (S.mode === 'welcome') main.append(welcomeView());
+    else if (S.mode === 'form') main.append(worldFormView());
+    else if (S.mode === 'reader') main.append(readerView(S.pubWorlds.get(S.reader.wid), S.reader.chapters, false));
+    else if (S.mode === 'studio') {
+      if (!world() || !ready()) main.append(openingView(world() ? `Opening ${world().title}` : null));
+      else if (S.preview) main.append(readerView(S.pubWorlds.get(S.wid), S.pub, true));
+      else if (S.view === 'book') main.append(bookView());
+      else if (S.view === 'canon') main.append(canonView());
+      else if (S.view === 'dreams') main.append(dreamsView());
+      else main.append(scoreView());
+    }
+    restoreFocus(keep);
+    if (S.mode === 'studio' && S.view === 'score' && !S.preview) Score.draw();
+    renderSaveState();
+  }
+
+  function renderSaveState() {
+    const el = $('#save-state');
+    if (!el) return;
+    const pending = W.size > 0;
+    el.dataset.state = S.saveError ? 'error' : pending ? 'saving' : 'saved';
+    el.textContent = S.saveError ? "Couldn't save" : pending ? 'Saving…' : S.persist === 'local' ? 'Kept in this browser' : 'Saved';
+  }
+
+  function meter(share, label) {
+    return h('span', { class: 'meter', title: 'Share of words you typed or pinned yourself' },
+      h('span', { class: 'meter-track', 'aria-hidden': 'true' }, h('span', { class: 'meter-fill', style: { width: pct(share) } })),
+      `${pct(share)} ${label || 'your hand'}`);
+  }
+  const STATE_LABEL = { empty: 'Not written', draft: 'Draft', wet: 'Wet ink', set: 'Set', stale: 'Stale' };
+  function pill(state, id) { return h('span', { class: 'pill', 'data-state': state, id }, STATE_LABEL[state] || state); }
+
+  function renderTopbar() {
+    const slot = $('#topbar-slot');
+    clear(slot);
+    if (S.mode === 'reader') { slot.append(h('span', { class: 'muted' }, 'Reading')); return; }
+    if (S.mode === 'loading') return;
+    const worlds = [...S.worlds.values()].sort((a, b) => (a.example ? 1 : 0) - (b.example ? 1 : 0) || String(a.title).localeCompare(String(b.title)));
+    const pick = h('select', {
+      id: 'world-select', 'aria-label': 'World',
+      onchange: (e) => {
+        const v = e.target.value;
+        if (v === '__new') openForm('new');
+        else if (v === '__example') loadExample();
+        else if (v && v !== S.wid) openWorld(v);
+        render();
+      },
+    });
+    if (!S.wid) pick.append(h('option', { value: '', selected: true }, 'Choose a world'));
+    for (const w of worlds) pick.append(h('option', { value: w.id, selected: w.id === S.wid && S.mode === 'studio' }, w.title + (w.example ? ' (example)' : '')));
+    pick.append(h('option', { value: '__new', selected: S.mode === 'form' && S.form && S.form.mode === 'new' }, 'New world…'));
+    if (!worlds.some((w) => w.example)) pick.append(h('option', { value: '__example' }, 'Open the example world'));
+    slot.append(h('div', { class: 'world-pick' }, pick));
+    if (S.mode === 'studio' && world()) {
+      const tabs = h('nav', { class: 'tabs', 'aria-label': 'Views' });
+      for (const [v, label] of [['score', 'Score'], ['book', 'Book'], ['canon', 'Canon'], ['dreams', 'Dreams']]) {
+        tabs.append(h('button', { class: 'tab', type: 'button', 'aria-current': !S.preview && S.view === v ? 'page' : null, onclick: () => go(v) }, label));
+      }
+      slot.append(tabs);
+    }
+    const end = h('div', { class: 'topbar-end' });
+    const stats = S.mode === 'studio' && ready() ? worldStats() : null;
+    if (stats && stats.total) end.append(meter(stats.hand, 'your hand'));
+    end.append(h('span', { class: 'save-state', id: 'save-state' }));
+    if (S.mode === 'studio' && world()) end.append(h('button', { class: 'btn ghost small', type: 'button', onclick: () => openForm('settings') }, 'World settings'));
+    slot.append(end);
+  }
+  function go(view) {
+    S.view = view; S.preview = false; S.selection = null;
+    local.set('view', view);
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function renderBanners() {
+    const root = $('#banners');
+    clear(root);
+    const w = S.mode === 'studio' ? world() : null;
+    if (S.dbError) root.append(h('div', { class: 'banner warn' }, h('strong', null, S.dbError)));
+    if (S.persist === 'local' && S.mode !== 'reader') {
+      root.append(h('div', { class: 'banner' },
+        h('strong', null, 'Sketchbook mode.'),
+        "Inkwash can't save to claude.ai in this view, so your work is kept in this browser only. Back up each world to a file from the Book view."));
+    }
+    if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), "This view can't save changes."));
+    if (S.aiOff && S.mode === 'studio') root.append(h('div', { class: 'banner' }, h('strong', null, 'Inking is off.'), S.aiOff));
+    if (w && w.example) {
+      root.append(h('div', { class: 'banner' },
+        h('strong', null, 'Example world.'),
+        'Everything in it, including the parts marked as the author’s, was written to show how Inkwash works.',
+        h('button', { class: 'btn small', type: 'button', onclick: () => openForm('new') }, 'Start your own world')));
+    }
+  }
+
+  function openingView(title) {
+    return h('section', { class: 'opening' },
+      h('p', { class: 'eyebrow' }, title || 'Opening your studio'),
+      h('h1', null, 'Paint the shape of a story. Let the ink fill it. Keep every fact of your world straight.'),
+      h('p', { class: 'muted' }, 'Your worlds, chapters and scenes appear here once your studio has loaded.'));
+  }
+
+  function welcomeView() {
+    return h('section', { class: 'welcome' },
+      h('p', { class: 'eyebrow' }, 'Inkwash'),
+      h('h1', null, 'Paint the shape of a story. Let the ink fill it. Keep every fact of your world straight.'),
+      h('p', { class: 'muted' }, 'You paint each scene’s tension, mood and who is in it, and pin lines of your own. Claude inks the prose inside your strokes. Every fact a scene relies on is tracked, so when you change your world, Inkwash shows you exactly which scenes it breaks.'),
+      h('div', { class: 'choices' },
+        h('div', { class: 'choice' },
+          h('h2', null, 'Start your world'),
+          h('p', { class: 'muted' }, 'Name it, give it a premise, and paste a few paragraphs of your own writing so the ink sounds like you.'),
+          h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: () => openForm('new') }, 'Start a world'))),
+        h('div', { class: 'choice' },
+          h('h2', null, 'Explore an example'),
+          h('p', { class: 'muted' }, 'The Hollow Moon: two chapters, with a set scene, a wet one, a scene that went stale when a fact changed, and a scene ready to ink.'),
+          h('div', null, h('button', { class: 'btn', type: 'button', onclick: loadExample }, 'Open the example world')))));
+  }
+
+  // ---------------------------------------------------------------- world form
+
+  const DEFAULT_PIGMENTS = [
+    { id: 'p_dread', name: 'Dread', color: '#3d4f8f', line: '' },
+    { id: 'p_wonder', name: 'Wonder', color: '#c4952b', line: '' },
+    { id: 'p_grief', name: 'Grief', color: '#6b7f95', line: '' },
+    { id: 'p_warmth', name: 'Warmth', color: '#c0703f', line: '' },
+    { id: 'p_menace', name: 'Menace', color: '#a3333d', line: '' },
+  ];
+  function openForm(mode) {
+    S.form = { mode };
+    S.mode = 'form';
+    render();
+    window.scrollTo(0, 0);
+  }
+  function worldFormView() {
+    const editing = S.form && S.form.mode === 'settings' ? world() : null;
+    const w = editing || { title: '', premise: '', byline: '', voice: '', sceneWords: 450, pigments: DEFAULT_PIGMENTS, strict: false };
+    const field = (label, input, note) => h('label', { class: 'field' }, h('span', null, label), input, note ? h('small', null, note) : null);
+    const pigRows = h('div', { class: 'pigment-rows' });
+    const pigs = (w.pigments && w.pigments.length ? w.pigments : DEFAULT_PIGMENTS).slice(0, 6);
+    while (pigs.length < 5) pigs.push({ id: C.uid('p'), name: '', color: '#888888', line: '' });
+    pigs.forEach((p, i) => pigRows.append(h('div', { class: 'pigment-row', dataset: { id: p.id } },
+      h('input', { type: 'color', name: 'color', value: p.color || '#888888', 'aria-label': `Color of mood ${i + 1}` }),
+      h('input', { type: 'text', name: 'name', value: p.name, placeholder: 'Mood name', 'aria-label': `Name of mood ${i + 1}` }),
+      h('input', { type: 'text', name: 'line', value: p.line || '', placeholder: 'One line of yours that has this feeling', 'aria-label': `Example line for mood ${i + 1}` }))));
+    const form = h('form', { class: 'form-grid', id: 'world-form', onsubmit: (e) => { e.preventDefault(); submitWorldForm(e.target, editing); } },
+      field('Title', h('input', { type: 'text', name: 'title', id: 'wf-title', required: true, value: w.title, placeholder: 'The Hollow Moon' })),
+      field('Premise', h('textarea', { name: 'premise', rows: 2, value: w.premise || '', placeholder: 'One or two sentences: where it happens and what goes wrong.' })),
+      field('Pen name', h('input', { type: 'text', name: 'byline', value: w.byline || '', placeholder: 'How you sign the book' }), 'Shown on the book and in exports. Optional.'),
+      field('Your voice', h('textarea', { name: 'voice', rows: 6, value: w.voice || '', placeholder: 'Paste two or three paragraphs of your own writing.' }), 'Inkwash asks the ink to match the rhythm and diction of this sample. Use your own writing only.'),
+      field('Words per scene', h('input', { type: 'number', name: 'sceneWords', min: 120, max: 2500, step: 10, value: w.sceneWords || 450 }), 'A target. Each scene is inked to about this length.'),
+      h('div', { class: 'field' }, h('span', null, 'Moods you paint with'), pigRows, h('small', null, 'Give each feeling a name and, if you can, one line of your own that carries it. The line helps the ink understand what you mean.')),
+      editing ? h('label', { class: 'check-row' }, h('input', { type: 'checkbox', name: 'strict', checked: !!w.strict }), 'Strict continuity: flag a scene when anything about anyone in it changes, not only the facts it used') : null,
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn primary', type: 'submit' }, editing ? 'Save settings' : 'Create world'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => { S.form = null; S.mode = S.wid ? 'studio' : (S.worlds.size ? 'studio' : 'welcome'); if (!S.wid && S.worlds.size) chooseWorld(); render(); } }, 'Cancel')));
+    const page = h('section', { class: 'page-pad' },
+      h('div', { class: 'page-head' }, h('p', { class: 'eyebrow' }, editing ? 'World settings' : 'New world'), h('h1', null, editing ? editing.title : 'Start a world')),
+      form);
+    if (editing) {
+      page.append(h('div', { class: 'section', style: { maxWidth: '46rem' } },
+        h('h3', null, 'Delete'),
+        h('p', { class: 'muted' }, 'Deleting a world removes its canon, chapters, scenes, dreams and anything published from it. Back it up first if you might want it again.'),
+        h('div', null, h('button', { class: 'btn danger', type: 'button', onclick: () => deleteWorld(editing.id) }, 'Delete this world'))));
+    }
+    return page;
+  }
+  function submitWorldForm(form, editing) {
+    const fd = new FormData(form);
+    const title = String(fd.get('title') || '').trim();
+    if (!title) { toast('Give your world a title.', 'warn'); return; }
+    const pigments = [...form.querySelectorAll('.pigment-row')].map((row) => ({
+      id: row.dataset.id, name: row.querySelector('[name=name]').value.trim(), color: row.querySelector('[name=color]').value, line: row.querySelector('[name=line]').value.trim(),
+    })).filter((p) => p.name);
+    const fields = {
+      title, premise: String(fd.get('premise') || '').trim(), byline: String(fd.get('byline') || '').trim(),
+      voice: String(fd.get('voice') || '').trim(), sceneWords: C.clamp(Number(fd.get('sceneWords')) || 450, 120, 2500), pigments,
+    };
+    if (editing) {
+      put('world', editing.id, Object.assign({}, editing, fields, { strict: fd.get('strict') === 'on' }));
+      S.form = null; S.mode = 'studio';
+      toast('Settings saved.');
+      render();
+      return;
+    }
+    const wid = C.uid('w');
+    const cid = C.uid('c');
+    openWorld(wid);
+    put('world', wid, Object.assign(fields, { example: false, strict: false, chapterOrder: [cid], createdAt: now() }), { quiet: true });
+    put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'pub']);
+    S.cid = cid; S.k = 0; S.view = 'canon';
+    toast('World created. Start with its canon: who lives here and what is true.');
+    render();
+  }
+  async function deleteWorld(wid) {
+    const w = S.worlds.get(wid);
+    if (!w) return;
+    const ok = await ask({ title: `Delete ${w.title}?`, body: 'Its canon, chapters, scenes, dreams and published chapters are deleted for good.', confirm: 'Delete this world', danger: true });
+    if (!ok) return;
+    if (S.wid !== wid) openWorld(wid);
+    for (const kind of ['canon', 'chapters', 'passages', 'seeds', 'pub']) for (const id of [...MAP[kind]().keys()]) removeDoc(kind, id);
+    if (S.pubWorlds.has(wid)) { S.pubWorlds.delete(wid); queueDelete(P.pubWorld(wid)); }
+    removeDoc('world', wid);
+    closeWorld();
+    S.form = null;
+    S.mode = 'loading';
+    chooseWorld();
+    toast(`Deleted ${w.title}.`);
+    render();
+  }
+
+  // ---------------------------------------------------------------- importing worlds
+
+  async function loadExample() {
+    try {
+      const res = await fetch('example-world.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      importWorld(await res.json(), true);
+    } catch (e) {
+      toast(`Couldn't open the example world (${e.message}).`, 'error');
+    }
+  }
+  function importWorld(data, keepTime) {
+    let parsed;
+    try { parsed = C.readBackup(data); } catch (e) { toast(e.message, 'error'); return; }
+    const wid = C.uid('w');
+    openWorld(wid);
+    const o = { quiet: true, keepTime: !!keepTime };
+    put('world', wid, Object.assign({}, parsed.world, { createdAt: parsed.world.createdAt || now() }), o);
+    for (const e of parsed.entities) put('canon', e.id, e, o);
+    for (const c of parsed.chapters) put('chapters', c.id, c, o);
+    for (const p of parsed.passages) put('passages', p.id, p, o);
+    for (const s of parsed.seeds) put('seeds', s.id, s, o);
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'pub']);
+    S.cid = (parsed.world.chapterOrder || [])[0] || null;
+    S.k = 0;
+    S.view = 'score';
+    toast(`Opened ${parsed.world.title}.`);
+    render();
+  }
+
+  // ---------------------------------------------------------------- score view
+
+  function scoreView() {
+    const w = world();
+    const order = chapterOrder();
+    if (!S.cid || !S.chapters.has(S.cid)) { S.cid = order[0] || null; S.k = 0; }
+    if (!S.cid) {
+      return h('section', { class: 'page-pad' },
+        h('div', { class: 'page-head' }, h('h1', null, w.title), h('p', { class: 'muted' }, 'This world has no chapters yet.')),
+        h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: addChapter }, 'Add a chapter')));
+    }
+    const ch = S.chapters.get(S.cid);
+    S.k = C.clamp(S.k, 0, ch.scenes - 1);
+    return h('div', { class: 'score-view' }, railView(order), scoreMain(ch), sheetView(ch));
+  }
+
+  function sparkPath(tension) {
+    let d = '', pen = false;
+    for (let i = 0; i < N; i++) {
+      const v = tension ? tension[i] : null;
+      if (v == null) { pen = false; continue; }
+      const x = (i / (N - 1)) * 100, y = 1 + (1 - v) * 16;
+      d += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+      pen = true;
+    }
+    return d.trim();
+  }
+  function railView(order) {
+    const rail = h('nav', { class: 'rail', 'aria-label': 'Chapters' });
+    order.forEach((cid, i) => {
+      const ch = S.chapters.get(cid);
+      const spark = svg('svg', { class: 'rail-spark', viewBox: '0 0 100 18', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+      const d = sparkPath(ch.tension);
+      if (d) spark.append(svg('path', { d, 'vector-effect': 'non-scaling-stroke' }));
+      const dots = h('span', { class: 'rail-dots', 'aria-hidden': 'true' });
+      for (let k = 0; k < ch.scenes; k++) dots.append(h('span', { class: 'dot', 'data-state': sceneInfo(cid, k).state }));
+      rail.append(h('button', {
+        class: 'rail-item', type: 'button', 'aria-current': cid === S.cid ? 'true' : null,
+        onclick: () => { S.cid = cid; S.k = 0; S.selection = null; savePos(); render(); },
+      }, h('span', { class: 'rail-no' }, String(i + 1)), h('span', { class: 'rail-title' }, ch.title), spark, dots));
+    });
+    rail.append(h('button', { class: 'btn ghost small', type: 'button', onclick: addChapter, disabled: S.readOnly }, 'Add a chapter'));
+    return rail;
+  }
+
+  function scoreMain(ch) {
+    const w = world();
+    const idx_ = chapterOrder().indexOf(S.cid);
+    const head = h('div', { class: 'score-head' },
+      h('label', { class: 'sr-only', for: 'chapter-title' }, 'Chapter title'),
+      h('input', {
+        class: 'chapter-title', id: 'chapter-title', type: 'text', value: ch.title, 'data-keep': '', disabled: S.readOnly,
+        onchange: (e) => { const t = e.target.value.trim(); if (t && t !== ch.title) put('chapters', S.cid, Object.assign({}, ch, { title: t })); },
+        onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); },
+      }),
+      h('span', { class: 'scene-count' },
+        h('button', { class: 'btn small', type: 'button', 'aria-label': 'Remove the last scene', disabled: ch.scenes <= 1 || S.readOnly, onclick: () => changeScenes(-1) }, '−'),
+        h('span', { class: 'num' }, plural(ch.scenes, 'scene')),
+        h('button', { class: 'btn small', type: 'button', 'aria-label': 'Add a scene', disabled: ch.scenes >= 12 || S.readOnly, onclick: () => changeScenes(1) }, '+')),
+      h('span', { class: 'btn-row' },
+        h('button', { class: 'btn ghost small', type: 'button', disabled: idx_ <= 0 || S.readOnly, onclick: () => moveChapter(-1) }, 'Move up'),
+        h('button', { class: 'btn ghost small', type: 'button', disabled: idx_ >= chapterOrder().length - 1 || S.readOnly, onclick: () => moveChapter(1) }, 'Move down'),
+        h('button', { class: 'btn ghost small danger', type: 'button', disabled: S.readOnly, onclick: deleteChapter }, 'Delete chapter')));
+
+    const tools = h('span', { class: 'tools', role: 'group', 'aria-label': 'Brush' },
+      h('button', { class: 'tool', type: 'button', 'aria-pressed': String(S.tool === 'brush'), onclick: () => { S.tool = 'brush'; render(); } }, 'Brush'),
+      h('button', { class: 'tool', type: 'button', 'aria-pressed': String(S.tool === 'erase'), onclick: () => { S.tool = 'erase'; render(); } }, 'Eraser'));
+    const pigs = (w.pigments || []);
+    if (!S.pigment || !pigs.some((p) => p.id === S.pigment)) S.pigment = pigs[0] ? pigs[0].id : null;
+    const swatches = h('span', { class: 'swatches', role: 'group', 'aria-label': 'Mood' },
+      pigs.map((p, i) => h('button', {
+        class: 'swatch', type: 'button', 'aria-pressed': String(S.pigment === p.id), title: p.line ? `${p.name}: “${p.line}” (key ${i + 1})` : `${p.name} (key ${i + 1})`,
+        onclick: () => { S.pigment = p.id; render(); },
+      }, h('i', { style: { background: p.color } }), p.name)));
+    const others = entities().filter((e) => e.kind === 'character' && !(ch.cast || []).includes(e.id));
+    const addCast = others.length ? h('select', {
+      id: 'add-cast', 'aria-label': 'Add a character to this chapter', disabled: S.readOnly,
+      onchange: (e) => { if (e.target.value) addToCast(e.target.value); },
+    }, h('option', { value: '' }, 'Add a character to this chapter…'), others.map((e) => h('option', { value: e.id }, e.name))) : null;
+    const wrap = h('div', { class: 'canvas-wrap' });
+    Score.mount(wrap, ch);
+    return h('div', { class: 'score-main' }, head,
+      h('div', { class: 'toolbar' }, tools, swatches, addCast),
+      wrap,
+      h('p', { class: 'hint', id: 'score-hint' }, 'Drag across a lane to paint it: draw the tension curve, brush the chosen mood, or paint a character’s line where they are in the scene. Click a scene’s name to open it. With the score focused, ← → choose a scene, ↑ ↓ raise or lower its tension, and 1 to 5 add a mood (Shift removes it).'));
+  }
+
+  function addChapter() {
+    const w = world();
+    const cid = C.uid('c');
+    const n = chapterOrder().length + 1;
+    put('chapters', cid, C.newChapter(`Chapter ${n}`, 3, now()), { quiet: true });
+    put('world', S.wid, Object.assign({}, w, { chapterOrder: (w.chapterOrder || []).concat([cid]) }), { quiet: true });
+    S.cid = cid; S.k = 0; S.view = 'score';
+    savePos();
+    render();
+  }
+  function moveChapter(dir) {
+    const w = world();
+    const order = (w.chapterOrder || []).slice();
+    const i = order.indexOf(S.cid), j = i + dir;
+    if (i < 0 || j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    put('world', S.wid, Object.assign({}, w, { chapterOrder: order }));
+  }
+  async function deleteChapter() {
+    const ch = S.chapters.get(S.cid);
+    const written = [...S.passages.values()].filter((p) => p.chapter === S.cid && p.text).length;
+    const ok = await ask({ title: `Delete ${ch.title}?`, body: written ? `Its ${plural(written, 'written scene')} and its painted score are deleted for good.` : 'Its painted score is deleted for good.', confirm: 'Delete chapter', danger: true });
+    if (!ok) return;
+    const cid = S.cid, w = world();
+    for (const p of [...S.passages.values()]) if (p.chapter === cid) removeDoc('passages', p.id);
+    if (S.pub.has(cid)) { removeDoc('pub', cid); writePubWorld(); }
+    for (const e of entities()) {
+      if ((e.facts || []).some((f) => f.reveal === cid)) put('canon', e.id, Object.assign({}, e, { facts: e.facts.map((f) => (f.reveal === cid ? Object.assign({}, f, { reveal: null }) : f)) }), { quiet: true });
+    }
+    removeDoc('chapters', cid);
+    put('world', S.wid, Object.assign({}, w, { chapterOrder: (w.chapterOrder || []).filter((x) => x !== cid) }), { quiet: true });
+    S.cid = null; S.k = 0;
+    render();
+  }
+  async function changeScenes(delta) {
+    const ch = S.chapters.get(S.cid);
+    const to = ch.scenes + delta;
+    if (to < 1 || to > 12) return;
+    if (delta < 0) {
+      const last = S.passages.get(C.passageId(S.cid, ch.scenes - 1));
+      if (last && last.text && last.text.trim()) {
+        const ok = await ask({ title: `Remove scene ${ch.scenes}?`, body: 'It has text. Removing the scene deletes that text too.', confirm: 'Remove scene', danger: true });
+        if (!ok) return;
+      }
+      if (last) removeDoc('passages', last.id);
+    }
+    put('chapters', S.cid, C.resampleScenes(ch, to));
+    S.k = Math.min(S.k, to - 1);
+  }
+  function addToCast(eid) {
+    const ch = C.clone(S.chapters.get(S.cid));
+    if (!ch.cast.includes(eid)) ch.cast.push(eid);
+    ch.threads[eid] = ch.threads[eid] || new Array(N).fill(0);
+    C.setPresence(ch.threads[eid], ch.scenes, S.k, true);
+    put('chapters', S.cid, ch);
+  }
+  function removeFromCast(eid) {
+    const ch = C.clone(S.chapters.get(S.cid));
+    ch.cast = ch.cast.filter((x) => x !== eid);
+    delete ch.threads[eid];
+    put('chapters', S.cid, ch);
+  }
+  function selectScene(k, focusSheet) {
+    const ch = S.chapters.get(S.cid);
+    if (!ch) return;
+    S.k = C.clamp(k, 0, ch.scenes - 1);
+    S.selection = null; S.confirmReink = null;
+    savePos();
+    render();
+    if (focusSheet) requestAnimationFrame(() => { const el = $('.sheet h2'); if (el) { el.setAttribute('tabindex', '-1'); el.focus(); } });
+  }
+
+  // ---------------------------------------------------------------- the canvas score
+
+  const L = { label: 96, pad: 14, head: 34, tension: 118, gap: 12, mood: 58, row: 26, pins: 86 };
+  const Score = {
+    canvas: null, ctx: null, ro: null, lay: null, stroke: null, frame: 0, grain: null, grainKey: '', moodCanvas: null,
+    mount(wrap, ch) {
+      if (!this.canvas) {
+        this.canvas = h('canvas', { id: 'score-canvas', tabindex: '0', 'aria-describedby': 'score-hint' });
+        this.ctx = this.canvas.getContext('2d');
+        this.canvas.addEventListener('pointerdown', (e) => this.down(e));
+        this.canvas.addEventListener('pointermove', (e) => this.move(e));
+        this.canvas.addEventListener('pointerup', (e) => this.up(e));
+        this.canvas.addEventListener('pointercancel', (e) => this.up(e));
+        this.canvas.addEventListener('keydown', (e) => this.key(e));
+        this.ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => this.queue()) : null;
+      }
+      this.canvas.setAttribute('aria-label', `Score of ${ch.title}: tension, mood, who is in each scene, pins and notes. Scene ${S.k + 1} of ${ch.scenes} is selected.`);
+      wrap.append(this.canvas);
+      if (this.ro) { this.ro.disconnect(); this.ro.observe(wrap); }
+    },
+    queue() {
+      if (this.frame) return;
+      this.frame = requestAnimationFrame(() => { this.frame = 0; this.draw(); });
+    },
+    layout(ch, w) {
+      const rows = Math.max(1, (ch.cast || []).length);
+      let y = 0;
+      const head = { y, h: L.head }; y += L.head;
+      const tension = { y: y + 6, h: L.tension }; y += L.tension + 6 + L.gap;
+      const mood = { y, h: L.mood }; y += L.mood + L.gap;
+      const threads = { y, h: rows * L.row }; y += threads.h + L.gap;
+      const pins = { y, h: L.pins }; y += L.pins + L.pad;
+      return { x0: Math.min(L.label, w * 0.22), x1: w - L.pad, w, h: y, head, tension, mood, threads, pins, rows };
+    },
+    colors() {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (n) => cs.getPropertyValue(n).trim();
+      const c = { paper: v('--paper'), deep: v('--paper-deep'), sheet: v('--sheet'), ink: v('--ink'), soft: v('--ink-soft'), faint: v('--ink-faint'), rule: v('--rule'), indigo: v('--indigo'), wet: v('--wet'), seal: v('--seal'), stale: v('--stale') };
+      const rgb = hexRgb(c.paper);
+      c.dark = rgb ? (rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114) < 110 : false;
+      return c;
+    },
+    grainFor(col) {
+      const key = col.ink + col.dark;
+      if (this.grain && this.grainKey === key) return this.grain;
+      const g = document.createElement('canvas');
+      g.width = 96; g.height = 96;
+      const x = g.getContext('2d');
+      const rgb = hexRgb(col.ink) || [0, 0, 0];
+      let seed = 7;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      for (let i = 0; i < 900; i++) {
+        x.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(col.dark ? 0.05 : 0.035) * rnd()})`;
+        x.fillRect(Math.floor(rnd() * 96), Math.floor(rnd() * 96), 1, 1 + Math.floor(rnd() * 2));
+      }
+      this.grain = this.ctx.createPattern(g, 'repeat');
+      this.grainKey = key;
+      return this.grain;
+    },
+    draw() {
+      const cv = this.canvas;
+      if (!cv || !cv.isConnected) return;
+      const ch = S.chapters.get(S.cid);
+      const w = world();
+      if (!ch || !w) return;
+      const cssW = Math.max(300, cv.parentElement.clientWidth);
+      const lay = this.layout(ch, cssW);
+      this.lay = lay;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(lay.h * dpr)) {
+        cv.width = Math.round(cssW * dpr); cv.height = Math.round(lay.h * dpr); cv.style.height = lay.h + 'px';
+      }
+      const ctx = this.ctx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const col = this.colors();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = col.paper; ctx.fillRect(0, 0, cssW, lay.h);
+      ctx.fillStyle = this.grainFor(col); ctx.fillRect(0, 0, cssW, lay.h);
+      const { x0, x1 } = lay;
+      const sx = (i) => x0 + (i / (N - 1)) * (x1 - x0);
+      const scenes = ch.scenes;
+      const infos = Array.from({ length: scenes }, (_, k) => sceneInfo(S.cid, k));
+      // scene columns
+      for (let k = 0; k < scenes; k++) {
+        const a = x0 + ((x1 - x0) * k) / scenes, b = x0 + ((x1 - x0) * (k + 1)) / scenes;
+        if (k === S.k) { ctx.fillStyle = withAlpha(col.indigo, col.dark ? 0.1 : 0.07); ctx.fillRect(a, 0, b - a, lay.h); }
+        if (infos[k].state === 'stale') {
+          const g = ctx.createLinearGradient(0, 0, 0, 60);
+          g.addColorStop(0, withAlpha(col.stale, 0.32)); g.addColorStop(1, withAlpha(col.stale, 0));
+          ctx.fillStyle = g; ctx.fillRect(a, 0, b - a, 60);
+          ctx.strokeStyle = withAlpha(col.stale, 0.75); ctx.lineWidth = 1.5; ctx.strokeRect(a + 1, 1, b - a - 2, lay.h - 2);
+        }
+        if (k > 0) { ctx.strokeStyle = col.rule; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(a) + 0.5, 4); ctx.lineTo(Math.round(a) + 0.5, lay.h - 4); ctx.stroke(); }
+        // scene label and state mark
+        ctx.font = `${k === S.k ? 700 : 500} 12px ${uiFont()}`;
+        ctx.fillStyle = k === S.k ? col.ink : col.soft;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`SCENE ${k + 1}`, a + 22, lay.head.h / 2 + 1);
+        stateMark(ctx, col, infos[k].state, a + 11, lay.head.h / 2 + 1);
+      }
+      // lane labels
+      ctx.font = `500 11px ${uiFont()}`;
+      ctx.fillStyle = col.faint;
+      ctx.textBaseline = 'top';
+      ctx.fillText('TENSION', 10, lay.tension.y + 2);
+      ctx.fillText('MOOD', 10, lay.mood.y + 2);
+      ctx.fillText('PINS & NOTES', 10, lay.pins.y + 2);
+      // tension guides
+      ctx.strokeStyle = withAlpha(col.faint, 0.35); ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+      for (const g of [0.25, 0.5, 0.75]) { const y = Math.round(lay.tension.y + (1 - g) * lay.tension.h) + 0.5; ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); }
+      ctx.setLineDash([]);
+      ctx.strokeStyle = col.rule; ctx.beginPath(); ctx.moveTo(x0, lay.tension.y + lay.tension.h + 0.5); ctx.lineTo(x1, lay.tension.y + lay.tension.h + 0.5); ctx.stroke();
+      this.drawTension(ctx, col, ch, lay, sx);
+      this.drawMood(ctx, col, ch, w, lay);
+      this.drawThreads(ctx, col, ch, lay, sx);
+      this.drawPins(ctx, col, ch, lay);
+    },
+    drawTension(ctx, col, ch, lay, sx) {
+      const t = ch.tension || [];
+      const ty = (v) => lay.tension.y + (1 - v) * lay.tension.h;
+      const runs = [];
+      let run = null;
+      for (let i = 0; i < N; i++) {
+        if (t[i] == null) { run = null; continue; }
+        if (!run) { run = []; runs.push(run); }
+        run.push([sx(i), ty(t[i])]);
+      }
+      if (!runs.length) {
+        ctx.font = `italic 15px ${bookFont()}`; ctx.fillStyle = col.faint; ctx.textBaseline = 'middle';
+        ctx.fillText('Drag across this lane to draw how tense each moment is.', lay.x0 + 14, lay.tension.y + lay.tension.h / 2);
+        return;
+      }
+      const path = (pts) => {
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+          ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+        }
+        if (pts.length > 1) ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      };
+      for (const pts of runs) {
+        // the wash beneath the line
+        const base = lay.tension.y + lay.tension.h;
+        const g = ctx.createLinearGradient(0, lay.tension.y, 0, base);
+        g.addColorStop(0, withAlpha(col.ink, col.dark ? 0.16 : 0.12)); g.addColorStop(1, withAlpha(col.ink, 0));
+        path(pts);
+        ctx.lineTo(pts[pts.length - 1][0], base); ctx.lineTo(pts[0][0], base); ctx.closePath();
+        ctx.fillStyle = g; ctx.fill();
+        // bleed, then the line itself
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (const [lw, a] of [[11, 0.05], [6, 0.1], [2.6, 0.92]]) {
+          path(pts);
+          ctx.strokeStyle = withAlpha(col.ink, a); ctx.lineWidth = lw; ctx.stroke();
+        }
+        if (pts.length === 1) { ctx.fillStyle = col.ink; ctx.beginPath(); ctx.arc(pts[0][0], pts[0][1], 2.5, 0, Math.PI * 2); ctx.fill(); }
+      }
+    },
+    drawMood(ctx, col, ch, w, lay) {
+      const pigs = (w.pigments || []).filter((p) => ch.mood && ch.mood[p.id]);
+      if (!pigs.length) {
+        ctx.font = `italic 15px ${bookFont()}`; ctx.fillStyle = col.faint; ctx.textBaseline = 'middle';
+        ctx.fillText('Choose a mood above, then brush it across the scenes it colors.', lay.x0 + 14, lay.mood.y + lay.mood.h / 2);
+        return;
+      }
+      if (!this.moodCanvas) { this.moodCanvas = document.createElement('canvas'); this.moodCanvas.width = N; this.moodCanvas.height = 8; }
+      const m = this.moodCanvas.getContext('2d');
+      const edge = [0.25, 0.7, 1, 1, 1, 1, 0.7, 0.25];
+      for (const p of pigs) {
+        const rgb = hexRgb(p.color) || [128, 128, 128];
+        const arr = ch.mood[p.id];
+        m.clearRect(0, 0, N, 8);
+        for (let i = 0; i < N; i++) {
+          const v = arr[i] || 0;
+          if (!v) continue;
+          for (let r = 0; r < 8; r++) { m.fillStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${Math.min(1, v * 0.95) * edge[r]})`; m.fillRect(i, r, 1, 1); }
+        }
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.globalCompositeOperation = col.dark ? 'screen' : 'multiply';
+        ctx.drawImage(this.moodCanvas, 0, 0, N, 8, lay.x0, lay.mood.y, lay.x1 - lay.x0, lay.mood.h);
+        ctx.restore();
+      }
+    },
+    drawThreads(ctx, col, ch, lay, sx) {
+      const cast = (ch.cast || []).filter((id) => S.canon.has(id));
+      ctx.textBaseline = 'middle';
+      if (!cast.length) {
+        ctx.font = `500 11px ${uiFont()}`; ctx.fillStyle = col.faint; ctx.fillText('WHO IS IN IT', 10, lay.threads.y + L.row / 2);
+        ctx.font = `italic 15px ${bookFont()}`;
+        ctx.fillText('Add a character to this chapter, then paint their line where they appear.', lay.x0 + 14, lay.threads.y + L.row / 2);
+        return;
+      }
+      cast.forEach((id, r) => {
+        const e = S.canon.get(id);
+        const y = lay.threads.y + r * L.row + L.row / 2;
+        ctx.font = `500 12px ${uiFont()}`; ctx.fillStyle = col.soft;
+        ctx.fillText(fit(ctx, e.name, lay.x0 - 16), 10, y);
+        ctx.strokeStyle = withAlpha(col.faint, 0.6); ctx.lineWidth = 1; ctx.setLineDash([1.5, 5]);
+        ctx.beginPath(); ctx.moveTo(lay.x0, y); ctx.lineTo(lay.x1, y); ctx.stroke(); ctx.setLineDash([]);
+        const arr = (ch.threads || {})[id] || [];
+        ctx.strokeStyle = col.ink; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        let open = false;
+        ctx.beginPath();
+        for (let i = 0; i < N; i++) {
+          const wob = Math.sin(i * 0.55 + r * 1.7) * 0.7;
+          if (arr[i]) { if (!open) { ctx.moveTo(sx(i), y + wob); open = true; } else ctx.lineTo(sx(i), y + wob); }
+          else open = false;
+        }
+        ctx.stroke();
+      });
+      // first meetings: a brush tick joining the two lines
+      const rowOf = new Map(cast.map((id, r) => [id, r]));
+      for (let k = 0; k < ch.scenes; k++) {
+        for (const [a, b] of C.firstMeetings(world(), S.chapters, S.cid, k)) {
+          if (!rowOf.has(a) || !rowOf.has(b)) continue;
+          const [i0, i1] = C.sceneRange(ch.scenes, k);
+          let at = i0;
+          for (let i = i0; i < i1; i++) if (ch.threads[a][i] && ch.threads[b][i]) { at = i; break; }
+          const x = sx(at) + 6;
+          const ya = lay.threads.y + rowOf.get(a) * L.row + L.row / 2, yb = lay.threads.y + rowOf.get(b) * L.row + L.row / 2;
+          ctx.strokeStyle = col.seal; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(x - 3, ya); ctx.quadraticCurveTo(x + 6, (ya + yb) / 2, x - 3, yb); ctx.stroke();
+          ctx.font = `italic 11px ${bookFont()}`; ctx.fillStyle = col.seal; ctx.textBaseline = 'middle';
+          ctx.fillText('they meet', x + 8, (ya + yb) / 2);
+        }
+      }
+    },
+    drawPins(ctx, col, ch, lay) {
+      for (let k = 0; k < ch.scenes; k++) {
+        const a = lay.x0 + ((lay.x1 - lay.x0) * k) / ch.scenes, b = lay.x0 + ((lay.x1 - lay.x0) * (k + 1)) / ch.scenes;
+        const items = pinsOf(ch, k).map((p) => ['pin', p.text]).concat(notesOf(ch, k).map((n) => ['note', n.text]));
+        let y = lay.pins.y + 4;
+        const maxW = b - a - 20;
+        items.slice(0, 3).forEach(([kind, text], i) => {
+          ctx.save();
+          ctx.translate(a + 10, y);
+          ctx.rotate(((i % 2 ? 1 : -1) * 0.8 * Math.PI) / 180);
+          if (kind === 'pin') {
+            ctx.font = `13px ${bookFont()}`;
+            const t = fit(ctx, text, maxW - 22);
+            const tw = ctx.measureText(t).width;
+            ctx.fillStyle = col.sheet; ctx.strokeStyle = col.rule; ctx.lineWidth = 1;
+            ctx.fillRect(0, 0, tw + 22, 21); ctx.strokeRect(0.5, 0.5, tw + 21, 20);
+            ctx.fillStyle = col.seal; ctx.beginPath(); ctx.arc(9, 10.5, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = col.ink; ctx.textBaseline = 'middle'; ctx.fillText(t, 17, 11);
+          } else {
+            ctx.font = `14px ${handFont()}`;
+            ctx.fillStyle = col.soft; ctx.textBaseline = 'middle';
+            ctx.fillText(fit(ctx, text, maxW), 2, 11);
+          }
+          ctx.restore();
+          y += 25;
+        });
+        if (items.length > 3) { ctx.font = `12px ${uiFont()}`; ctx.fillStyle = col.faint; ctx.textBaseline = 'middle'; ctx.fillText(`+${items.length - 3} more`, a + 12, y + 8); }
+      }
+    },
+    point(e) {
+      const r = this.canvas.getBoundingClientRect();
+      return { px: e.clientX - r.left, py: e.clientY - r.top };
+    },
+    laneAt(py) {
+      const l = this.lay;
+      if (!l) return null;
+      if (py < l.head.y + l.head.h) return { name: 'head' };
+      if (py >= l.tension.y - 6 && py <= l.tension.y + l.tension.h + 4) return { name: 'tension' };
+      if (py >= l.mood.y && py <= l.mood.y + l.mood.h) return { name: 'mood' };
+      if (py >= l.threads.y && py <= l.threads.y + l.threads.h) return { name: 'threads', row: Math.floor((py - l.threads.y) / L.row) };
+      if (py >= l.pins.y) return { name: 'pins' };
+      return null;
+    },
+    norm(px, py) {
+      const l = this.lay;
+      return { x: C.clamp((px - l.x0) / (l.x1 - l.x0), 0, 1), y: C.clamp(1 - (py - l.tension.y) / l.tension.h, 0, 1) };
+    },
+    down(e) {
+      if (!this.lay || e.button > 0) return;
+      const { px, py } = this.point(e);
+      const lane = this.laneAt(py);
+      const ch = S.chapters.get(S.cid);
+      if (!lane || !ch) return;
+      const pt = this.norm(px, py);
+      if (lane.name === 'head' || lane.name === 'pins' || px < this.lay.x0 - 4) {
+        if (px >= this.lay.x0 - 4) selectScene(C.sceneAt(ch.scenes, pt.x));
+        return;
+      }
+      if (S.readOnly) return;
+      const cast = (ch.cast || []).filter((id) => S.canon.has(id));
+      if (lane.name === 'threads' && !cast[lane.row]) return;
+      if (lane.name === 'mood' && !S.pigment) return;
+      e.preventDefault();
+      this.canvas.setPointerCapture(e.pointerId);
+      this.stroke = { lane: lane.name, id: lane.name === 'threads' ? cast[lane.row] : null, last: pt, moved: false };
+      this.paint(ch, pt, pt);
+      this.queue();
+    },
+    move(e) {
+      if (!this.stroke) return;
+      const ch = S.chapters.get(S.cid);
+      if (!ch) return;
+      const { px, py } = this.point(e);
+      const pt = this.norm(px, py);
+      this.paint(ch, this.stroke.last, pt);
+      this.stroke.last = pt;
+      this.stroke.moved = true;
+      this.queue();
+    },
+    up() {
+      if (!this.stroke) return;
+      this.stroke = null;
+      const ch = S.chapters.get(S.cid);
+      if (!ch) return;
+      put('chapters', S.cid, Object.assign({}, ch, { strokes: (ch.strokes || 0) + 1 }));
+    },
+    paint(ch, a, b) {
+      const s = this.stroke;
+      const erase = S.tool === 'erase';
+      if (s.lane === 'tension') {
+        if (!ch.tension) ch.tension = new Array(N).fill(null);
+        if (erase) C.eraseLine(ch.tension, a, b, null); else C.paintTension(ch.tension, a, b);
+      } else if (s.lane === 'mood') {
+        ch.mood = ch.mood || {};
+        const ids = erase ? Object.keys(ch.mood).filter((id) => !S.pigment || id === S.pigment) : [S.pigment];
+        for (const id of ids) {
+          if (!ch.mood[id]) ch.mood[id] = new Array(N).fill(0);
+          C.paintWash(ch.mood[id], a, b, erase ? -0.18 : 0.07, 4);
+        }
+      } else if (s.lane === 'threads') {
+        ch.threads = ch.threads || {};
+        if (!ch.threads[s.id]) ch.threads[s.id] = new Array(N).fill(0);
+        C.paintLine(ch.threads[s.id], a, b, () => (erase ? 0 : 1));
+      }
+    },
+    key(e) {
+      const ch = S.chapters.get(S.cid);
+      if (!ch) return;
+      const w = world();
+      let changed = false, msg = '';
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        selectScene(S.k + (e.key === 'ArrowLeft' ? -1 : 1));
+        requestAnimationFrame(() => this.canvas.focus());
+        announce(`Scene ${S.k + 1}`);
+        return;
+      }
+      if (S.readOnly) return;
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (!ch.tension) ch.tension = new Array(N).fill(null);
+        C.nudgeTension(ch.tension, ch.scenes, S.k, (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 0.15 : 0.05));
+        const [i0, i1] = C.sceneRange(ch.scenes, S.k);
+        const t = C.tensionSummary(ch.tension, i0, i1);
+        msg = t ? `Scene ${S.k + 1} tension ${t.mean.toFixed(2)}, ${t.level}` : '';
+        changed = true;
+      } else if (/^Digit[1-9]$/.test(e.code)) {
+        const p = (w.pigments || [])[Number(e.code.slice(5)) - 1];
+        if (!p) return;
+        e.preventDefault();
+        ch.mood = ch.mood || {};
+        if (!ch.mood[p.id]) ch.mood[p.id] = new Array(N).fill(0);
+        C.washScene(ch.mood[p.id], ch.scenes, S.k, e.shiftKey ? -0.2 : 0.2);
+        msg = `${e.shiftKey ? 'Less' : 'More'} ${p.name.toLowerCase()} in scene ${S.k + 1}`;
+        changed = true;
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const el = $('.sheet h2');
+        if (el) { el.setAttribute('tabindex', '-1'); el.focus(); }
+      }
+      if (changed) {
+        put('chapters', S.cid, Object.assign({}, ch, { strokes: (ch.strokes || 0) + 1 }));
+        requestAnimationFrame(() => this.canvas.focus());
+        if (msg) announce(msg);
+      }
+    },
+  };
+  function stateMark(ctx, col, state, x, y) {
+    ctx.save();
+    if (state === 'set') { ctx.strokeStyle = col.seal; ctx.lineWidth = 1.6; ctx.translate(x, y); ctx.rotate(-0.12); ctx.strokeRect(-4.5, -4.5, 9, 9); }
+    else if (state === 'wet') { ctx.fillStyle = col.wet; ctx.translate(x, y + 1); ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.moveTo(0, -5); ctx.quadraticCurveTo(4, 0, 0, 4); ctx.quadraticCurveTo(-4, 0, 0, -5); ctx.fill(); }
+    else if (state === 'stale') { ctx.fillStyle = col.stale; ctx.shadowColor = col.stale; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); }
+    else if (state === 'draft') { ctx.fillStyle = col.faint; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.strokeStyle = col.faint; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
+  }
+  function fit(ctx, text, maxW) {
+    text = String(text || '');
+    if (maxW <= 10) return '';
+    if (ctx.measureText(text).width <= maxW) return text;
+    let lo = 0, hi = text.length;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ctx.measureText(text.slice(0, mid) + '…').width <= maxW) lo = mid; else hi = mid - 1; }
+    return text.slice(0, lo).trimEnd() + '…';
+  }
+  function hexRgb(hex) {
+    const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return null;
+    let s = m[1];
+    if (s.length === 3) s = s.split('').map((c) => c + c).join('');
+    return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  }
+  function withAlpha(hex, a) {
+    const rgb = hexRgb(hex);
+    return rgb ? `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})` : hex;
+  }
+  const uiFont = () => '"Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif';
+  const bookFont = () => 'Alegreya, "Iowan Old Style", Georgia, serif';
+  const handFont = () => 'Kalam, "Bradley Hand", "Segoe Print", cursive';
+
+  // ---------------------------------------------------------------- the scene sheet
+
+  function sheetView(ch) {
+    const k = S.k, key = C.passageId(S.cid, k);
+    const info = sceneInfo(S.cid, k);
+    const p = info.p;
+    const sheet = h('aside', { class: 'sheet', 'aria-label': `Scene ${k + 1}` });
+    const hs = p && p.text ? C.handStats(p.text, p.spans) : null;
+    sheet.append(h('div', { class: 'sheet-head' },
+      h('h2', null, `Scene ${k + 1}`),
+      pill(info.state, 'scene-pill'),
+      h('span', { id: 'scene-meter' }, hs && hs.total ? meter(hs.hand) : null),
+      h('span', { class: 'sheet-nav' },
+        h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Previous scene', disabled: k === 0, onclick: () => selectScene(k - 1) }, '←'),
+        h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Next scene', disabled: k >= ch.scenes - 1, onclick: () => selectScene(k + 1) }, '→'))));
+    if (info.state === 'stale' && !S.busy['ink:' + key]) sheet.append(staleBox(key, info.reasons));
+    sheet.append(passageSection(ch, k, key, p, info));
+    if (p && !S.busy['ink:' + key]) {
+      const sugg = suggestionsSection(key, p);
+      if (sugg) sheet.append(sugg);
+    }
+    sheet.append(designSection(ch, k));
+    const brief = briefFor(S.cid, k);
+    sheet.append(h('details', { class: 'brief' },
+      h('summary', null, 'What the AI will get for this scene'),
+      h('pre', null, brief.display)));
+    return sheet;
+  }
+
+  function staleBox(key, reasons) {
+    const box = h('section', { class: 'stale-box', 'aria-label': 'This scene is stale' },
+      h('h3', null, 'This scene relies on facts that changed'));
+    for (const r of reasons) {
+      let body;
+      if (r.kind === 'changed') body = [h('del', null, r.before || '(earlier wording)'), h('ins', null, r.after)];
+      else if (r.kind === 'retired') body = [h('del', null, r.before || '(a fact)'), h('span', { class: 'muted' }, 'This fact was retired.')];
+      else if (r.kind === 'removed') body = [h('span', { class: 'muted' }, 'A fact this scene used was deleted along with its entity.')];
+      else body = [h('ins', null, r.after || '(retired)'), h('span', { class: 'muted' }, 'New since you set this scene (strict continuity).')];
+      box.append(h('div', { class: 'change' }, r.entity ? h('strong', null, r.entity) : null, body, r.phase === 'wet' ? h('span', { class: 'faint' }, 'Changed after the scene was inked.') : null));
+    }
+    box.append(h('p', { class: 'muted' }, 'Read the scene against the new wording. If it still holds, mark it still true. If not, edit it, repaint the part that’s wrong, or ink it again.'));
+    box.append(h('div', { class: 'btn-row' },
+      h('button', { class: 'btn seal', type: 'button', disabled: S.readOnly, onclick: () => markStillTrue(key) }, 'Still true'),
+      h('button', { class: 'btn', type: 'button', disabled: S.readOnly || !S.sample || !!S.aiOff, onclick: () => inkScene(S.cid, S.k) }, 'Ink it again')));
+    return box;
+  }
+
+  function passageSection(ch, k, key, p, info) {
+    const sec = h('section', { class: 'section', 'aria-label': 'Scene text' });
+    const inkBusy = S.busy['ink:' + key];
+    if (inkBusy) {
+      const stream = h('div', { class: 'ink-stream wet', id: 'stream-' + key, 'aria-live': 'off' });
+      fillStream(stream, inkBusy.text);
+      sec.append(h('h3', null, 'Inking'), stream,
+        h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onclick: () => inkBusy.ctl.abort() }, 'Stop')));
+      return sec;
+    }
+    const aiReady = !!S.sample && !S.aiOff && !S.readOnly;
+    if (!p) {
+      sec.append(h('div', { class: 'empty-scene' },
+        h('p', null, 'This scene isn’t written yet.'),
+        h('p', { class: 'muted' }, aiReady
+          ? 'Inking sends the brief below to Claude on your own Claude account. It writes inside your design: your tension, moods, cast, pinned lines and notes, and the canon.'
+          : 'Write it yourself. Your painting, pins and notes stay with the scene either way.'),
+        h('div', { class: 'btn-row' },
+          aiReady ? h('button', { class: 'btn primary', type: 'button', onclick: () => inkScene(S.cid, k) }, 'Ink this scene') : null,
+          h('button', { class: 'btn', type: 'button', disabled: S.readOnly, onclick: () => writeByHand(key, k) }, 'Write it yourself'))));
+      return sec;
+    }
+    const wet = C.isWet(p);
+    sec.append(h('h3', null, wet ? 'Wet ink' : p.setAt ? 'Set' : 'Your draft'));
+    sec.append(editorView(key, p, ch));
+    sec.append(h('div', { class: 'legend', 'aria-hidden': 'true' },
+      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--seal)' } }), 'your hand'),
+      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--ink-faint)' } }), 'inked'),
+      h('span', { class: 'key' }, h('i', { style: { borderColor: 'var(--wet)' } }), 'wet ink'),
+      h('label', { class: 'key' }, h('input', { type: 'checkbox', id: 'show-hand', checked: S.showHand, onchange: (e) => { S.showHand = e.target.checked; local.set('showHand', S.showHand); render(); } }), 'underline your hand')));
+    sec.append(h('div', { id: 'selection-slot' }, selectionBar(key, p)));
+    sec.append(h('div', { id: 'set-row' }, setRow(key, p, ch)));
+    const repaintBusy = S.busy['repaint:' + key];
+    const actions = h('div', { class: 'btn-row' });
+    if (S.confirmReink === key) {
+      const hsx = C.handStats(p.text, p.spans);
+      actions.append(h('p', { class: 'muted' }, `Inking again replaces this scene, including ${plural(hsx.words.typed + hsx.words.pinned, 'word')} in your own hand.`),
+        h('button', { class: 'btn primary', type: 'button', onclick: () => { S.confirmReink = null; inkScene(S.cid, k, true); } }, 'Ink it again anyway'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => { S.confirmReink = null; render(); } }, 'Keep this version'));
+    } else {
+      if (aiReady) {
+        actions.append(h('button', { class: 'btn', type: 'button', disabled: !!repaintBusy, onclick: () => inkScene(S.cid, k) }, 'Ink the whole scene again'));
+        actions.append(h('button', { class: 'btn', type: 'button', disabled: !!S.busy['check:' + key] || !p.text.trim(), onclick: () => runContinuity(key) }, S.busy['check:' + key] ? 'Checking against canon…' : 'Check against canon'));
+      }
+      actions.append(h('button', { class: 'btn ghost small danger', type: 'button', disabled: S.readOnly, onclick: () => clearScene(key) }, 'Clear scene'));
+    }
+    sec.append(actions);
+    return sec;
+  }
+  function fillStream(el, text) {
+    clear(el);
+    if (!text) { el.append(h('span', { class: 'thinking' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Thinking. Claude reads the brief before it writes, which can take up to a minute.')); return; }
+    el.append(text, h('span', { class: 'brush-cursor', 'aria-hidden': 'true' }));
+  }
+
+  // The editor: a transparent textarea over a backdrop that colors who wrote what.
+  function editorView(key, p, ch) {
+    const sealed = !!(p.setAt && !C.isWet(p));
+    const wrap = h('div', { class: 'ink-editor' + (S.showHand ? ' show-hand' : '') + (sealed ? ' sealed' : '') });
+    const back = h('div', { class: 'ink-backdrop', 'aria-hidden': 'true' });
+    fillBackdrop(back, p);
+    const ta = h('textarea', { id: 'passage-text', 'aria-label': `Text of scene ${p.scene + 1}`, spellcheck: 'true', readonly: S.readOnly || !!S.busy['repaint:' + key] });
+    ta.value = p.text;
+    ta.addEventListener('input', () => onPassageInput(key, ta, back));
+    const sel = () => onSelect(key, ta);
+    ta.addEventListener('select', sel);
+    ta.addEventListener('keyup', sel);
+    ta.addEventListener('mouseup', sel);
+    ta.addEventListener('blur', () => commitEditLog(key));
+    wrap.append(back, ta);
+    if (p.setAt && !C.isWet(p)) {
+      const w = world();
+      const initial = ((w.byline || w.title || 'I').trim()[0] || 'I').toUpperCase();
+      wrap.append(h('span', { class: 'seal-mark' + (S.flash === key ? ' stamp' : ''), 'aria-hidden': 'true', title: `Set ${when(p.setAt)}` }, initial));
+    }
+    requestAnimationFrame(() => grow(ta));
+    return wrap;
+  }
+  function grow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; }
+  function fillBackdrop(back, p) {
+    clear(back);
+    const text = p.text || '';
+    const spans = C.normSpans(p.spans, text.length);
+    const cuts = new Set([0, text.length]);
+    for (const s of spans) { cuts.add(s.s); cuts.add(s.e); }
+    const conflicts = (p.conflicts || []).filter((c) => c.start >= 0 && c.end <= text.length && c.end > c.start);
+    for (const c of conflicts) { cuts.add(c.start); cuts.add(c.end); }
+    const pts = [...cuts].sort((a, b) => a - b);
+    let j = 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      if (b <= a) continue;
+      while (j < spans.length && spans[j].e <= a) j++;
+      const sp = spans[j] || { o: 'inked', wet: false };
+      const cls = ['h-' + sp.o];
+      if (sp.wet) cls.push('wet');
+      if (conflicts.some((c) => c.start < b && c.end > a)) cls.push('h-conflict');
+      back.append(h('span', { class: cls.join(' ') }, text.slice(a, b)));
+    }
+    back.append('\n​');
+  }
+  function onPassageInput(key, ta, back) {
+    const p = S.passages.get(key);
+    if (!p) return;
+    const ch = S.chapters.get(p.chapter);
+    if (S.editBase[key] == null) S.editBase[key] = p.text;
+    const d = C.diffRange(p.text, ta.value);
+    let next = C.editPassage(p, ta.value, pinsOf(ch, p.scene), now());
+    next = Object.assign({}, next, { conflicts: shiftConflicts(p.conflicts || [], d) });
+    put('passages', key, next, { quiet: true });
+    fillBackdrop(back, next);
+    grow(ta);
+    refreshSheetBits(key);
+    clearTimeout(S.editTimers[key]);
+    S.editTimers[key] = setTimeout(() => commitEditLog(key), 2500);
+  }
+  function shiftConflicts(list, d) {
+    const delEnd = d.at + d.del.length, shift = d.ins.length - d.del.length;
+    return list.flatMap((c) => {
+      if (c.start < 0) return [c];
+      if (c.end <= d.at) return [c];
+      if (c.start >= delEnd) return [Object.assign({}, c, { start: c.start + shift, end: c.end + shift })];
+      return [];
+    });
+  }
+  function commitEditLog(key) {
+    clearTimeout(S.editTimers[key]);
+    const base = S.editBase[key];
+    delete S.editBase[key];
+    const p = S.passages.get(key);
+    if (base == null || !p || base === p.text) return;
+    put('passages', key, C.recordEdit(p, base, p.text, now()), { quiet: true });
+  }
+  function refreshSheetBits(key) {
+    const p = S.passages.get(key);
+    const ch = S.chapters.get(S.cid);
+    if (!p || !ch || key !== C.passageId(S.cid, S.k)) return;
+    const info = sceneInfo(S.cid, S.k);
+    const pillEl = $('#scene-pill');
+    if (pillEl) pillEl.replaceWith(pill(info.state, 'scene-pill'));
+    const m = $('#scene-meter');
+    if (m) { clear(m); const hs = C.handStats(p.text, p.spans); if (hs.total) m.append(meter(hs.hand)); }
+    const row = $('#set-row');
+    if (row) { clear(row); row.append(setRow(key, p, ch)); }
+  }
+  function onSelect(key, ta) {
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const had = !!S.selection;
+    S.selection = e - s >= 3 ? { key, s, e } : null;
+    const slot = $('#selection-slot');
+    if (slot && (had || S.selection)) { clear(slot); const p = S.passages.get(key); if (p) add(slot, selectionBar(key, p)); }
+  }
+  function selectionBar(key, p) {
+    const busy = S.busy['repaint:' + key];
+    if (busy) {
+      const out = h('div', { class: 'ink-stream wet', id: 'stream-repaint-' + key });
+      fillStream(out, busy.text);
+      return h('div', { class: 'selection-bar' }, h('strong', null, 'Repainting the selected words'), out,
+        h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop')));
+    }
+    const sel = S.selection;
+    if (!sel || sel.key !== key || S.readOnly) return null;
+    let { s, e } = sel;
+    const raw = p.text.slice(s, e);
+    const preview = raw.trim().length > 90 ? raw.trim().slice(0, 90) + '…' : raw.trim();
+    const aiReady = !!S.sample && !S.aiOff;
+    return h('div', { class: 'selection-bar' },
+      h('strong', null, 'Repaint the selected words'),
+      h('p', { class: 'muted' }, `“${preview}”`),
+      aiReady ? h('form', {
+        class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); repaintSelection(key, ev.target.querySelector('input').value); },
+      }, h('input', { type: 'text', id: 'repaint-direction', 'data-keep': '', placeholder: 'How should it change? colder, shorter, she doesn’t trust him yet', 'aria-label': 'Direction for the repaint' }),
+        h('button', { class: 'btn primary', type: 'submit' }, 'Repaint'))
+        : h('p', { class: 'faint' }, 'Repainting needs Claude, which is off in this view.'));
+  }
+  function setRow(key, p, ch) {
+    const wet = C.isWet(p);
+    const results = C.findPins(p.text, pinsOf(ch, p.scene));
+    const missing = results.filter((r) => !r.found);
+    const box = h('div', { class: 'section' });
+    for (const m of missing) {
+      box.append(h('div', { class: 'check-row' },
+        h('span', { class: 'pill', 'data-state': 'stale' }, 'Pinned line missing'),
+        h('span', { class: 'pin-text' }, m.text),
+        S.readOnly ? null : h('button', { class: 'btn small', type: 'button', onclick: () => insertPin(key, m.text) }, 'Insert it')));
+    }
+    if (!wet && p.setAt) {
+      box.append(h('p', { class: 'muted' }, `Set ${when(p.setAt)}. The ledger recorded ${plural((p.premises || []).length, 'fact')} this scene relies on.`));
+      return box;
+    }
+    const empty = !p.text.trim();
+    box.append(h('div', { class: 'btn-row' },
+      h('button', { class: 'btn seal', type: 'button', id: 'set-button', disabled: S.readOnly || empty || missing.length > 0, onclick: () => setScene(key) }, 'Set with your seal'),
+      h('span', { class: 'faint' }, empty ? 'Write something first.' : missing.length ? 'Every pinned line has to be in the scene, word for word.' : wet ? 'Setting dries the ink. Only set scenes can be published.' : 'Setting marks this draft as done.')));
+    return box;
+  }
+
+  function suggestionsSection(key, p) {
+    const busy = S.busy['check:' + key];
+    const props = (p.proposals || []).filter((x) => x.status === 'new');
+    const conflicts = p.conflicts || [];
+    if (!busy && !props.length && !conflicts.length && !p.checkedAt) return null;
+    const sec = h('section', { class: 'section', 'aria-label': 'Continuity and suggestions' }, h('h3', null, 'Continuity'));
+    if (busy) sec.append(h('p', { class: 'muted' }, 'Checking this scene against the canon…'));
+    else if (p.checkedAt && !conflicts.length) sec.append(h('p', { class: 'muted' }, `Checked against the canon ${when(p.checkedAt)}: no contradictions found.`));
+    for (const c of conflicts) {
+      const hit = c.f ? idx().get(c.f) : null;
+      sec.append(h('div', { class: 'conflict' },
+        h('span', null, c.start >= 0 ? `“${c.quote}”` : `“${c.quote}” (couldn’t find these exact words in the scene)`),
+        hit ? h('span', { class: 'muted' }, `Canon: ${hit.fact.text}`) : null,
+        c.why ? h('span', { class: 'faint' }, c.why) : null));
+    }
+    if (props.length) {
+      sec.append(h('h3', null, 'Suggested canon'));
+      sec.append(h('p', { class: 'faint' }, 'Facts the ink introduced. Keep the ones that are true in your world; nothing becomes canon until you do.'));
+      for (const pr of props) {
+        const kindSel = h('select', { 'aria-label': 'Kind', id: 'kind-' + pr.id }, C.KINDS.map((kd) => h('option', { value: kd, selected: kd === guessKind(pr.about) }, kd)));
+        sec.append(h('div', { class: 'proposal' },
+          h('span', null, h('span', { class: 'about' }, (pr.about || 'The world') + ': '), pr.text),
+          h('div', { class: 'btn-row' }, kindSel,
+            h('button', { class: 'btn small', type: 'button', disabled: S.readOnly, onclick: () => keepProposal(key, pr.id, kindSel.value) }, 'Keep'),
+            h('button', { class: 'btn ghost small', type: 'button', disabled: S.readOnly, onclick: () => dismissProposal(key, pr.id) }, 'Dismiss'))));
+      }
+    }
+    return sec;
+  }
+
+  function designSection(ch, k) {
+    const sec = h('details', { class: 'section', open: !S.passages.has(C.passageId(S.cid, k)) });
+    sec.append(h('summary', null, h('strong', null, 'Scene design: who is in it, pinned lines, notes')));
+    const castIds = (ch.cast || []).filter((id) => S.canon.has(id));
+    const present = new Set(C.castIn(ch, k).map((c) => c.id));
+    const castBox = h('div', { class: 'section' }, h('h3', null, 'Who is in this scene'));
+    if (castIds.length) {
+      castBox.append(h('div', { class: 'cast-list' }, castIds.map((id) => h('label', null,
+        h('input', {
+          type: 'checkbox', checked: present.has(id), disabled: S.readOnly,
+          onchange: (e) => { const c = C.clone(S.chapters.get(S.cid)); C.setPresence(c.threads[id] = c.threads[id] || new Array(N).fill(0), c.scenes, S.k, e.target.checked); put('chapters', S.cid, c); },
+        }), S.canon.get(id).name,
+        h('button', { class: 'btn ghost small', type: 'button', 'aria-label': `Remove ${S.canon.get(id).name} from this chapter`, disabled: S.readOnly, onclick: (e) => { e.preventDefault(); removeFromCast(id); } }, '×')))));
+    } else castBox.append(h('p', { class: 'faint' }, entities().some((e) => e.kind === 'character') ? 'Add characters to this chapter with the menu above the score.' : 'Add characters in the Canon view first.'));
+    sec.append(castBox);
+
+    const pins = pinsOf(ch, k);
+    const pinBox = h('div', { class: 'section' }, h('h3', null, 'Pinned lines'),
+      h('p', { class: 'faint' }, 'Your own sentences. They appear in the scene word for word, and the ink writes around them.'));
+    if (pins.length) pinBox.append(h('ul', { class: 'list' }, pins.map((p) => h('li', null, h('span', { class: 'pin-text' }, p.text),
+      h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Remove pinned line', disabled: S.readOnly, onclick: () => editChapterList('pins', (l) => l.filter((x) => x.id !== p.id)) }, '×')))));
+    pinBox.append(h('form', { class: 'inline-form', onsubmit: (e) => { e.preventDefault(); const v = e.target.querySelector('input').value.trim(); if (v) editChapterList('pins', (l) => l.concat([{ id: C.uid('pin'), scene: S.k, text: v }])); } },
+      h('input', { type: 'text', id: 'pin-new', placeholder: 'A line of yours this scene must contain', 'aria-label': 'New pinned line', disabled: S.readOnly }),
+      h('button', { class: 'btn', type: 'submit', disabled: S.readOnly }, 'Pin it')));
+    sec.append(pinBox);
+
+    const notes = notesOf(ch, k);
+    const noteBox = h('div', { class: 'section' }, h('h3', null, 'Notes'),
+      h('p', { class: 'faint' }, 'Directions for this scene. The ink follows them; they never appear in the text.'));
+    if (notes.length) noteBox.append(h('ul', { class: 'list' }, notes.map((n) => h('li', null, h('span', { class: 'note-text' }, n.text),
+      h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Remove note', disabled: S.readOnly, onclick: () => editChapterList('notes', (l) => l.filter((x) => x.id !== n.id)) }, '×')))));
+    noteBox.append(h('form', { class: 'inline-form', onsubmit: (e) => { e.preventDefault(); const v = e.target.querySelector('input').value.trim(); if (v) editChapterList('notes', (l) => l.concat([{ id: C.uid('n'), scene: S.k, text: v }])); } },
+      h('input', { type: 'text', id: 'note-new', placeholder: 'she doesn’t trust him yet', 'aria-label': 'New note', disabled: S.readOnly }),
+      h('button', { class: 'btn', type: 'submit', disabled: S.readOnly }, 'Add note')));
+    sec.append(noteBox);
+    return sec;
+  }
+  function editChapterList(field, fn) {
+    const ch = S.chapters.get(S.cid);
+    put('chapters', S.cid, Object.assign({}, ch, { [field]: fn((ch[field] || []).slice()) }));
+    requestAnimationFrame(() => { const el = document.getElementById(field === 'pins' ? 'pin-new' : 'note-new'); if (el) { el.value = ''; el.focus(); } });
+  }
+  function guessKind(name) {
+    const n = String(name || '');
+    if (/\b(city|town|sea|river|forest|wood|mountain|garden|gardens|tower|street|harbou?r|isle|island|valley|village|castle|palace|road|gate|hall|market|stairs|cliff)\b/i.test(n)) return 'place';
+    if (/\b(guild|order|house|clan|court|council|church|army|crew|company|circle)\b/i.test(n)) return 'faction';
+    if (/^[A-Z][\p{L}'-]+$/u.test(n.trim())) return 'character';
+    return 'thing';
+  }
+
+  // ---------------------------------------------------------------- scene actions
+
+  function aiError(e, what) {
+    const code = e && e.code;
+    if (code === 'cancelled') return;
+    if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) {
+      S.aiOff = code === 'not_granted'
+        ? 'You chose not to let this page use Claude, so inking is off for this visit. You can still paint, write scenes yourself and set them.'
+        : 'Claude isn’t available in this view, so inking is off. You can still paint, write scenes yourself and set them.';
+      render();
+      return;
+    }
+    const msg = {
+      rate_limited: 'Claude is busy, or your usage limit has been reached. Try again in a little while.',
+      session_expired: 'Your claude.ai session expired. Sign in again, then try again.',
+      refused: 'Claude declined to write this. Try changing the notes or the pinned lines.',
+      prompt_too_large: 'The brief is too long. Shorten the voice sample or the notes.',
+      empty_completion: 'Claude returned nothing. Try again, or ask for a shorter scene.',
+      invalid_json: 'Claude’s answer couldn’t be read. Try again.',
+      upstream_error: 'The connection dropped. Anything already written was kept. Try again.',
+    }[code] || `Something went wrong while ${what} (${(e && (e.message || code)) || 'unknown error'}).`;
+    toast(msg, 'error');
+  }
+
+  async function inkScene(cid, k, confirmed) {
+    if (!S.sample || S.aiOff || S.readOnly) return;
+    const key = C.passageId(cid, k);
+    if (S.busy['ink:' + key]) return;
+    const prev = S.passages.get(key);
+    if (prev && !confirmed) {
+      const hs = C.handStats(prev.text, prev.spans);
+      if (hs.words.typed + hs.words.pinned > 0 && (hs.words.typed > 0)) { S.confirmReink = key; render(); return; }
+    }
+    commitEditLog(key);
+    const brief = briefFor(cid, k);
+    const busy = { ctl: new AbortController(), text: '' };
+    S.busy['ink:' + key] = busy;
+    S.selection = null;
+    render();
+    let raw = '';
+    try {
+      const res = await S.sample(brief.prompt, {
+        modelTier: 'complex', signal: busy.ctl.signal, cache: false,
+        onText: ({ text }) => { raw = text; busy.text = C.streamingProse(text); const el = document.getElementById('stream-' + key); if (el) fillStream(el, busy.text); },
+      });
+      raw = res.text;
+      delete S.busy['ink:' + key];
+      if (finishInk(cid, k, raw, brief, prev) && res.truncated) toast('The scene was cut off at the length limit. Finish it by hand, or lower the words per scene and ink it again.', 'warn');
+    } catch (e) {
+      delete S.busy['ink:' + key];
+      if (e && e.code === 'cancelled' && e.text && C.streamingProse(e.text).trim()) {
+        finishInk(cid, k, e.text, brief, prev, true);
+        toast('Stopped. What was written so far is kept as wet ink.');
+      } else if (e && e.code === 'upstream_error' && e.text && C.streamingProse(e.text).trim()) {
+        finishInk(cid, k, e.text, brief, prev, true);
+        aiError(e, 'inking');
+      } else aiError(e, 'inking');
+      render();
+    }
+  }
+  function finishInk(cid, k, raw, brief, prev, partial) {
+    const out = C.parseInkOutput(raw, brief.factMap);
+    if (!out.prose.trim()) { toast('Claude didn’t return any prose. Try again.', 'error'); render(); return false; }
+    const used = out.ledger ? out.used : C.guessUsed(out.prose, brief.factMap, S.canon);
+    const passage = C.inkedPassage({ chapterId: cid, k, prose: out.prose, used, fresh: partial ? [] : out.fresh, pins: brief.pins, now: now(), prev });
+    put('passages', passage.id, passage);
+    if (!partial) runContinuity(passage.id);
+    return true;
+  }
+
+  async function runContinuity(key) {
+    if (!S.sample || S.aiOff) return;
+    const p = S.passages.get(key);
+    if (!p || !p.text.trim() || S.busy['check:' + key]) return;
+    const ch = S.chapters.get(p.chapter);
+    if (!ch) return;
+    const facts = C.sceneFacts({ world: world(), entities: S.canon, chapter: ch, chapterId: p.chapter, k: p.scene, extraText: p.text });
+    const items = facts.canon.concat(facts.secrets, facts.reveals);
+    if (!items.length) { put('passages', key, Object.assign({}, p, { conflicts: [], checkedAt: now() })); return; }
+    const { prompt, factMap } = C.buildContinuityPrompt({ world: world(), text: p.text, items });
+    const busy = { ctl: new AbortController() };
+    S.busy['check:' + key] = busy;
+    render();
+    try {
+      const json = await S.sample.json(prompt, { modelTier: 'default', signal: busy.ctl.signal });
+      const cur = S.passages.get(key);
+      if (cur) put('passages', key, Object.assign({}, cur, { conflicts: C.parseContinuity(json, cur.text, factMap), checkedAt: now() }));
+    } catch (e) { aiError(e, 'checking continuity'); }
+    finally { delete S.busy['check:' + key]; render(); }
+  }
+
+  async function repaintSelection(key, direction) {
+    const sel = S.selection;
+    const p = S.passages.get(key);
+    if (!sel || !p || !S.sample || S.aiOff || S.busy['repaint:' + key]) return;
+    let s = sel.s, e = sel.e;
+    while (s < e && /\s/.test(p.text[s])) s++;
+    while (e > s && /\s/.test(p.text[e - 1])) e--;
+    if (e - s < 2) return;
+    if (C.normSpans(p.spans, p.text.length).some((x) => x.o === 'pinned' && x.s < e && x.e > s)) {
+      toast('The selection includes one of your pinned lines. Pinned lines are never repainted; select around it.', 'warn');
+      return;
+    }
+    commitEditLog(key);
+    const brief = briefFor(p.chapter, p.scene);
+    const { prompt, factMap } = C.buildRepaintPrompt({ brief, text: p.text, s, e, direction });
+    const startText = p.text;
+    const busy = { ctl: new AbortController(), text: '' };
+    S.busy['repaint:' + key] = busy;
+    render();
+    try {
+      const res = await S.sample(prompt, {
+        modelTier: 'default', signal: busy.ctl.signal, cache: false,
+        onText: ({ text }) => { busy.text = C.streamingProse(text); const el = document.getElementById('stream-repaint-' + key); if (el) fillStream(el, busy.text); },
+      });
+      const out = C.parseRepaint(res.text, factMap);
+      const cur = S.passages.get(key);
+      if (!cur || cur.text !== startText) toast('The scene changed while it was being repainted, so the repaint was not applied. Try again.', 'warn');
+      else if (!out.prose) toast('Claude returned nothing for the repaint. Try again.', 'error');
+      else {
+        const ch = S.chapters.get(cur.chapter);
+        const next = C.repaintPassage(cur, s, e, out.prose, out.ledger ? out.used : C.guessUsed(out.prose, factMap, S.canon), out.fresh, pinsOf(ch, cur.scene), now());
+        S.selection = null;
+        put('passages', key, next);
+        toast('Repainted. The new words are wet until you set the scene.');
+      }
+    } catch (err) { aiError(err, 'repainting'); }
+    finally { delete S.busy['repaint:' + key]; render(); }
+  }
+
+  function writeByHand(key, k) {
+    put('passages', key, C.handPassage({ chapterId: S.cid, k, now: now() }));
+    requestAnimationFrame(() => { const ta = $('#passage-text'); if (ta) ta.focus(); });
+  }
+  function insertPin(key, text) {
+    const p = S.passages.get(key);
+    if (!p) return;
+    const ta = $('#passage-text');
+    let at = ta && document.activeElement === ta ? ta.selectionEnd : p.text.length;
+    let ins = text;
+    if (at === p.text.length && p.text && !/\s$/.test(p.text)) ins = (p.text.endsWith('\n') ? '' : '\n\n') + text;
+    if (at === p.text.length && p.text.endsWith('\n') && !p.text.endsWith('\n\n')) ins = '\n' + text;
+    const r = C.splice(p.text, p.spans, at, at, ins, { o: 'pinned', wet: false });
+    put('passages', key, Object.assign({}, p, { text: r.text, spans: r.spans }));
+  }
+  function setScene(key) {
+    commitEditLog(key);
+    const p = S.passages.get(key);
+    const ch = p && S.chapters.get(p.chapter);
+    if (!p || !ch) return;
+    const r = C.setPassage(p, pinsOf(ch, p.scene), now());
+    if (!r.ok) { toast(r.reason === 'pins' ? 'A pinned line is missing from the scene. Insert it before setting.' : 'There is nothing to set yet.', 'warn'); return; }
+    S.flash = key;
+    put('passages', key, r.passage);
+    setTimeout(() => { S.flash = null; }, 700);
+    toast(`Set. The ledger recorded ${plural(r.passage.premises.length, 'fact')} this scene relies on.`);
+  }
+  function markStillTrue(key) {
+    const p = S.passages.get(key);
+    if (!p) return;
+    put('passages', key, C.stillTrue(p, idx(), now()));
+    toast('Marked still true. The ledger now records the current wording.');
+  }
+  async function clearScene(key) {
+    const ok = await ask({ title: 'Clear this scene?', body: 'Its text is deleted. The painting, pinned lines and notes stay.', confirm: 'Clear scene', danger: true });
+    if (!ok) return;
+    removeDoc('passages', key);
+    render();
+  }
+  function keepProposal(key, propId, kind) {
+    const p = S.passages.get(key);
+    const pr = p && (p.proposals || []).find((x) => x.id === propId);
+    if (!pr) return;
+    addFactTo(pr.about || 'The world', pr.text, kind);
+    put('passages', key, Object.assign({}, p, { proposals: p.proposals.map((x) => (x.id === propId ? Object.assign({}, x, { status: 'kept' }) : x)) }));
+  }
+  function dismissProposal(key, propId) {
+    const p = S.passages.get(key);
+    if (!p) return;
+    put('passages', key, Object.assign({}, p, { proposals: p.proposals.map((x) => (x.id === propId ? Object.assign({}, x, { status: 'dismissed' }) : x)) }));
+  }
+  function addFactTo(name, text, kind) {
+    const found = entities().find((e) => e.name.toLowerCase() === String(name).trim().toLowerCase());
+    const e = found ? C.clone(found) : C.newEntity(kind, name, now());
+    e.facts.push(C.newFact(text, 'accepted', now()));
+    put('canon', e.id, e);
+    toast(found ? `Kept: added to ${e.name}.` : `Kept: ${e.name} is new in your canon.`);
+  }
+
+  // ---------------------------------------------------------------- book view
+
+  function proseView(text, spans, opts) {
+    const frag = document.createDocumentFragment();
+    const ns = C.normSpans(spans || [], text.length);
+    const paras = [[]];
+    for (const sp of ns) {
+      const chunk = text.slice(sp.s, sp.e);
+      const cls = ['h-' + sp.o];
+      if (opts && opts.wet && sp.wet) cls.push('wet');
+      for (const part of chunk.split(/(\n+)/)) {
+        if (/^\n+$/.test(part)) { paras.push([]); continue; }
+        if (part) paras[paras.length - 1].push([part, cls.join(' ')]);
+      }
+    }
+    for (const para of paras) {
+      if (!para.some(([t]) => t.trim())) continue;
+      frag.append(h('p', null, para.map(([t, c]) => h('span', { class: c }, t))));
+    }
+    return frag;
+  }
+
+  function bookView() {
+    const w = world();
+    const order = chapterOrder();
+    const toc = h('nav', { class: 'toc', 'aria-label': 'Book' },
+      h('p', { class: 'eyebrow' }, 'Contents'),
+      h('ol', { class: 'toc-list' }, order.map((cid, i) => h('li', null, h('a', { href: '#ch-' + cid, onclick: (e) => { e.preventDefault(); const el = document.getElementById('ch-' + cid); if (el) el.scrollIntoView({ behavior: 'smooth' }); } }, `${i + 1}. ${S.chapters.get(cid).title}`)))),
+      h('label', { class: 'check-row' }, h('input', { type: 'checkbox', id: 'book-hand', checked: S.showHand, onchange: (e) => { S.showHand = e.target.checked; local.set('showHand', S.showHand); render(); } }), 'Underline my hand'),
+      h('div', null, h('button', { class: 'btn small', type: 'button', onclick: () => { S.preview = true; render(); window.scrollTo(0, 0); } }, 'Read it as a reader')),
+      exportsPanel());
+    const page = h('article', { class: 'book-page' + (S.showHand ? ' show-hand' : '') },
+      h('h1', { class: 'title' }, w.title),
+      w.byline ? h('p', { class: 'byline' }, `by ${w.byline}`) : null,
+      w.premise ? h('p', { class: 'premise' }, w.premise) : null);
+    order.forEach((cid, i) => page.append(bookChapter(cid, i)));
+    const stats = worldStats();
+    page.append(h('p', { class: 'made' }, stats && stats.total ? `${stats.total} words in set scenes, ${pct(stats.hand)} in your own hand.` : 'Set scenes appear here as a book.'));
+    return h('div', { class: 'book-view' }, toc, page);
+  }
+  function bookChapter(cid, i) {
+    const ch = S.chapters.get(cid);
+    const pubc = S.pub.get(cid);
+    const changed = pubc && [...S.passages.values()].some((p) => p.chapter === cid && (p.updatedAt || 0) > (pubc.publishedAt || 0));
+    const sec = h('section', { class: 'chapter', id: 'ch-' + cid });
+    sec.append(h('div', { class: 'chapter-head' },
+      h('h2', null, `Chapter ${i + 1}: ${ch.title}`),
+      pubc ? h('span', { class: 'pill', 'data-state': changed ? 'stale' : 'set' }, changed ? 'Changed since published' : `Published ${when(pubc.publishedAt)}`) : null,
+      S.readOnly ? null : h('button', { class: 'btn small', type: 'button', onclick: () => publishChapter(cid) }, pubc ? 'Publish again' : 'Publish chapter'),
+      pubc && !S.readOnly ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => unpublishChapter(cid) }, 'Unpublish') : null));
+    if (S.publishTried[cid]) {
+      const r = C.chapterProblems({ chapter: ch, chapterId: cid, passages: S.passages, idx: idx(), strict: !!world().strict, entities: S.canon });
+      const blocking = r.problems.filter((x) => x.block);
+      if (blocking.length) {
+        const say = { wet: 'is still wet: set it first', stale: 'is stale: review it', pins: 'is missing a pinned line', unset: 'is a draft: set it first', nothing: '' };
+        sec.append(h('ul', { class: 'problems' }, blocking.map((x) => h('li', null, x.kind === 'nothing' ? 'No scene in this chapter has text yet.' : `Scene ${x.k + 1} ${say[x.kind]}.`))));
+      }
+    }
+    for (let k = 0; k < ch.scenes; k++) {
+      const info = sceneInfo(cid, k);
+      const p = info.p;
+      const open = h('button', { class: 'btn ghost small', type: 'button', onclick: () => { S.cid = cid; S.k = k; savePos(); go('score'); } }, 'Open in the score');
+      const block = h('div', { class: 'scene-block', 'data-state': info.state });
+      if (k > 0) sec.append(h('p', { class: 'scene-break', 'aria-hidden': 'true' }, '* * *'));
+      if (info.state === 'empty') { block.append(h('div', { class: 'scene-label' }, `Scene ${k + 1} isn’t written yet.`, open)); sec.append(block); continue; }
+      if (info.state !== 'set') {
+        const label = info.state === 'wet' ? 'Wet ink, not set yet.' : info.state === 'draft' ? 'A draft, not set yet.' : `Stale: ${info.reasons.map((r) => r.after ? `${r.entity}: ${r.after}` : `${r.entity || 'a fact'} changed`).join('; ')}`;
+        block.append(h('div', { class: 'scene-label' }, pill(info.state), label, open));
+      }
+      block.append(h('div', { class: 'prose' }, proseView(p.text, p.spans, { wet: true })));
+      sec.append(block);
+    }
+    return sec;
+  }
+
+  function publishChapter(cid) {
+    const ch = S.chapters.get(cid);
+    const r = C.chapterProblems({ chapter: ch, chapterId: cid, passages: S.passages, idx: idx(), strict: !!world().strict, entities: S.canon });
+    if (!r.ok) {
+      S.publishTried[cid] = true;
+      render();
+      toast('This chapter can’t be published yet. The scenes that need attention are listed under its title.', 'warn');
+      return;
+    }
+    S.publishTried[cid] = false;
+    const pc = C.publishedChapter({ world: world(), chapter: ch, chapterId: cid, passages: S.passages, now: now() });
+    put('pub', cid, pc, { quiet: true, keepTime: true });
+    writePubWorld();
+    toast(`Published ${ch.title}. Anyone you share this page with can read it while signed in to claude.ai.`);
+    render();
+  }
+  function unpublishChapter(cid) {
+    removeDoc('pub', cid);
+    writePubWorld();
+    toast('Unpublished. Readers no longer see this chapter.');
+    render();
+  }
+  function writePubWorld() {
+    const path = P.pubWorld(S.wid);
+    if (!S.pub.size) { S.pubWorlds.delete(S.wid); queueDelete(path); return; }
+    const pw = Object.assign(C.publishedWorld({ world: world(), entities: S.canon, publishedChapters: S.pub, now: now() }), { id: S.wid });
+    S.pubWorlds.set(S.wid, pw);
+    queueWrite(path, pw);
+  }
+
+  function exportsPanel() {
+    const can = !!S.downloads || !window.claude;
+    const panel = h('div', { class: 'exports' }, h('p', { class: 'eyebrow' }, 'Download'));
+    if (!can) { panel.append(h('p', { class: 'faint' }, 'Downloads aren’t available in this view.')); return panel; }
+    const w = world();
+    const base = slug(w.title);
+    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds });
+    const model = () => C.bookModel({ world: w, chapters: S.chapters, passages: S.passages });
+    panel.append(
+      h('p', { class: 'faint' }, 'The book includes set scenes only.'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.epub`, C.exportEpub(model(), now())) }, 'EPUB'),
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.html`, C.exportHtml(model())) }, 'HTML'),
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}.md`, C.exportMarkdown(model())) }, 'Markdown')),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-bible.json`, JSON.stringify(C.exportBible(all(), now()), null, 2)) }, 'The bible (JSON)')),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-provenance.md`, C.exportProvenance(all(), now()).md) }, 'Who wrote what (Markdown)'),
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-provenance.json`, JSON.stringify(C.exportProvenance(all(), now()).json, null, 2)) }, 'JSON')),
+      h('p', { class: 'eyebrow' }, 'Back up'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-backup.json`, JSON.stringify(C.exportBackup(all(), now()))) }, 'Back up this world'),
+        h('label', { class: 'btn small' }, 'Restore a backup', h('input', { type: 'file', accept: '.json,application/json', class: 'sr-only', onchange: (e) => restoreFrom(e.target) }))));
+    return panel;
+  }
+  async function saveFile(filename, data) {
+    if (S.downloads) {
+      try {
+        const r = await S.downloads.save({ filename, data });
+        if (r && r.status === 'saved') toast(`Saved ${filename}.`);
+      } catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') return;
+        if (code === 'rate_limited') toast('A save is already waiting for your answer.', 'warn');
+        else if (['unavailable', 'not_granted', 'capability_disabled', 'capability_removed', 'extension_not_enabled'].includes(code)) { toast('That download isn’t available in this view.', 'warn'); }
+        else toast(`Couldn’t save ${filename} (${(e && (e.message || code)) || 'unknown error'}).`, 'error');
+      }
+      return;
+    }
+    if (!window.claude) {
+      const blob = new Blob([data], { type: 'application/octet-stream' });
+      const a = h('a', { href: URL.createObjectURL(blob), download: filename });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      return;
+    }
+    toast('Downloads aren’t available in this view.', 'warn');
+  }
+  function restoreFrom(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(String(reader.result)); } catch (e) { toast('That file isn’t valid JSON.', 'error'); return; }
+      importWorld(data, true);
+    };
+    reader.onerror = () => toast('Couldn’t read that file.', 'error');
+    reader.readAsText(file);
+  }
+
+  // ---------------------------------------------------------------- reader view
+
+  function readerView(pubWorld, chaptersMap, preview) {
+    const wrap = h('div', null);
+    if (preview) wrap.append(h('div', { class: 'banner' }, h('strong', null, 'Reader preview.'), 'This is what people you share the page with see.', h('button', { class: 'btn small', type: 'button', onclick: () => { S.preview = false; render(); } }, 'Back to the studio')));
+    if (!pubWorld) {
+      wrap.append(h('section', { class: 'welcome' },
+        h('p', { class: 'eyebrow' }, 'Inkwash'),
+        h('h1', null, S.mode === 'reader' && !S.db ? 'Sign in to claude.ai to read this book.' : 'Nothing has been published here yet.'),
+        h('p', { class: 'muted' }, S.mode === 'reader' && !S.db ? 'Published chapters load for signed-in readers. You can also ask the author for the EPUB or HTML edition.' : 'When the author publishes a chapter, it appears here.')));
+      return wrap;
+    }
+    const chapters = [...chaptersMap.values()].sort((a, b) => a.order - b.order);
+    const pos = C.clamp(S.reader.pos, 0, Math.max(0, chapters.length - 1));
+    const cur = chapters[pos];
+    const toc = h('nav', { class: 'toc', 'aria-label': 'Chapters' },
+      h('p', { class: 'eyebrow' }, 'Chapters'),
+      h('ol', { class: 'toc-list' }, chapters.map((c, i) => h('li', null, h('a', { href: '#read', 'aria-current': i === pos ? 'true' : null, onclick: (e) => { e.preventDefault(); S.reader.pos = i; render(); window.scrollTo(0, 0); } }, `${c.order + 1}. ${c.title}`)))));
+    const article = h('article', { class: 'book-page', id: 'read' },
+      h('h1', { class: 'title' }, pubWorld.title),
+      pubWorld.byline ? h('p', { class: 'byline' }, `by ${pubWorld.byline}`) : null,
+      pubWorld.premise && pos === 0 ? h('p', { class: 'premise' }, pubWorld.premise) : null);
+    if (cur) {
+      const sec = h('section', { class: 'chapter' }, h('div', { class: 'chapter-head' }, h('h2', null, `Chapter ${cur.order + 1}: ${cur.title}`)));
+      cur.scenes.forEach((text, i) => {
+        if (i) sec.append(h('p', { class: 'scene-break', 'aria-hidden': 'true' }, '* * *'));
+        sec.append(h('div', { class: 'prose' }, C.paragraphs(text).map((t) => h('p', null, t))));
+      });
+      const nav = h('div', { class: 'btn-row', style: { marginTop: '2rem' } },
+        pos > 0 ? h('button', { class: 'btn', type: 'button', onclick: () => { S.reader.pos = pos - 1; render(); window.scrollTo(0, 0); } }, 'Previous chapter') : null,
+        pos < chapters.length - 1 ? h('button', { class: 'btn primary', type: 'button', onclick: () => { S.reader.pos = pos + 1; render(); window.scrollTo(0, 0); } }, 'Next chapter') : null);
+      sec.append(nav);
+      article.append(sec);
+    } else article.append(h('p', { class: 'muted', style: { marginTop: '2rem' } }, 'No chapters are published yet.'));
+    article.append(h('p', { class: 'made' }, pubWorld.words
+      ? `How this book was made: the author painted the shape of every scene in Inkwash and wrote ${pct(pubWorld.hand)} of the words by hand. Claude inked the rest from the author’s design, and the author kept or edited every line before setting it.`
+      : 'Made with Inkwash.'));
+    const lore = C.visibleLore(pubWorld, cur ? cur.order : 0);
+    const aside = h('aside', { class: 'lore', 'aria-label': 'What you know so far' },
+      h('h3', null, 'What you know so far'),
+      h('p', { class: 'faint' }, 'Only what this chapter and earlier ones have shown.'),
+      lore.length ? lore.map((e) => h('div', { class: 'lore-entry' }, h('h4', null, e.name), h('ul', null, e.facts.map((f) => h('li', null, f.text))))) : h('p', { class: 'faint' }, 'Nothing yet.'));
+    wrap.append(h('div', { class: 'reader' }, toc, article, aside));
+    return wrap;
+  }
+
+  function startReader() {
+    S.mode = 'reader';
+    if (!S.db) { render(); return; }
+    const hash = (location.hash || '').replace(/^#/, '');
+    S.db.collection('published').onSnapshot((snap) => {
+      for (const ch of snap.docChanges()) {
+        if (ch.type === 'removed') S.pubWorlds.delete(ch.doc.id);
+        else S.pubWorlds.set(ch.doc.id, Object.assign(C.clone(ch.doc.data()), { id: ch.doc.id }));
+      }
+      const ids = [...S.pubWorlds.keys()];
+      const want = S.pubWorlds.has(hash) ? hash : ids.sort((a, b) => (S.pubWorlds.get(b).publishedAt || 0) - (S.pubWorlds.get(a).publishedAt || 0))[0] || null;
+      if (want !== S.reader.wid) {
+        if (S.reader.unsub) S.reader.unsub();
+        S.reader.wid = want;
+        S.reader.chapters = new Map();
+        S.reader.pos = 0;
+        if (want) {
+          S.reader.unsub = S.db.collection(`published/${want}/chapters`).onSnapshot((cs) => {
+            for (const c of cs.docChanges()) {
+              if (c.type === 'removed') S.reader.chapters.delete(c.doc.id);
+              else S.reader.chapters.set(c.doc.id, Object.assign(C.clone(c.doc.data()), { id: c.doc.id }));
+            }
+            render();
+          }, onDbError);
+        }
+      }
+      render();
+    }, onDbError);
+    render();
+  }
+
+  // ---------------------------------------------------------------- canon view
+
+  function canonView() {
+    const list = entities().slice().sort((a, b) => C.KINDS.indexOf(a.kind) - C.KINDS.indexOf(b.kind) || a.name.localeCompare(b.name));
+    const kindSel = h('select', { id: 'new-kind', 'aria-label': 'Kind' }, C.KINDS.map((k) => h('option', { value: k }, k)));
+    const page = h('section', { class: 'page-pad' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Canon'),
+        h('h1', null, 'What is true in ' + world().title),
+        h('p', { class: 'muted' }, 'Every fact here is something the ink must respect. Each fact shows which scenes rely on it. Reword one, and those scenes are flagged until you’ve checked them.')),
+      S.readOnly ? null : h('form', { class: 'add-entity', onsubmit: (e) => { e.preventDefault(); const name = e.target.querySelector('#new-entity-name').value.trim(); if (!name) return; const ent = C.newEntity(kindSel.value, name, now()); put('canon', ent.id, ent); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + ent.id); if (el) el.focus(); }); } },
+        kindSel,
+        h('input', { type: 'text', id: 'new-entity-name', placeholder: 'Name: Kael, Vesk, the Lamplighters’ Guild', 'aria-label': 'Name' }),
+        h('button', { class: 'btn primary', type: 'submit' }, 'Add to canon')));
+    if (!list.length) page.append(h('p', { class: 'muted' }, 'Nothing in the canon yet. Add the first character, place or rule above, or catch a dream and keep its seeds.'));
+    for (const kind of C.KINDS) {
+      const group = list.filter((e) => e.kind === kind);
+      if (!group.length) continue;
+      page.append(h('section', { class: 'kind-group' }, h('h2', null, C.KIND_LABEL[kind]), h('div', { class: 'cards' }, group.map(entityCard))));
+    }
+    return page;
+  }
+  function entityCard(e) {
+    const live = (e.facts || []).filter((f) => !f.retired);
+    const retired = (e.facts || []).filter((f) => f.retired);
+    const card = h('article', { class: 'card', 'aria-label': e.name },
+      h('div', { class: 'card-head' },
+        h('input', {
+          type: 'text', id: 'ent-name-' + e.id, value: e.name, 'data-keep': '', 'aria-label': 'Name', disabled: S.readOnly,
+          onchange: (ev) => { const v = ev.target.value.trim(); if (v && v !== e.name) put('canon', e.id, Object.assign({}, e, { name: v })); },
+        }),
+        h('select', { 'aria-label': 'Kind', disabled: S.readOnly, onchange: (ev) => put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })) }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k))),
+        S.readOnly ? null : h('button', { class: 'btn ghost small danger', type: 'button', 'aria-label': `Delete ${e.name}`, onclick: () => deleteEntity(e.id) }, 'Delete')));
+    for (const f of live) card.append(factRow(e, f));
+    if (retired.length) card.append(h('details', null, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
+    if (!S.readOnly) {
+      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); ent.facts.push(C.newFact(v, 'human', now())); put('canon', e.id, ent); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
+        h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: 'Add a fact', 'aria-label': `New fact about ${e.name}` }),
+        h('button', { class: 'btn small', type: 'submit' }, 'Add')));
+    }
+    return card;
+  }
+  function factRow(e, f) {
+    const uses = C.dependents(S.passages, f.id).sort((a, b) => chapterOrder().indexOf(a.chapter) - chapterOrder().indexOf(b.chapter) || a.scene - b.scene);
+    const order = chapterOrder();
+    const ta = h('textarea', {
+      id: 'fact-' + f.id, rows: 2, 'data-keep': '', 'aria-label': `Fact about ${e.name}`, disabled: S.readOnly,
+      onchange: (ev) => reviseFactUI(e.id, f.id, ev.target.value),
+    });
+    ta.value = f.text;
+    const meta = h('div', { class: 'fact-meta' },
+      h('span', { class: 'badge', title: (f.history || []).map((x) => `v${x.v}: ${x.text}`).join('\n') || 'No earlier wording' }, `v${f.v}`),
+      f.origin === 'accepted' ? h('span', { class: 'badge kept', title: 'Suggested by AI, kept by you' }, 'kept from a suggestion') : null,
+      h('label', null, h('input', { type: 'checkbox', checked: !!f.secret, disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { secret: ev.target.checked }) }), 'secret'),
+      f.secret ? h('select', { 'aria-label': 'Revealed in', disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { reveal: ev.target.value || null }) },
+        h('option', { value: '' }, 'not revealed yet'),
+        order.map((cid, i) => h('option', { value: cid, selected: f.reveal === cid }, `revealed in chapter ${i + 1}`))) : null,
+      uses.length ? h('span', { class: 'uses' }, 'Used in ', uses.map((p, i) => [i ? ', ' : '', h('button', { type: 'button', onclick: () => { S.cid = p.chapter; S.k = p.scene; savePos(); go('score'); } }, `ch. ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`)])) : h('span', null, 'Not used by any scene yet'),
+      S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire'));
+    return h('div', { class: 'fact' }, ta, meta);
+  }
+  function reviseFactUI(eid, fid, text) {
+    const e = C.clone(S.canon.get(eid));
+    const f = e && e.facts.find((x) => x.id === fid);
+    if (!f) return;
+    const before = new Set([...S.passages.values()].filter((p) => sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
+    if (!C.reviseFact(f, text, now())) return;
+    put('canon', eid, e, { quiet: true });
+    reportNewlyStale(before, `${e.name} changed.`);
+    render();
+  }
+  function retireFactUI(eid, fid) {
+    const e = C.clone(S.canon.get(eid));
+    const f = e && e.facts.find((x) => x.id === fid);
+    if (!f) return;
+    const before = new Set([...S.passages.values()].filter((p) => sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
+    C.retireFact(f, now());
+    put('canon', eid, e, { quiet: true });
+    reportNewlyStale(before, 'Fact retired.');
+    render();
+  }
+  function reportNewlyStale(before, lead) {
+    const now_ = [...S.passages.values()].filter((p) => !before.has(p.id) && S.chapters.has(p.chapter) && sceneInfo(p.chapter, p.scene).state === 'stale');
+    if (!now_.length) { toast(`${lead} No written scene relied on the old wording.`); return; }
+    const order = chapterOrder();
+    const first = now_[0];
+    toast(`${lead} ${plural(now_.length, 'scene')} relied on the old wording and ${now_.length === 1 ? 'is' : 'are'} now flagged: ${now_.map((p) => `chapter ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`).join('; ')}.`, 'warn',
+      { label: 'Show me', run: () => { S.cid = first.chapter; S.k = first.scene; savePos(); go('score'); } });
+  }
+  function updateFact(eid, fid, patch) {
+    const e = C.clone(S.canon.get(eid));
+    if (!e) return;
+    e.facts = e.facts.map((f) => (f.id === fid ? Object.assign(f, patch) : f));
+    put('canon', eid, e);
+  }
+  async function deleteEntity(eid) {
+    const e = S.canon.get(eid);
+    if (!e) return;
+    const uses = new Set();
+    for (const f of e.facts || []) for (const p of C.dependents(S.passages, f.id)) uses.add(p.id);
+    const ok = await ask({ title: `Delete ${e.name}?`, body: `${plural((e.facts || []).length, 'fact')} go with it.` + (uses.size ? ` ${plural(uses.size, 'scene')} that relied on them will be flagged.` : ''), confirm: 'Delete', danger: true });
+    if (!ok) return;
+    removeDoc('canon', eid);
+    for (const ch of S.chapters.values()) {
+      if ((ch.cast || []).includes(eid)) {
+        const c = C.clone(ch);
+        c.cast = c.cast.filter((x) => x !== eid);
+        delete c.threads[eid];
+        put('chapters', ch.id, c, { quiet: true });
+      }
+    }
+    render();
+  }
+
+  // ---------------------------------------------------------------- dreams view
+
+  function dreamsView() {
+    const seeds = [...S.seeds.values()].sort((a, b) => (b.at || 0) - (a.at || 0));
+    const page = h('section', { class: 'page-pad' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Dream inbox'),
+        h('h1', null, 'Catch it before it fades'),
+        h('p', { class: 'muted' }, 'A dream, a daydream, a line that hit you in the shower. Write it down as it came. Inkwash can suggest seeds from it: a place, a creature, a rule. Only the ones you keep join your canon.')));
+    if (!S.readOnly) {
+      page.append(h('form', { class: 'dream-form', onsubmit: (e) => { e.preventDefault(); const ta = e.target.querySelector('textarea'); const v = ta.value.trim(); if (!v) return; const id = C.uid('d'); put('seeds', id, { text: v, at: now(), proposals: [], askedAt: null }); ta.value = ''; } },
+        h('label', { class: 'sr-only', for: 'dream-new' }, 'A new fragment'),
+        h('textarea', { id: 'dream-new', 'data-keep': '', placeholder: 'I was climbing a ladder that kept growing one rung taller than the wall…' }),
+        h('div', null, h('button', { class: 'btn primary', type: 'submit' }, 'Catch it'))));
+    }
+    if (!seeds.length) page.append(h('p', { class: 'muted' }, 'No fragments yet.'));
+    page.append(h('div', { class: 'dreams' }, seeds.map(dreamCard)));
+    return page;
+  }
+  function dreamCard(d) {
+    const busy = S.busy['seeds:' + d.id];
+    const aiReady = !!S.sample && !S.aiOff && !S.readOnly;
+    const card = h('article', { class: 'dream' },
+      h('p', { class: 'faint' }, when(d.at)),
+      h('p', { class: 'dream-text' }, d.text));
+    for (const s of d.proposals || []) {
+      card.append(h('div', { class: 'seed', 'data-status': s.status },
+        h('div', null, h('p', { class: 'seed-kind' }, s.kind), h('p', null, h('strong', null, s.name + ': '), s.fact)),
+        s.status === 'new' && !S.readOnly ? h('div', { class: 'btn-row' },
+          h('button', { class: 'btn small', type: 'button', onclick: () => keepSeed(d.id, s.id) }, 'Keep'),
+          h('button', { class: 'btn ghost small', type: 'button', onclick: () => setSeedStatus(d.id, s.id, 'dismissed') }, 'Dismiss'))
+          : h('span', { class: 'faint' }, s.status === 'kept' ? 'Kept in canon' : s.status === 'dismissed' ? 'Dismissed' : '')));
+    }
+    card.append(h('div', { class: 'btn-row' },
+      aiReady ? h('button', { class: 'btn small', type: 'button', disabled: !!busy, onclick: () => findSeeds(d.id) }, busy ? 'Finding seeds…' : (d.proposals || []).length ? 'Find more seeds' : 'Find seeds') : null,
+      S.readOnly ? null : h('button', { class: 'btn ghost small danger', type: 'button', onclick: () => deleteDream(d.id) }, 'Delete')));
+    return card;
+  }
+  async function findSeeds(id) {
+    const d = S.seeds.get(id);
+    if (!d || !S.sample || S.busy['seeds:' + id]) return;
+    const busy = { ctl: new AbortController() };
+    S.busy['seeds:' + id] = busy;
+    render();
+    try {
+      const json = await S.sample.json(C.buildSeedPrompt({ world: world(), fragment: d.text, names: entities().map((e) => e.name) }), { modelTier: 'quick', signal: busy.ctl.signal, cache: false });
+      const found = C.parseSeeds(json);
+      const cur = S.seeds.get(id);
+      if (cur) put('seeds', id, Object.assign({}, cur, { proposals: (cur.proposals || []).concat(found).slice(-15), askedAt: now() }));
+      if (!found.length) toast('No seeds came back for that fragment. Try again, or add more of what you saw.');
+    } catch (e) { aiError(e, 'finding seeds'); }
+    finally { delete S.busy['seeds:' + id]; render(); }
+  }
+  function setSeedStatus(id, sid, status) {
+    const d = S.seeds.get(id);
+    if (!d) return;
+    put('seeds', id, Object.assign({}, d, { proposals: d.proposals.map((s) => (s.id === sid ? Object.assign({}, s, { status }) : s)) }));
+  }
+  function keepSeed(id, sid) {
+    const d = S.seeds.get(id);
+    const s = d && d.proposals.find((x) => x.id === sid);
+    if (!s) return;
+    addFactTo(s.name, s.fact, s.kind);
+    setSeedStatus(id, sid, 'kept');
+  }
+  async function deleteDream(id) {
+    const ok = await ask({ title: 'Delete this fragment?', body: 'Anything you already kept stays in your canon.', confirm: 'Delete', danger: true });
+    if (ok) { removeDoc('seeds', id); render(); }
+  }
+
+  // ---------------------------------------------------------------- toasts, questions, announcements
+
+  function toast(message, kind, action) {
+    const root = $('#toasts');
+    if (!root) return;
+    const el = h('div', { class: 'toast' + (kind ? ' ' + kind : '') }, h('p', null, message),
+      action ? h('button', { class: 'btn small', type: 'button', onclick: () => { el.remove(); action.run(); } }, action.label) : null,
+      h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Dismiss', onclick: () => el.remove() }, '×'));
+    root.append(el);
+    while (root.children.length > 3) root.firstChild.remove();
+    setTimeout(() => el.remove(), kind === 'error' ? 12000 : action ? 10000 : 5000);
+  }
+  function announce(message) {
+    let live = $('#sr-live');
+    if (!live) { live = h('div', { id: 'sr-live', class: 'sr-only', 'aria-live': 'polite' }); document.body.append(live); }
+    live.textContent = message;
+  }
+  // The viewer never shows confirm(), so questions are asked on the page.
+  function ask({ title, body, confirm, danger }) {
+    return new Promise((resolve) => {
+      const root = $('#modal-root');
+      const prev = document.activeElement;
+      const done = (v) => { clear(root); document.removeEventListener('keydown', onKey); if (prev && prev.focus) prev.focus(); resolve(v); };
+      const onKey = (e) => { if (e.key === 'Escape') done(false); };
+      const yes = h('button', { class: 'btn ' + (danger ? 'seal' : 'primary'), type: 'button', onclick: () => done(true) }, confirm || 'OK');
+      clear(root);
+      root.append(h('div', { class: 'modal-backdrop', onclick: (e) => { if (e.target === e.currentTarget) done(false); } },
+        h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'modal-title' },
+          h('h2', { id: 'modal-title' }, title),
+          body ? h('p', { class: 'muted' }, body) : null,
+          h('div', { class: 'btn-row' }, yes, h('button', { class: 'btn ghost', type: 'button', onclick: () => done(false) }, 'Cancel')))));
+      document.addEventListener('keydown', onKey);
+      yes.focus();
+    });
+  }
+
+  // ---------------------------------------------------------------- boot
+
+  async function boot(hot) {
+    hot = hot || {};
+    S.view = hot.view || local.get('view', 'score');
+    renderNow();
+    const [db, user, sample, downloads] = await Promise.all(['db', 'user', 'sample', 'downloads'].map(use));
+    S.user = user; S.sample = sample; S.downloads = downloads;
+    let owner = null;
+    if (user) { try { owner = await user.isOwner(); } catch (e) { owner = null; } }
+    if (user && owner === false) { S.db = db; startReader(); return; }
+    if (db) { S.db = db; S.persist = 'db'; }
+    else { S.db = makeLocalDb(); S.persist = 'local'; }
+    if (!sample) S.aiOff = window.claude ? 'Claude isn’t available in this view, so inking is off. You can still paint, write scenes yourself and set them.' : 'This copy of the page is running outside claude.ai, so inking is off. You can still paint, write scenes yourself and set them.';
+    startStudio(hot);
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { for (const key of Object.keys(S.editBase)) commitEditLog(key); flushAll(); } });
+  window.addEventListener('pagehide', flushAll);
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', () => Score.queue());
+  }
+  new MutationObserver(() => Score.queue()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => Score.queue());
+
+  const hotApi = window.claude && window.claude.hot;
+  try { if (hotApi && typeof hotApi.snapshot === 'function') hotApi.snapshot(() => ({ view: S.view, wid: S.wid, cid: S.cid, k: S.k })); } catch (e) { /* optional */ }
+  if (hotApi && typeof hotApi.ready === 'function') hotApi.ready((data) => boot(data || {}));
+  else boot((hotApi && hotApi.data) || {});
+
+  // For the end-to-end tests only: read-only access to state.
+  window.__inkwash = { state: S, flush: flushAll };
+})();
