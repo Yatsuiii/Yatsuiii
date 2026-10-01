@@ -39,7 +39,7 @@ It runs as a small server on your own computer, because a page on claude.ai can'
      - an AI Studio key (`AIza…`) from https://aistudio.google.com/apikey goes through the Gemini API;
      - a Google Cloud key (`AQ.…`, Vertex AI) goes through Vertex AI, and its videos come with sound.
 
-     The canvas tells them apart by their shape, and tries the other route if one refuses the key. Google charges for each picture and each second of video, so the key's project needs billing turned on.
+     The canvas tries the Gemini API first, for either kind, and Vertex AI if that refuses the key. Google charges for each picture and each second of video, so the key's project needs billing turned on.
    - `WORLDLABS_API_KEY`, from https://platform.worldlabs.ai/api-keys, for worlds. It's optional: without it, everything but "Step inside" works.
 2. Start the server from the repository's root:
    ```
@@ -121,9 +121,9 @@ The end-to-end test needs Playwright installed globally. It takes the page from 
 
 ## Known limits
 
-- **Not yet run against the live services.**
-  - The requests and answers follow the official SDKs (`@google/genai` 2.25, both its Gemini API and Vertex AI paths, and the World Labs OpenAPI client) and are unit-tested against those shapes.
-  - The first real run may still turn up a detail they don't show.
+- **First live run (October 2026).**
+  - World Labs: a quick world was built and read back for real. A finished operation names only part of its world, so the canvas always reads the world itself too. A draft world from a 16:9 picture cost 230 credits (80 to make the panorama, 150 for the world).
+  - Google: a Google Cloud key often works on the Gemini API too, so the canvas asks the Gemini API first and uses Vertex AI only if that refuses the key. Picture and video models aren't in the Gemini API's free tier: the key's project needs billing turned on, and the canvas says so when Google answers "limit: 0". Pictures, panoramas and video haven't been run live yet.
   - Errors are passed through word for word, so whatever goes wrong will say what it is.
 - **The picture is a new painting, not an exact trace.** The model keeps the layout, but it may move or change small things.
 - **The panorama is painted fresh at 21:9**, with the picture at its centre. It isn't an exact outpainting, so details near the middle can shift.

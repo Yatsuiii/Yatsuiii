@@ -39,6 +39,7 @@ async function api(method, path, body) {
 const HINTS = {
   bad_key: 'The key was refused: check it in your environment, then restart the server.',
   no_credits: 'That account is out of credit.',
+  no_billing: "Google's free tier doesn't include this model. Turn on billing for the key's project, then try again.",
   rate_limited: 'Too many requests at once. Wait a minute, then try again.',
   no_image: 'Try other words, or a clearer sketch.',
   network: 'Check the internet connection of the computer running the canvas.',

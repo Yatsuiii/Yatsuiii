@@ -154,7 +154,18 @@ export function readWorldOp(json) {
   if (!json.done) return { done: false, id: json.operation_id, progress: progressOf(json.metadata) };
   const w = json.response;
   if (!w || !w.world_id) return { done: true, id: json.operation_id, error: 'the world came back empty' };
-  return { done: true, id: json.operation_id, world: readWorld(w) };
+  const credits = json.cost && Number.isFinite(Number(json.cost.total_credits)) ? Number(json.cost.total_credits) : null;
+  return Object.assign({ done: true, id: json.operation_id, world: readWorld(w) }, credits != null ? { credits } : {});
+}
+// A finished operation carries only part of its world (no name, no panorama); the world itself has
+// the rest. What the world says wins, and whatever it leaves empty is kept from the operation.
+export function mergeWorld(partial, full) {
+  const out = Object.assign({}, partial);
+  for (const [k, v] of Object.entries(full || {})) {
+    const empty = v == null || v === '' || (typeof v === 'object' && !Object.values(v).some((x) => x != null && x !== ''));
+    if (!empty) out[k] = v;
+  }
+  return out;
 }
 
 // Which splat file to walk through. Worlds come at several sizes ("100k", "500k", "full_res"):
@@ -214,7 +225,9 @@ async function call(f, url, init, headers) {
     const msg = (json && json.error && (json.error.message || json.error.status)) || (json && json.detail && (typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail))) || clip(body, 300) || res.statusText;
     // Google answers a wrong key with 400 and the reason API_KEY_INVALID, not with 401
     const badKey = res.status === 401 || res.status === 403 || /API key not valid|API_KEY_INVALID/i.test(String(msg)) || !!(json && json.error && Array.isArray(json.error.details) && json.error.details.some((d) => d && d.reason === 'API_KEY_INVALID'));
-    const code = badKey ? 'bad_key' : res.status === 429 ? 'rate_limited' : res.status === 402 ? 'no_credits' : 'api_error';
+    // a model outside the free tier answers 429 with "limit: 0": no waiting will help, only billing
+    const unpaid = res.status === 429 && /free_tier|limit: 0\b/i.test(String(msg));
+    const code = badKey ? 'bad_key' : unpaid ? 'no_billing' : res.status === 429 ? 'rate_limited' : res.status === 402 ? 'no_credits' : 'api_error';
     throw new ProviderError(`${new URL(url).host} said ${res.status}: ${clip(msg, 400)}`, code, res.status);
   }
   return json;
@@ -237,7 +250,10 @@ export function gemini({ key, fetch: f = globalThis.fetch, imageModel, videoMode
   async function models() {
     if (chosen) return chosen;
     let found = { image: null, video: null };
-    if (door === 'studio') {
+    // A Google Cloud key often opens the Gemini API too, while its project may not have Vertex AI
+    // turned on at all (Vertex then answers 403 "API has not been used in project"). So unless a
+    // door was chosen, the Gemini API is asked first: it lists the models, and costs nothing.
+    if (door === 'studio' || !tried) {
       try {
         const all = [];
         let token = '';
@@ -248,8 +264,10 @@ export function gemini({ key, fetch: f = globalThis.fetch, imageModel, videoMode
           if (!token) break;
         }
         found = pickModels(all);
+        if (door === 'vertex') { door = 'studio'; tried = true; }
       } catch (e) {
-        if (e.code === 'bad_key') throw e; // an AI Studio key the Gemini API refuses is simply wrong
+        if (door === 'studio' && e.code === 'bad_key') throw e; // an AI Studio key the Gemini API refuses is simply wrong
+        if (e.code === 'bad_key') tried = true; // the Gemini API refused it: Vertex AI is the only door
       }
     }
     chosen = { api: door, image: imageModel || found.image || IMAGE_MODELS[0], video: videoModel || found.video || VIDEO_MODELS[0] };
@@ -314,8 +332,8 @@ export function worldlabs({ key, fetch: f = globalThis.fetch }) {
     async start({ image, ext, prompt, name, model }) { return readWorldOp(await call(f, `${WORLDLABS}/worlds:generate`, { method: 'POST', body: JSON.stringify(worldBody({ image, ext, prompt, name, model })) }, headers)); },
     async poll(id) {
       const op = readWorldOp(await call(f, `${WORLDLABS}/operations/${encodeURIComponent(id)}`, { method: 'GET' }, headers));
-      if (op.done && op.world && !Object.keys(op.world.splats).length) {
-        try { op.world = readWorld(await call(f, `${WORLDLABS}/worlds/${encodeURIComponent(op.world.id)}`, { method: 'GET' }, headers)); } catch (e) { /* keep what the operation said */ }
+      if (op.done && op.world) {
+        try { op.world = mergeWorld(op.world, readWorld(await call(f, `${WORLDLABS}/worlds/${encodeURIComponent(op.world.id)}`, { method: 'GET' }, headers))); } catch (e) { /* keep what the operation said */ }
       }
       return op;
     },

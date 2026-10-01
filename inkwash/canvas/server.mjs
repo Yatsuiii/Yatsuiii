@@ -103,7 +103,7 @@ export function createApp({ dataDir, providers, token, log = () => {} }) {
     const base = Object.assign({}, job, { checkError: undefined });
     if (!op.done) return { job: Object.assign(base, { progress: op.progress }) };
     if (op.error) return { job: Object.assign(base, { status: 'failed', error: op.error }) };
-    return { job: Object.assign(base, { status: 'done', world: op.world, doneAt: Date.now() }) };
+    return { job: Object.assign(base, { status: 'done', world: op.world, doneAt: Date.now() }, op.credits != null ? { credits: op.credits } : {}) };
   }
   // a look that failed: a job the service has forgotten is over; anything else, try again later
   const lost = (job, e) => ({ job: e.status === 404 ? Object.assign({}, job, { status: 'failed', error: 'The service no longer has this job.', checkError: undefined }) : Object.assign({}, job, { checkError: e.message }) });
@@ -253,7 +253,7 @@ export function createApp({ dataDir, providers, token, log = () => {} }) {
   ];
 
   function httpError(status, message) { const e = new Error(message); e.status = status; return e; }
-  const STATUS = { bad_key: 401, no_credits: 402, rate_limited: 429, network: 502, no_image: 422, bad_answer: 502, api_error: 502 };
+  const STATUS = { bad_key: 401, no_credits: 402, no_billing: 402, rate_limited: 429, network: 502, no_image: 422, bad_answer: 502, api_error: 502 };
   function send(res, status, body, type) {
     res.writeHead(status, { 'content-type': type || 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
     res.end(type ? body : JSON.stringify(body));

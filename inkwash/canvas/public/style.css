@@ -50,6 +50,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .wide-scroll { width: 100%; height: 100%; overflow-x: auto; display: flex; align-items: center; }
 .wide-scroll img { height: 100%; width: auto; max-width: none; object-fit: cover; }
 .world-card { display: grid; gap: 0.8rem; justify-items: center; padding: 1rem; text-align: center; max-width: 34rem; }
+/* Marble's captions run to a paragraph: the first few lines are enough under the picture */
+.world-card .hint { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; }
 .world-card img { width: 100%; height: auto; border-radius: 10px; object-fit: cover; }
 .pending { color: var(--ink-soft); display: grid; justify-items: center; gap: 0.6rem; }
 
@@ -62,7 +64,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .views button[aria-current="true"] { background: var(--line); color: var(--ink); }
 .views button:disabled { opacity: 0.35; cursor: default; }
 
-.panel { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; display: grid; gap: 0.9rem; position: sticky; top: 1rem; }
+.panel { min-width: 0; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem; display: grid; gap: 0.9rem; position: sticky; top: 1rem; }
 .field { display: grid; gap: 0.35rem; border: 0; padding: 0; margin: 0; }
 .field > span, .field legend { color: var(--ink-soft); font-size: 0.9rem; padding: 0; }
 .field em { color: var(--ink-faint); font-style: normal; }
@@ -87,7 +89,7 @@ textarea:focus, input:focus, select:focus, button:focus-visible { outline: 2px s
 .step .btn { justify-self: start; }
 .inline { display: flex; align-items: center; gap: 0.4rem; color: var(--ink-soft); font-size: 0.9rem; }
 .inline select { width: auto; }
-.error { margin: 0; color: var(--danger); background: rgba(255, 122, 107, 0.08); border: 1px solid rgba(255, 122, 107, 0.3); border-radius: 8px; padding: 0.5rem 0.65rem; }
+.error { margin: 0; overflow-wrap: anywhere; color: var(--danger); background: rgba(255, 122, 107, 0.08); border: 1px solid rgba(255, 122, 107, 0.3); border-radius: 8px; padding: 0.5rem 0.65rem; }
 
 .gallery-wrap { padding: 0 1.25rem 2rem; }
 .gallery-head { display: flex; align-items: center; gap: 1rem; }

@@ -127,6 +127,8 @@ test('the Gemini client: the key in a header, the chosen model, and errors that 
   assert.equal((await fail(400, { error: { message: 'Unsupported aspect ratio' } }))[0], 'api_error');
   assert.equal((await fail(403, { error: { message: 'Permission denied' } }))[0], 'bad_key');
   assert.equal((await fail(429, { error: { message: 'Quota exceeded' } }))[0], 'rate_limited');
+  // what the Gemini API really answers a key whose project has no billing, for a picture model
+  assert.equal((await fail(429, { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 0, model: gemini-3.1-flash-image' } }))[0], 'no_billing', 'no waiting helps a model outside the free tier');
   assert.equal((await fail(500, 'oops'))[1], 'generativelanguage.googleapis.com said 500: oops');
   const offline = recorder([reply(200, { models: [] }), new TypeError('fetch failed')]);
   await assert.rejects(P.gemini({ key: STUDIO_KEY, fetch: offline.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'network' && /couldn't reach generativelanguage/.test(e.message));
@@ -137,6 +139,7 @@ test('the Gemini client: the key in a header, the chosen model, and errors that 
 test('a Google Cloud key goes through Vertex AI, as the SDK does in express mode', async () => {
   const name = 'projects/p1/locations/us-central1/publishers/google/models/veo-3.1-lite-generate-001/operations/op7';
   const r = recorder([
+    reply(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }),
     reply(404, { error: { code: 404, message: 'Publisher Model `gemini-3.1-flash-image` was not found.' } }),
     reply(200, { candidates: [{ content: { role: 'model', parts: [{ inlineData: { mimeType: 'image/png', data: 'VlRY' } }] } }] }),
     reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'VlRZ' } }] } }] }),
@@ -147,7 +150,8 @@ test('a Google Cloud key goes through Vertex AI, as the SDK does in express mode
   assert.equal(P.googleApi(STUDIO_KEY), 'studio');
   const g = P.gemini({ key: 'AQ.Ab8-test', fetch: r.f });
   assert.deepEqual(await g.models(), { api: 'vertex', image: P.IMAGE_MODELS[0], video: P.VIDEO_MODELS[0] }, 'no model list to read on Vertex');
-  assert.equal(r.calls.length, 0);
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.calls.shift().url, `${P.GEMINI}/models?pageSize=1000`, 'the Gemini API is asked first, and refuses this key');
   assert.equal((await g.paint({ image: 'U0s=', prompt: 'paint' })).data, 'VlRY');
   assert.equal(r.calls[0].url, `${P.VERTEX}/publishers/google/models/gemini-3.1-flash-image:generateContent`);
   assert.equal(r.calls[1].url, `${P.VERTEX}/publishers/google/models/gemini-3.1-flash-image-preview:generateContent`, 'a model Vertex lacks is skipped');
@@ -170,21 +174,37 @@ test('a Google Cloud key goes through Vertex AI, as the SDK does in express mode
   assert.equal(P.readVideoOp({ name, done: true, response: { videos: [{ gcsUri: 'gs://b/v.mp4' }] } }).uri, 'gs://b/v.mp4');
 });
 
-test('a key the first door refuses is tried at the other, and the first refusal is what you hear', async () => {
-  const swap = recorder([
-    reply(401, { error: { code: 401, message: 'API keys are not supported by this API.', status: 'UNAUTHENTICATED' } }),
-    reply(200, MODELS),
-    reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'T0s=' } }] } }] }),
-  ]);
-  const g = P.gemini({ key: 'odd-key', fetch: swap.f });
+test('a Google Cloud key that the Gemini API takes goes there, since Vertex AI may be off in its project', async () => {
+  // what Vertex AI really answers a Google Cloud key whose project hasn't turned it on
+  const off = { error: { code: 403, message: 'Agent Platform API has not been used in project 123456789012 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/aiplatform.googleapis.com/overview?project=123456789012 then retry.', status: 'PERMISSION_DENIED' } };
+  const live = { models: [
+    { name: 'models/gemini-3.1-flash-image', supportedGenerationMethods: ['generateContent', 'countTokens', 'batchGenerateContent'] },
+    { name: 'models/gemini-3.1-flash-lite-image', supportedGenerationMethods: ['generateContent', 'countTokens', 'batchGenerateContent'] },
+    { name: 'models/veo-3.1-generate-preview', supportedGenerationMethods: ['predictLongRunning'] },
+    { name: 'models/veo-3.1-fast-generate-preview', supportedGenerationMethods: ['predictLongRunning'] },
+    { name: 'models/veo-3.1-lite-generate-preview', supportedGenerationMethods: ['predictLongRunning'] },
+  ] };
+  const r = recorder([reply(200, live), reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'T0s=' } }] } }] })]);
+  const g = P.gemini({ key: 'AQ.Ab8-test', fetch: r.f });
+  assert.deepEqual(await g.models(), { api: 'studio', image: 'gemini-3.1-flash-image', video: 'veo-3.1-lite-generate-preview' });
   assert.equal((await g.paint({ image: 'x', prompt: 'p' })).data, 'T0s=');
-  assert.match(swap.calls[0].url, /^https:\/\/aiplatform\.googleapis\.com\//);
-  assert.equal(swap.calls[1].url, `${P.GEMINI}/models?pageSize=1000`);
-  assert.equal(swap.calls[2].url, `${P.GEMINI}/models/gemini-3.1-flash-image:generateContent`);
-  assert.equal((await g.models()).api, 'studio', 'and the door that worked is kept');
+  assert.equal(r.calls[0].url, `${P.GEMINI}/models?pageSize=1000`);
+  assert.equal(r.calls[1].url, `${P.GEMINI}/models/gemini-3.1-flash-image:generateContent`);
+  assert.equal(r.calls.length, 2, 'Vertex AI is never tried');
 
-  const both = recorder([reply(401, { error: { message: 'Vertex says no' } }), reply(400, { error: { message: 'API key not valid. Please pass a valid API key.' } })]);
-  await assert.rejects(P.gemini({ key: 'AQ.bad', fetch: both.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'bad_key' && /aiplatform\.googleapis\.com said 401: Vertex says no/.test(e.message));
+  // if the list can't be read, Vertex AI is tried, and its refusal sends the key to the Gemini API
+  const swap = recorder([new TypeError('fetch failed'), reply(403, off), reply(200, MODELS), reply(200, { candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: 'T0s=' } }] } }] })]);
+  const g2 = P.gemini({ key: 'AQ.Ab8-test', fetch: swap.f });
+  assert.equal((await g2.paint({ image: 'x', prompt: 'p' })).data, 'T0s=');
+  assert.match(swap.calls[1].url, /^https:\/\/aiplatform\.googleapis\.com\//);
+  assert.equal(swap.calls[2].url, `${P.GEMINI}/models?pageSize=1000`);
+  assert.equal(swap.calls[3].url, `${P.GEMINI}/models/gemini-3.1-flash-image:generateContent`);
+  assert.equal((await g2.models()).api, 'studio', 'and the door that worked is kept');
+
+  // refused at both: Vertex AI's refusal is what you hear
+  const both = recorder([reply(400, { error: { message: 'API key not valid. Please pass a valid API key.' } }), reply(403, off)]);
+  await assert.rejects(P.gemini({ key: 'AQ.bad', fetch: both.f }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'bad_key' && /aiplatform\.googleapis\.com said 403: Agent Platform API has not been used/.test(e.message));
+  assert.equal(both.calls.length, 2);
   const pinned = recorder([reply(401, { error: { message: 'no' } })]);
   await assert.rejects(P.gemini({ key: 'AQ.x', fetch: pinned.f, api: 'vertex' }).paint({ image: 'x', prompt: 'p' }), (e) => e.code === 'bad_key');
   assert.equal(pinned.calls.length, 1, 'a chosen door is never switched');
@@ -240,6 +260,29 @@ test('the World Labs client: the key in its header, the world fetched when an op
   assert.equal(r.calls[2].url, `${P.WORLDLABS}/worlds/w9`);
   assert.deepEqual(done.world.splats, { '100k': 'https://cdn/n.spz' });
   assert.equal(done.world.name, 'Nine');
+
+  // what Marble really answers for a finished draft world: the operation's world has splats but no
+  // name and no panorama, and the progress is a status, not a number; the world itself has the rest
+  const cdn = 'https://cdn.marble.worldlabs.ai/w1';
+  const spz = { '500k': `${cdn}/a_500k.spz`, '100k': `${cdn}/b_100k.spz`, full_res: `${cdn}/c.spz` };
+  const live = recorder([
+    reply(200, { operation_id: 'op1', done: false, error: null, metadata: { progress: { status: 'IN_PROGRESS', description: 'Generating world' }, world_id: 'w1', operation_type: 'world_generation', public_model_name: 'marble-1.0-draft' }, response: null }),
+    reply(200, { operation_id: 'op1', done: true, error: null,
+      metadata: { progress: { status: 'SUCCEEDED', description: 'World generation completed successfully' }, world_id: 'w1', operation_type: 'world_generation', public_model_name: 'marble-1.0-draft' },
+      response: { world_id: 'w1', display_name: '', tags: null, assets: { mesh: { collider_mesh_url: `${cdn}/m.glb`, hq_mesh_url: null, full_res_mesh_url: null }, imagery: { pano_url: null }, splats: { spz_urls: spz, semantics_metadata: null }, thumbnail_url: `${cdn}/thumbnail.webp`, caption: 'A lighthouse on a cliff.' }, created_at: null, permission: { public: false }, world_prompt: null, world_marble_url: 'https://marble.worldlabs.ai/world/w1', model: null },
+      cost: { total_credits: 230, line_items: [{ name: 'Pano generation (image, non-pano)', credits: 80 }, { name: 'Draft world generation', credits: 150 }] } }),
+    reply(200, { world_id: 'w1', display_name: 'The Drained Sea at dawn', tags: ['inkwash'], assets: { mesh: { collider_mesh_url: `${cdn}/m.glb`, hq_mesh_url: null, full_res_mesh_url: null }, imagery: { pano_url: `${cdn}/rgb_0.png` }, splats: { spz_urls: spz, semantics_metadata: null }, thumbnail_url: `${cdn}/thumbnail.webp`, caption: 'A lighthouse on a cliff.' }, world_marble_url: 'https://marble.worldlabs.ai/world/w1', model: 'marble-1.0-draft' }),
+  ]);
+  const wl3 = P.worldlabs({ key: 'wl-key', fetch: live.f });
+  assert.deepEqual(await wl3.poll('op1'), { done: false, id: 'op1', progress: null }, 'a status, not a number, is no progress to show');
+  const built = await wl3.poll('op1');
+  assert.equal(live.calls[2].url, `${P.WORLDLABS}/worlds/w1`, 'the world is read even though the operation has its splats');
+  assert.equal(built.credits, 230);
+  assert.deepEqual(built.world, {
+    id: 'w1', url: 'https://marble.worldlabs.ai/world/w1', name: 'The Drained Sea at dawn', caption: 'A lighthouse on a cliff.',
+    thumbnail: `${cdn}/thumbnail.webp`, pano: `${cdn}/rgb_0.png`, splats: spz, mesh: { collider_mesh_url: `${cdn}/m.glb`, hq_mesh_url: null, full_res_mesh_url: null }, scale: null, ground: null,
+  });
+  assert.deepEqual(P.mergeWorld({ name: 'op', pano: 'p', splats: { a: 1 } }, { name: '', pano: null, splats: {} }), { name: 'op', pano: 'p', splats: { a: 1 } }, 'an empty world keeps what the operation said');
 
   const files = recorder([reply(200, 'SPZ'), reply(404, 'gone')]);
   const wl2 = P.worldlabs({ key: 'wl-key', fetch: files.f });
