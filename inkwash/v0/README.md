@@ -5,9 +5,30 @@ The first working version of the studio described in `../DESIGN.md`.
 It runs as a single page published as a claude.ai artifact:
 - **Live:** https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK
 - **Access:** private to its owner until it's shared from the page's Share menu.
-- **Example:** it opens on an example world, *The Hollow Moon*.
+- **Examples:** *The Drained Sea*, a world dreamed from three sentences, and *The Hollow Moon*, a book in progress.
 
 ## What it does
+
+**Dream a world.** Write a dream the way it came. Claude grows it into a whole world, and Inkwash keeps all of it in the canon, each fact marked as suggested. The world has:
+- its shape and climate;
+- 6 to 9 regions, each with its own people, look and trouble;
+- 24 to 36 places;
+- its seas and features;
+- the rules it runs on;
+- factions, and the people who matter now.
+
+The canon also records the geography ("Harrowgate is a capital in The Old Coast."), so a scene's brief knows where things are. The example was grown from three sentences into 48 canon entries and 101 facts.
+
+**Atlas.** A world is drawn as a map in the manner of an old hand-inked atlas:
+- **Land:** the coast hatched with ripples, mountains shaded on their eastern faces, woods, marsh, dunes and salt.
+- **Water:** rivers that gather rain and run to the sea, lakes in the hollows they can't drain, and dry pans in deserts.
+- **Settlement:** borders that wander, roads between places, every place with its icon and name.
+
+The map is grown from the world's spec with seeded noise, so the same world always draws the same map. You can drag it, zoom it and choose any region or place to read its canon and paint its plate. Names of lesser places come in as you zoom closer.
+
+- **Explore deeper:** asks Claude for the places nobody has mapped yet in a region. They join the canon and the map, and nothing already placed moves.
+- **Draw the atlas:** for a world that already has a canon, draws a map around it. Every place you have stays as it was; only what the map adds becomes new canon.
+- **Save the map:** downloads it as an SVG.
 
 **Score.** Each chapter is a canvas you paint:
 - a tension curve;
@@ -40,7 +61,7 @@ This is stalefence's premise ledger applied to a story. Scenes are also checked 
 
 Text keeps its origin when it moves. Cut and paste it back, drag it, undo a deletion, or copy a sentence elsewhere: the words stay whoever's they were. The model's words for a scene are remembered after they're deleted, so pasting them back later still counts as ink. Text pasted from outside can't be traced, so it isn't counted as anyone's hand.
 
-**Plates.** Any scene, place or character can have a plate: an ink wash painting on paper, mostly ink with one accent color.
+**Plates.** Any scene, region, place or character can have a plate: an ink wash painting on paper, mostly ink with one accent color.
 - "Paint a plate" sends Claude a short brief: the subject and its facts, with secrets fenced off as for inking. For a scene it also sends the text, your notes and pins, and the moods you painted there. With no moods painted it sends the world's palette instead, so a book's plates share its colors.
 - Claude composes the picture as a small JSON description of what's in it and roughly where: time and weather, mountain ranges, water, buildings, a train, people, and voids (clean holes cut out of the world).
 - Inkwash paints it as SVG with its own brushes. The same composition always paints the same picture. "Paint it again" asks for a new one.
@@ -68,14 +89,16 @@ They never see the studio, because the access rules make `studio/` readable by t
 | Path | What it is |
 | --- | --- |
 | `src/core.js` | All logic that has to be exactly right, as pure functions shared by the page and the tests: briefs, parsing model output, pin matching, authorship spans, the ledger, publishing, exports (including a stored-ZIP EPUB writer), backups |
+| `src/atlas.js` | The atlas: cleans a world's spec, grows its land, rivers, regions, places and roads from seeded noise, and draws the map as SVG. Also the briefs for dreaming a world, drawing an atlas and exploring a region. Pure, shared by the page and the tests |
 | `src/plates.js` | The plate painter: cleans a composition and paints it as an ink-wash SVG with seeded brushes, and writes the plate brief. Pure, shared by the page, the exports and the tests |
 | `src/app.js` | The page: storage through `claude.use('db')`, the canvas score, the views, the calls to `sample` and `downloads` |
 | `src/styles.css`, `src/page.html` | Look and markup |
 | `build.mjs` | Inlines everything into `dist/index.html` and copies the example world beside it |
+| `dream-example.json` | The dream behind *The Drained Sea* and the world grown from it, composed in place of the model; the page builds the example world from it with no call to Claude |
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene, a scene ready to ink, and seven plates. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
-| `test/core.test.mjs` | 31 unit tests |
-| `test/e2e.mjs` | 22 browser steps against a fake claude.ai runtime |
+| `test/core.test.mjs` | 37 unit tests |
+| `test/e2e.mjs` | 27 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish
 
@@ -110,6 +133,7 @@ studio/<world>/canon/<entity>       an entity and its versioned facts
 studio/<world>/chapters/<chapter>   the painted score, pins and notes
 studio/<world>/passages/<scene>     text, authorship spans, premises
 studio/<world>/seeds/<fragment>     the dream inbox
+studio/<world>/atlas/main           the atlas: the world's shape, regions, places, features and seas, each tied to its canon entry
 studio/<world>/plates/<id>          a plate: <chapter>__s<n> for a scene, ent__<entity> for a place or character
 published/<world>                   the public face: title, chapter list, spoiler-safe lore and its plates
 published/<world>/chapters/<id>     published chapter text and its plates
@@ -117,7 +141,7 @@ published/<world>/chapters/<id>     published chapter text and its plates
 
 ## Where v0 differs from the design
 
-- **Model tiers.** Repainting a selection uses the `default` tier, because waiting on `complex` for a sentence is too slow. Whole scenes use `complex`, continuity checks and plates use `default`, and dream seeds use `quick`.
+- **Model tiers.** Repainting a selection uses the `default` tier, because waiting on `complex` for a sentence is too slow. Whole scenes, dreaming a world and drawing an atlas use `complex`; continuity checks, plates and exploring a region use `default`; dream seeds use `quick`.
 - **No PDF.** The viewer can't print and there is no PDF library on the page. EPUB and HTML cover reading.
 - **Threads.** The score derives "first time these two share a scene" by itself. There are no marks for fights or exits yet.
 - **Lanes.** The pace and secrets lanes are deferred, as planned. Secrets work through canon facts marked secret, each with the chapter that reveals it.
@@ -133,6 +157,12 @@ published/<world>/chapters/<id>     published chapter text and its plates
   - When the model returns no list, Inkwash records every fact about anyone the scene names.
   - Strict continuity is coarse: any change to anyone on the page.
 - **Pasted text is nobody's hand.** That includes your own drafts pasted from another editor: Inkwash can't tell where they came from. Your own words removed in an earlier visit and pasted back count the same way; the model's are recognized.
+- **The atlas is drawn, not painted.**
+  - Maps come from code: they look like hand-inked cartography, not like concept art.
+  - Each world has one map.
+  - Moving a place by hand isn't possible yet; drawing the land again with a new seed is the only way to reshape it.
+  - Drawing a large world takes a second or two in the browser.
+  - Readers don't see the atlas yet; it stays in the studio.
 - **Plates paint with a fixed set of brushes.**
   - Claude can compose only from what the painter knows: ranges, water, a few kinds of building, a bridge and a viaduct, a train and a wagon, trees, rocks, lamps, people and crowds. Anything else is left out.
   - Interiors are painted from outside.

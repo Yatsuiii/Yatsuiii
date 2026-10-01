@@ -1,5 +1,5 @@
-// Builds dist/index.html: the page template with styles, plates, core and app inlined, so the published
-// artifact is one self-contained page. Also copies the example world beside it.
+// Builds dist/index.html: the page template with styles, atlas, plates, core and app inlined, so the
+// published artifact is one self-contained page. Also copies the two example worlds beside it.
 // Run: node inkwash/v0/build.mjs
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ const js = (s) => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!-
 let page = read('./src/page.html');
 const parts = {
   '<!-- STYLES -->': `<style>\n${read('./src/styles.css')}</style>`,
+  '<!-- ATLAS -->': `<script>\n${js(read('./src/atlas.js'))}</script>`,
   '<!-- PLATES -->': `<script>\n${js(read('./src/plates.js'))}</script>`,
   '<!-- CORE -->': `<script>\n${js(read('./src/core.js'))}</script>`,
   '<!-- APP -->': `<script>\n${js(read('./src/app.js'))}</script>`,
@@ -23,4 +24,5 @@ if (!/^<title>[^<]+<\/title>/.test(page)) throw new Error('the page must start w
 mkdirSync(here('./dist'), { recursive: true });
 writeFileSync(here('./dist/index.html'), page);
 copyFileSync(here('./example-world.json'), here('./dist/example-world.json'));
+copyFileSync(here('./dream-example.json'), here('./dist/dream-example.json'));
 console.log(`dist/index.html ${(page.length / 1024).toFixed(1)} KB`);

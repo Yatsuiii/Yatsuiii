@@ -431,3 +431,35 @@ details.brief pre {
 .lore-entry .plate { margin: 4px 0 6px; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plate-art svg { filter: brightness(0.88); } }
 :root[data-theme="dark"] .plate-art svg { filter: brightness(0.88); }
+
+/* The atlas: the world's map on the left, what you chose on it on the right. */
+.atlas-view { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.25rem; padding: 1rem 1.25rem 2rem; align-items: start; }
+.atlas-main { display: grid; gap: 0.5rem; min-width: 0; }
+.atlas-stage { position: relative; aspect-ratio: 16 / 10; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; background: #ece3cd; cursor: grab; touch-action: none; box-shadow: 0 1px 4px var(--shadow); }
+.atlas-stage.dragging { cursor: grabbing; }
+.atlas-stage:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+.atlas-stage svg { display: block; width: 100%; height: 100%; user-select: none; }
+.atlas-wait { display: grid; place-items: center; color: var(--ink-soft); font-family: var(--font-book); cursor: default; }
+.atlas-wait p { display: flex; gap: 0.6rem; align-items: center; }
+.atlas-stage .atlas-region { cursor: pointer; transition: fill-opacity 0.15s; }
+.atlas-stage .atlas-region:hover { fill-opacity: 0.07; }
+.atlas-stage .atlas-region.selected { fill-opacity: 0.14; }
+.atlas-stage .atlas-place { cursor: pointer; }
+.atlas-stage .atlas-place:hover path:nth-child(2), .atlas-stage .atlas-place.selected path:nth-child(2) { stroke: var(--seal); stroke-width: 1.6; }
+.atlas-tools { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.atlas-tools .faint { margin-left: 0.4rem; }
+.atlas-panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; display: grid; gap: 0.6rem; align-content: start; min-width: 0; max-height: calc(100vh - 7rem); overflow: auto; position: sticky; top: 4.5rem; }
+.atlas-panel h2 { font-family: var(--font-book); font-size: var(--step-2); margin: 0; line-height: 1.2; }
+.atlas-panel h3 { font-size: var(--step-0); margin: 0.5rem 0 0; color: var(--ink-soft); }
+.atlas-panel > .btn.ghost.small { justify-self: start; }
+.atlas-dream { margin: 0; padding: 0.2rem 0 0.2rem 0.9rem; border-left: 3px solid var(--rule); font-family: var(--font-book); font-style: italic; color: var(--ink-soft); }
+.atlas-facts { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; font-family: var(--font-book); }
+.atlas-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+.atlas-list .linklike { font-family: var(--font-book); font-size: var(--step-0); }
+.dream-page .form-grid textarea#dream-text { font-family: var(--font-book); font-size: var(--book-size); line-height: 1.6; }
+@media (max-width: 1180px) { .atlas-view { grid-template-columns: minmax(0, 1fr); } .atlas-panel { position: static; max-height: none; } }
+@media (max-width: 760px) { .atlas-view { padding: 0.75rem 1rem 1.5rem; } .atlas-tools .faint { display: none; } }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .atlas-stage svg { filter: brightness(0.9); } }
+:root[data-theme="dark"] .atlas-stage svg { filter: brightness(0.9); }
+.linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--indigo); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; cursor: pointer; }
+.linklike:hover { text-decoration-thickness: 2px; }

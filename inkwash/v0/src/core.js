@@ -1403,13 +1403,110 @@
     return { json, md };
   }
 
+  // ---------------------------------------------------------------- dreamed worlds
+
+  // How a place is spoken of in its first fact, and where on the map a region lies.
+  const PLACE_WORD = { capital: 'capital', city: 'city', town: 'town', village: 'village', port: 'port', fortress: 'fortress', ruin: 'ruin', temple: 'temple', tower: 'tower', mine: 'mine', camp: 'camp', wreck: 'wreck', landmark: 'landmark' };
+  const FEATURE_WORD = { range: 'mountain range', forest: 'forest', desert: 'desert', marsh: 'marsh', lake: 'lake', river: 'river', chasm: 'chasm', volcano: 'volcano', plain: 'plain', bay: 'bay', island: 'island' };
+  const lies = (at) => (at === 'center' ? 'at the heart of' : `in the ${at} of`);
+  const slugId = (prefix, name, taken) => {
+    const base = prefix + '_' + (String(name).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'x');
+    let id = base, k = 2;
+    while (taken.has(id)) id = `${base}_${k++}`;
+    taken.add(id);
+    return id;
+  };
+
+  // A dreamed world as the studio keeps it: the world itself, a canon of everything in it (each
+  // fact marked as suggested and kept), and the atlas that places it all on a map. The geography
+  // goes into the canon too, so a scene's brief knows where things are.
+  function worldFromDream(d, { now, seed, dream }) {
+    const entities = [], add = (kind, name, list) => {
+      const e = newEntity(kind, name, now);
+      e.facts = list.filter(Boolean).map((t) => newFact(t, 'accepted', now));
+      entities.push(e);
+      return e;
+    };
+    for (const r of d.rules) add('rule', r.name, r.facts);
+    const regionEnt = new Map();
+    for (const g of d.regions) regionEnt.set(g.name, add('place', g.name, [`${g.name} lies ${lies(g.at)} ${d.title}.`].concat(g.facts)));
+    const placeEnt = d.places.map((p) => add('place', p.name, [`${p.name} is a ${PLACE_WORD[p.kind] || 'place'} in ${p.region}.`].concat(p.facts)));
+    const featureEnt = d.features.map((f) => add('place', f.name, [`${f.name} is a ${FEATURE_WORD[f.kind] || 'feature'} in ${f.region}.`].concat(f.facts)));
+    for (const f of d.factions) add('faction', f.name, f.facts);
+    for (const c of d.characters) add('character', c.name, c.facts);
+    const taken = new Set(), regionId = new Map();
+    const regions = d.regions.map((g) => { const id = slugId('r', g.name, taken); regionId.set(g.name, id); return { id, name: g.name, biome: g.biome, at: g.at, size: g.size, relief: g.relief, entity: regionEnt.get(g.name).id }; });
+    const atlas = {
+      seed, title: d.title, subtitle: d.subtitle, shape: d.shape, climate: d.climate, accent: d.accent, regions,
+      places: d.places.map((p, i) => ({ id: slugId('p', p.name, taken), name: p.name, kind: p.kind, region: regionId.get(p.region), near: p.near, entity: placeEnt[i].id })),
+      features: d.features.map((f, i) => ({ id: slugId('f', f.name, taken), name: f.name, kind: f.kind, region: regionId.get(f.region), entity: featureEnt[i].id })),
+      seas: d.seas,
+    };
+    const pigments = (d.pigments.length ? d.pigments : [{ name: 'Wonder', color: '#c4952b' }, { name: 'Dread', color: '#3d4f8f' }, { name: 'Grief', color: '#6b7f95' }])
+      .slice(0, 5).map((p) => ({ id: uid('p'), name: p.name, color: p.color, line: '' }));
+    const world = { title: d.title, premise: d.premise, byline: '', voice: '', sceneWords: 450, pigments, strict: false, example: false, dream: String(dream || '').slice(0, 8000) };
+    return { world, entities, atlas };
+  }
+
+  // A map drawn for a world that already has a canon: places the canon already names keep their
+  // entities and facts untouched; only what the map adds becomes new canon.
+  function atlasForWorld(d, entities, { now, seed, title }) {
+    const byName = new Map();
+    for (const e of valuesOf(entities)) if (e.kind === 'place' || e.kind === 'faction') byName.set(e.name.toLowerCase(), e);
+    const fresh = [], use = (name, kind, first, list) => {
+      const old = byName.get(name.toLowerCase());
+      if (old) return old;
+      const e = newEntity(kind, name, now);
+      e.facts = [first].concat(list).filter(Boolean).map((t) => newFact(t, 'accepted', now));
+      fresh.push(e); byName.set(name.toLowerCase(), e);
+      return e;
+    };
+    const taken = new Set(), regionId = new Map();
+    const regions = d.regions.map((g) => {
+      const id = slugId('r', g.name, taken); regionId.set(g.name, id);
+      return { id, name: g.name, biome: g.biome, at: g.at, size: g.size, relief: g.relief, entity: use(g.name, 'place', `${g.name} lies ${lies(g.at)} ${title}.`, g.facts).id };
+    });
+    const places = d.places.filter((p) => !regionId.has(p.name)).map((p) => ({ id: slugId('p', p.name, taken), name: p.name, kind: p.kind, region: regionId.get(p.region), near: p.near, entity: use(p.name, 'place', `${p.name} is a ${PLACE_WORD[p.kind] || 'place'} in ${p.region}.`, p.facts).id }));
+    const features = d.features.map((f) => ({ id: slugId('f', f.name, taken), name: f.name, kind: f.kind, region: regionId.get(f.region), entity: use(f.name, 'place', `${f.name} is a ${FEATURE_WORD[f.kind] || 'feature'} in ${f.region}.`, f.facts).id }));
+    return { entities: fresh, atlas: { seed, title, subtitle: d.subtitle, shape: d.shape, climate: d.climate, accent: d.accent, regions, places, features, seas: d.seas } };
+  }
+
+  // Exploring a region adds its new places to the canon and the atlas. Names already on the map
+  // are skipped, and nothing already placed moves.
+  function exploreRegion(atlas, regionId, x, { now }) {
+    const region = (atlas.regions || []).find((g) => g.id === regionId);
+    if (!region || !x) return null;
+    const known = new Set((atlas.places || []).concat(atlas.features || []).map((p) => p.name.toLowerCase()));
+    const taken = new Set((atlas.places || []).concat(atlas.features || [], atlas.regions || []).map((p) => p.id));
+    const entities = [], places = [], features = [];
+    for (const p of x.places) {
+      if (known.has(p.name.toLowerCase())) continue;
+      known.add(p.name.toLowerCase());
+      const e = newEntity('place', p.name, now);
+      e.facts = [`${p.name} is a ${PLACE_WORD[p.kind] || 'place'} in ${region.name}.`].concat(p.facts).map((t) => newFact(t, 'accepted', now));
+      entities.push(e);
+      places.push({ id: slugId('p', p.name, taken), name: p.name, kind: p.kind, region: regionId, near: p.near, entity: e.id });
+    }
+    for (const f of x.features) {
+      if (known.has(f.name.toLowerCase())) continue;
+      known.add(f.name.toLowerCase());
+      const e = newEntity('place', f.name, now);
+      e.facts = [`${f.name} is a ${FEATURE_WORD[f.kind] || 'feature'} in ${region.name}.`].concat(f.facts).map((t) => newFact(t, 'accepted', now));
+      entities.push(e);
+      features.push({ id: slugId('f', f.name, taken), name: f.name, kind: f.kind, region: regionId, entity: e.id });
+    }
+    const next = Object.assign({}, atlas, { places: (atlas.places || []).concat(places), features: (atlas.features || []).concat(features) });
+    return { atlas: next, entities, regionFacts: x.facts.map((t) => newFact(t, 'accepted', now)), added: places.length + features.length };
+  }
+
   // ---------------------------------------------------------------- backups
 
-  function exportBackup({ world, entities, chapters, passages, seeds, plates }, now) {
+  function exportBackup({ world, entities, chapters, passages, seeds, plates, atlas }, now) {
     return {
       format: 'inkwash-backup/1', exportedAt: new Date(now || Date.now()).toISOString(),
       world: clone(world), entities: clone(valuesOf(entities)), chapters: clone(valuesOf(chapters)),
       passages: clone(valuesOf(passages)), seeds: clone(valuesOf(seeds)), plates: clone(valuesOf(plates)),
+      ...(atlas ? { atlas: clone(atlas) } : {}),
     };
   }
   const SEG = /^[A-Za-z0-9_\-.~:@+]{1,180}$/;
@@ -1427,6 +1524,7 @@
       passages: need(data.passages || [], 'passage'),
       seeds: need(data.seeds || [], 'dream'),
       plates: need(data.plates || [], 'plate'),
+      atlas: data.atlas && typeof data.atlas === 'object' && !Array.isArray(data.atlas) ? data.atlas : null,
     };
   }
 
@@ -1445,6 +1543,7 @@
     buildSeedPrompt, parseSeeds, buildRepaintPrompt, parseRepaint,
     chapterProblems, publishedChapter, publishedWorld, visibleLore,
     bookModel, exportMarkdown, exportHtml, exportEpub, exportBible, exportProvenance, exportBackup, readBackup,
+    worldFromDream, atlasForWorld, exploreRegion,
     zipStore, crc32, esc, paragraphs, howMade, describeScene,
   };
 });

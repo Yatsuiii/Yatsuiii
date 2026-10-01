@@ -96,6 +96,13 @@ function mockClaude(cfg) {
   sample.json = async (input, opts) => {
     M.calls.push({ kind: 'json', input: String(input), tier: opts && opts.modelTier });
     if (String(input).startsWith('You are checking one scene')) return { conflicts: [{ fact: 'F1', quote: 'forgot what came after four', why: 'A test contradiction.' }], relies: ['F1'] };
+    if (String(input).startsWith('You are a worldbuilder. Someone has told you a dream')) return JSON.parse(JSON.stringify(cfg.dream));
+    if (String(input).startsWith('You are the worldbuilder of')) return { places: [{ name: 'Crabhollow', kind: 'village', near: 'coast', facts: ['A village of crab-catchers on the old shore.'] }, { name: 'Brinemoor Light', kind: 'tower', facts: ['A second lighthouse, dark since the draining.'] }, { name: 'Harrowgate', kind: 'city', facts: ['Already on the map, so it is skipped.'] }], features: [], facts: ['The road down the cliffs is a staircase of a thousand steps.'] };
+    if (String(input).startsWith('You are the cartographer of')) {
+      return { subtitle: 'the city and the sea', shape: 'coast', climate: 'temperate', accent: '#3d4f8f', seas: [{ name: 'The Black Sea', at: 'east' }], features: [],
+        regions: [{ name: 'The Lamp Coast', biome: 'grassland', at: 'west', size: 'large', relief: 'hills', facts: ['Cliffs and lamps.'] }, { name: 'The Black Water', biome: 'marsh', at: 'south', size: 'small', relief: 'flat', facts: ['Reeds and stilts.'] }],
+        places: [{ name: 'Vesk', kind: 'capital', region: 'The Lamp Coast', facts: [] }, { name: 'Gullwick', kind: 'village', region: 'The Lamp Coast', facts: ['A fishing village under Vesk.'] }, { name: 'Tarn', kind: 'town', region: 'The Black Water', facts: ['A town on stilts.'] }] };
+    }
     if (String(input).includes('caught this fragment')) return { seeds: [{ kind: 'place', name: 'The Candle Gardens', fact: 'Inside the moon, candles grow like tulips.' }] };
     if (String(input).startsWith('You are composing')) {
       return String(input).startsWith('You are composing a portrait')
@@ -155,7 +162,8 @@ const st = (page, fn) => page.evaluate(fn);
 async function settle(page) { await page.evaluate(() => window.__inkwash.flush()); await page.waitForTimeout(80); }
 
 // ---------------------------------------------------------------- the owner's studio
-const { page, ctx, errors } = await open({ seed: exampleDocs(WID) });
+const DREAM = JSON.parse(readFileSync(fileURLToPath(new URL('../dream-example.json', import.meta.url)), 'utf8'));
+const { page, ctx, errors } = await open({ seed: exampleDocs(WID), dream: DREAM.answer });
 
 await step('opens the seeded example world in the score', async () => {
   await page.waitForSelector('.score-view', { timeout: 8000 });
@@ -480,6 +488,101 @@ await step('a new world starts from the form', async () => {
   assert.equal(worlds, 2);
 });
 
+// A point inside an element of the map where that element is the one under the pointer.
+const pointOn = (sel) => page.evaluate((sel) => {
+  const el = document.querySelector(sel), r = el.getBoundingClientRect();
+  for (let y = r.top + 4; y < r.bottom; y += 6) for (let x = r.left + 4; x < r.right; x += 6) if (document.elementFromPoint(x, y) === el) return [x, y];
+  return null;
+}, sel);
+const atlasSpec = () => st(page, () => window.__inkwash.state.atlas.get('main').spec);
+
+await step('dreaming a world grows its canon and draws its map', async () => {
+  await page.selectOption('#world-select', '__dream');
+  await page.waitForSelector('#dream-text');
+  await page.fill('#dream-text', DREAM.dream);
+  await page.click('text=Dream it');
+  await page.waitForSelector('.atlas-stage svg', { timeout: 20000 });
+  const call = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop());
+  assert.equal(call.tier, 'complex');
+  assert.ok(call.input.includes('the ships stood on the seabed like cattle'), 'the dream is in the brief');
+  const canon = await st(page, () => [...window.__inkwash.state.canon.values()].map((e) => ({ name: e.name, kind: e.kind, facts: e.facts.map((f) => [f.text, f.origin]) })));
+  assert.ok(canon.length >= 45, `${canon.length} canon entries`);
+  const harrow = canon.find((e) => e.name === 'Harrowgate');
+  assert.deepEqual(harrow.facts[0], ['Harrowgate is a capital in The Old Coast.', 'accepted'], 'the geography is in the canon, marked as suggested');
+  assert.ok(canon.some((e) => e.kind === 'character' && e.name === 'Ilse Varr'));
+  assert.equal(await page.locator('.atlas-stage .atlas-region').count(), 8);
+  assert.equal(await page.locator('.atlas-stage .atlas-place').count(), 24);
+  await settle(page);
+  const saved = await st(page, () => [...window.__mock.docs.keys()].filter((k) => /\/atlas\/main$/.test(k)).map((k) => JSON.parse(window.__mock.docs.get(k))));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].spec.regions.length, 8);
+  assert.match(await page.textContent('.atlas-panel'), /I dreamed the sea went out/);
+});
+
+await step('choosing a region on the map shows it, and exploring it adds places', async () => {
+  const at = await pointOn('.atlas-region[data-id="r_glasswold"]');
+  assert.ok(at, 'Glasswold can be clicked on the map');
+  await page.mouse.click(at[0], at[1]);
+  await page.waitForSelector('.atlas-panel h2 >> text=Glasswold');
+  assert.match(await page.textContent('.atlas-panel'), /A desert of dunes fused into glass/);
+  await page.click('.atlas-panel >> text=← The whole world');
+  await page.click('.atlas-panel >> text=The Old Coast');
+  await page.waitForSelector('.atlas-panel h2 >> text=The Old Coast');
+  const before = (await atlasSpec()).places.length;
+  await page.click('text=Explore deeper');
+  await page.waitForFunction((n) => window.__inkwash.state.atlas.get('main').spec.places.length > n, before, { timeout: 8000 });
+  const spec = await atlasSpec();
+  assert.equal(spec.places.length, before + 2, 'two new places; one already on the map is skipped');
+  const call = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop());
+  assert.equal(call.tier, 'default');
+  assert.match(call.input, /ALREADY MAPPED HERE[\s\S]*Harrowgate/);
+  const canon = await st(page, () => [...window.__inkwash.state.canon.values()]);
+  assert.ok(canon.some((e) => e.name === 'Crabhollow' && e.facts[0].text === 'Crabhollow is a village in The Old Coast.'));
+  assert.ok(canon.find((e) => e.name === 'The Old Coast').facts.some((f) => /thousand steps/.test(f.text)), 'the region learned something too');
+  await page.waitForSelector('.atlas-stage .atlas-place[data-id^="p_crabhollow"]', { timeout: 15000 });
+});
+
+await step('the map moves and zooms, and lesser names come in closer', async () => {
+  await page.click('.atlas-panel >> text=← The whole world');
+  const vb = () => page.getAttribute('.atlas-stage svg', 'viewBox').then((v) => v.split(' ').map(Number));
+  const box = await page.locator('.atlas-stage').boundingBox();
+  assert.equal((await vb())[2], 1600);
+  assert.equal(await page.getAttribute('.atlas-stage svg', 'data-z'), '1');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, -120);
+  await page.waitForFunction(() => document.querySelector('.atlas-stage svg').dataset.z === '3');
+  const [x1, , w1] = await vb();
+  assert.ok(w1 < 600, `zoomed in to ${w1}`);
+  await page.mouse.move(box.x + 200, box.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 120, box.y + 160, { steps: 5 });
+  await page.mouse.up();
+  const [x2] = await vb();
+  assert.ok(x2 > x1, 'dragging moved the map');
+  await page.click('text=Whole map');
+  assert.equal((await vb())[2], 1600);
+});
+
+await step('a world with a canon gets an atlas drawn around it', async () => {
+  await page.selectOption('#world-select', WID);
+  await page.click('.tab >> text=Atlas');
+  await page.waitForSelector('text=This world has no map yet');
+  const vesk = await st(page, () => JSON.stringify([...window.__inkwash.state.canon.values()].find((e) => e.name === 'Vesk')));
+  await page.click('text=Draw the atlas');
+  await page.waitForSelector('.atlas-stage svg', { timeout: 20000 });
+  const after = await st(page, () => [...window.__inkwash.state.canon.values()]);
+  assert.equal(JSON.stringify(after.find((e) => e.name === 'Vesk')), vesk, 'a place already in the canon is left exactly as it was');
+  for (const n of ['The Lamp Coast', 'Gullwick', 'Tarn']) assert.ok(after.some((e) => e.name === n), n + ' joined the canon');
+  const spec = await atlasSpec();
+  assert.equal(spec.places.find((p) => p.name === 'Vesk').entity, JSON.parse(vesk).id);
+  // deleting a place from the canon takes it off the map
+  await page.click('.tab >> text=Canon');
+  await page.click('.card[aria-label="Gullwick"] button[aria-label="Delete Gullwick"]');
+  await page.click('.modal button.seal');
+  await settle(page);
+  assert.ok(!(await atlasSpec()).places.some((p) => p.name === 'Gullwick'));
+});
+
 if (wantShots) {
   mkdirSync(SHOTS, { recursive: true });
   await page.selectOption('#world-select', WID);
@@ -489,6 +592,9 @@ if (wantShots) {
   await page.click('.sheet-nav button[aria-label="Next scene"]');
   await page.waitForTimeout(300);
   await page.screenshot({ path: join(SHOTS, 'score-light.png'), fullPage: true });
+  await page.click('.tab >> text=Atlas');
+  await page.waitForSelector('.atlas-stage svg');
+  await page.screenshot({ path: join(SHOTS, 'atlas-light.png') });
 }
 const studioDocs = await st(page, () => Object.fromEntries([...window.__mock.docs].map(([k, v]) => [k, JSON.parse(v)])));
 assert.deepEqual(errors, []);
@@ -511,7 +617,7 @@ await step('sketchbook mode when the db capability is absent', async () => {
   const r = await open({ noDb: true });
   await r.page.waitForSelector('.welcome');
   assert.match(await r.page.textContent('#banners'), /Sketchbook mode/);
-  await r.page.click('.choice button:has-text("Open the example world")');
+  await r.page.click('.choice button:has-text("The Hollow Moon")');
   await r.page.waitForSelector('.score-view');
   await r.page.evaluate(() => window.__inkwash.flush());
   await r.page.waitForFunction(() => (localStorage.getItem('inkwash.sketchbook') || '').includes('The Hollow Moon'), null, { timeout: 5000 });
@@ -522,7 +628,7 @@ await step('sketchbook mode when the db capability is absent', async () => {
 await step('outside claude.ai, inking is off and writing by hand still works', async () => {
   const r = await open({ noClaude: true });
   await r.page.waitForSelector('.welcome');
-  await r.page.click('.choice button:has-text("Open the example world")');
+  await r.page.click('.choice button:has-text("The Hollow Moon")');
   await r.page.waitForSelector('.score-view');
   assert.match(await r.page.textContent('#banners'), /Inking is off/);
   await r.page.click('.rail-item >> nth=1');
@@ -539,6 +645,23 @@ await step('outside claude.ai, inking is off and writing by hand still works', a
   await r.ctx.close();
 });
 function C_hand(p) { return p.spans.every((x) => x.o !== 'inked') ? 1 : 0; }
+
+await step('the dreamed example opens anywhere, without Claude, and its map can be read on a phone', async () => {
+  const r = await open({ noClaude: true }, { width: 390, height: 844 });
+  await r.page.waitForSelector('.welcome');
+  await r.page.click('.choice button:has-text("The Drained Sea")');
+  await r.page.waitForSelector('.atlas-stage svg', { timeout: 20000 });
+  assert.equal(await r.page.locator('.atlas-stage .atlas-region').count(), 8);
+  assert.equal(await r.page.locator('text=Explore deeper').count(), 0, 'exploring needs Claude');
+  await r.page.click('.atlas-list button:text-is("Kelpreach")');
+  await r.page.waitForSelector('.atlas-panel h2 >> text=Kelpreach');
+  assert.ok(!/null/.test(await r.page.textContent('.atlas-panel')), 'nothing empty is printed');
+  const overflow = await r.page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(overflow <= 1, `no sideways scroll on a phone (${overflow}px)`);
+  if (wantShots) await r.page.screenshot({ path: join(SHOTS, 'atlas-phone.png'), fullPage: true });
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
 
 if (wantShots) {
   for (const [name, vp, scheme] of [['score-dark', { width: 1400, height: 950 }, 'dark'], ['score-phone', { width: 390, height: 844 }, 'light'], ['book-phone-dark', { width: 390, height: 844 }, 'dark']]) {

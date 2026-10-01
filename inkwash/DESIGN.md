@@ -279,7 +279,7 @@ There's no server and no API key. The page uses four platform capabilities:
 
 | Capability | Used for |
 | --- | --- |
-| `sample` | Inking, seed suggestions, continuity checks and plates. Calls run on the viewer's own Claude account after the viewer allows it. Inking uses the `complex` tier, checks and plates use `default`, and seeds use `quick`. |
+| `sample` | Inking, seed suggestions, continuity checks, plates, dreaming worlds and exploring them. Calls run on the viewer's own Claude account after the viewer allows it. Inking, dreaming and drawing an atlas use the `complex` tier; checks, plates and exploring use `default`; seeds use `quick`. |
 | `db` | All of the world's data, stored as documents (layout below). |
 | `user` | `isOwner()` picks the view: the owner gets the studio, and everyone else gets the book. |
 | `downloads` | Exports: the book (EPUB, HTML, Markdown, PDF), the bible (JSON) and the provenance report. |
@@ -293,6 +293,7 @@ studio/<world>/chapters/<ch>       that chapter's strokes, pins and notes    own
 studio/<world>/passages/<id>       text, authorship spans, premises, state   owner only
 studio/<world>/seeds/<id>          the dream inbox                           owner only
 studio/<world>/plates/<id>         a plate's composition                     owner only
+studio/<world>/atlas/main          the world's map: its shape and places     owner only
 published/<world>/...              the book and the public lore              signed-in viewers can read
 ```
 
@@ -304,7 +305,7 @@ to it.
 - It has one creator and one world.
 - Readers must be signed in to claude.ai to see the live page, so the book also goes out as an
   exported EPUB or HTML file.
-- There are no payments and no way to discover other worlds. Its only images are the plates.
+- There are no payments and no way to discover other worlds. Its only images are the atlas and the plates.
 
 That's enough for stage 0.
 
@@ -354,7 +355,10 @@ license(id, world, tier, terms, buyer, status)
 - the book view and exports;
 - the dream inbox: paste in a fragment, get seeds;
 - plates: ink wash paintings of scenes, places and characters, composed by the AI and painted by
-  the page.
+  the page;
+- dreaming a world: a dream grown by the AI into a whole world (regions, places, peoples, powers),
+  kept in the canon as suggestions;
+- the atlas: the world drawn as a map, explored one region at a time.
 
 **Out, for later:**
 - the pace and secrets lanes;

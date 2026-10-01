@@ -5,6 +5,7 @@
   'use strict';
   const C = window.InkCore;
   const PL = window.InkPlates;
+  const AT = window.InkAtlas;
   const N = C.SAMPLES;
 
   // ---------------------------------------------------------------- DOM helpers
@@ -65,7 +66,8 @@
     db: null, user: null, sample: null, downloads: null,
     worlds: new Map(), worldsReady: false, pubWorlds: new Map(),
     wid: null, loaded: new Set(),
-    canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), plates: new Map(), pub: new Map(),
+    canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), plates: new Map(), atlas: new Map(), pub: new Map(),
+    atlasSel: null, dreamDraft: null,
     view: 'score', cid: null, k: 0,
     tool: 'brush', pigment: null,
     showHand: local.get('showHand', true),
@@ -94,10 +96,11 @@
     passages: (w, id) => `studio/${w}/passages/${id}`,
     seeds: (w, id) => `studio/${w}/seeds/${id}`,
     plates: (w, id) => `studio/${w}/plates/${id}`,
+    atlas: (w, id) => `studio/${w}/atlas/${id}`,
     pubWorld: (w) => `published/${w}`,
     pubChapter: (w, id) => `published/${w}/chapters/${id}`,
   };
-  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, pub: () => S.pub };
+  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, atlas: () => S.atlas, pub: () => S.pub };
   const W = new Map();
   const dirty = new Set();
 
@@ -294,8 +297,9 @@
     closeWorld();
     S.wid = wid;
     local.set('lastWorld', wid);
-    S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.plates = new Map(); S.pub = new Map();
+    S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.plates = new Map(); S.atlas = new Map(); S.pub = new Map();
     S.loaded = new Set();
+    S.atlasSel = null;
     S.selection = null; S.confirmReink = null; S.publishTried = {}; S.preview = false;
     const pos = (hot && hot.wid === wid) ? hot : local.get('pos.' + wid, {});
     S.cid = pos.cid || null; S.k = pos.k || 0;
@@ -312,6 +316,7 @@
       sub(`studio/${wid}/passages`, 'passages'),
       sub(`studio/${wid}/seeds`, 'seeds'),
       sub(`studio/${wid}/plates`, 'plates'),
+      sub(`studio/${wid}/atlas`, 'atlas'),
       sub(`published/${wid}/chapters`, 'pub'),
     ];
     S.mode = 'studio';
@@ -403,6 +408,7 @@
       else if (S.view === 'book') main.append(bookView());
       else if (S.view === 'canon') main.append(canonView());
       else if (S.view === 'dreams') main.append(dreamsView());
+      else if (S.view === 'atlas') main.append(atlasView());
       else main.append(scoreView());
     }
     restoreFocus(keep);
@@ -437,6 +443,7 @@
       onchange: (e) => {
         const v = e.target.value;
         if (v === '__new') openForm('new');
+        else if (v === '__dream') openForm('dream');
         else if (v === '__example') loadExample();
         else if (v && v !== S.wid) openWorld(v);
         render();
@@ -444,12 +451,13 @@
     });
     if (!S.wid) pick.append(h('option', { value: '', selected: true }, 'Choose a world'));
     for (const w of worlds) pick.append(h('option', { value: w.id, selected: w.id === S.wid && S.mode === 'studio' }, w.title + (w.example ? ' (example)' : '')));
+    pick.append(h('option', { value: '__dream', selected: S.mode === 'form' && S.form && S.form.mode === 'dream' }, 'Dream a world…'));
     pick.append(h('option', { value: '__new', selected: S.mode === 'form' && S.form && S.form.mode === 'new' }, 'New world…'));
     if (!worlds.some((w) => w.example)) pick.append(h('option', { value: '__example' }, 'Open the example world'));
     slot.append(h('div', { class: 'world-pick' }, pick));
     if (S.mode === 'studio' && world()) {
       const tabs = h('nav', { class: 'tabs', 'aria-label': 'Views' });
-      for (const [v, label] of [['score', 'Score'], ['book', 'Book'], ['canon', 'Canon'], ['dreams', 'Dreams']]) {
+      for (const [v, label] of [['atlas', 'Atlas'], ['score', 'Score'], ['book', 'Book'], ['canon', 'Canon'], ['dreams', 'Dreams']]) {
         tabs.append(h('button', { class: 'tab', type: 'button', 'aria-current': !S.preview && S.view === v ? 'page' : null, onclick: () => go(v) }, label));
       }
       slot.append(tabs);
@@ -491,24 +499,28 @@
   function openingView(title) {
     return h('section', { class: 'opening' },
       h('p', { class: 'eyebrow' }, title || 'Opening your studio'),
-      h('h1', null, 'Paint the shape of a story. Let the ink fill it. Keep every fact of your world straight.'),
-      h('p', { class: 'muted' }, 'Your worlds, chapters and scenes appear here once your studio has loaded.'));
+      h('h1', null, 'Dream a world. Paint its stories. Keep every fact of it straight.'),
+      h('p', { class: 'muted' }, 'Your worlds, maps, chapters and scenes appear here once your studio has loaded.'));
   }
 
   function welcomeView() {
     return h('section', { class: 'welcome' },
       h('p', { class: 'eyebrow' }, 'Inkwash'),
-      h('h1', null, 'Paint the shape of a story. Let the ink fill it. Keep every fact of your world straight.'),
-      h('p', { class: 'muted' }, 'You paint each scene’s tension, mood and who is in it, and pin lines of your own. Claude inks the prose inside your strokes. Every fact a scene relies on is tracked, so when you change your world, Inkwash shows you exactly which scenes it breaks.'),
+      h('h1', null, 'Dream a world. Paint its stories. Keep every fact of it straight.'),
+      h('p', { class: 'muted' }, 'Tell Inkwash a dream and Claude grows it into a whole world: lands, peoples, places and powers, on a map you can explore one region at a time. Then paint each scene’s tension, mood and who is in it, and Claude inks the prose inside your strokes. Every fact a scene relies on is tracked, so when your world changes, Inkwash shows you exactly which scenes it breaks.'),
       h('div', { class: 'choices' },
+        h('div', { class: 'choice' },
+          h('h2', null, 'Dream a world'),
+          h('p', { class: 'muted' }, 'Tell it a dream. Claude grows it into a whole world, its lands, peoples and places drawn on a map you can explore, and keeps it all in your canon.'),
+          h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: () => openForm('dream') }, 'Dream a world'))),
         h('div', { class: 'choice' },
           h('h2', null, 'Start your world'),
           h('p', { class: 'muted' }, 'Name it, give it a premise, and paste a few paragraphs of your own writing so the ink sounds like you.'),
-          h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: () => openForm('new') }, 'Start a world'))),
+          h('div', null, h('button', { class: 'btn', type: 'button', onclick: () => openForm('new') }, 'Start a world'))),
         h('div', { class: 'choice' },
           h('h2', null, 'Explore an example'),
-          h('p', { class: 'muted' }, 'The Hollow Moon: two chapters, with a set scene, a wet one, a scene that went stale when a fact changed, and a scene ready to ink.'),
-          h('div', null, h('button', { class: 'btn', type: 'button', onclick: loadExample }, 'Open the example world')))));
+          h('p', { class: 'muted' }, 'The Drained Sea, a world dreamed from three sentences. Or The Hollow Moon, a book in progress: a set scene, a wet one, a scene that went stale when a fact changed, and a scene ready to ink.'),
+          h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onclick: loadDreamExample }, 'The Drained Sea'), h('button', { class: 'btn', type: 'button', onclick: loadExample }, 'The Hollow Moon')))));
   }
 
   // ---------------------------------------------------------------- world form
@@ -527,6 +539,7 @@
     window.scrollTo(0, 0);
   }
   function worldFormView() {
+    if (S.form && S.form.mode === 'dream') return dreamFormView();
     const editing = S.form && S.form.mode === 'settings' ? world() : null;
     const w = editing || { title: '', premise: '', byline: '', voice: '', sceneWords: 450, pigments: DEFAULT_PIGMENTS, strict: false };
     const field = (label, input, note) => h('label', { class: 'field' }, h('span', null, label), input, note ? h('small', null, note) : null);
@@ -582,7 +595,7 @@
     openWorld(wid);
     put('world', wid, Object.assign(fields, { example: false, strict: false, chapterOrder: [cid], createdAt: now() }), { quiet: true });
     put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'pub']);
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
     S.cid = cid; S.k = 0; S.view = 'canon';
     toast('World created. Start with its canon: who lives here and what is true.');
     render();
@@ -593,7 +606,7 @@
     const ok = await ask({ title: `Delete ${w.title}?`, body: 'Its canon, chapters, scenes, dreams and published chapters are deleted for good.', confirm: 'Delete this world', danger: true });
     if (!ok) return;
     if (S.wid !== wid) openWorld(wid);
-    for (const kind of ['canon', 'chapters', 'passages', 'seeds', 'pub']) for (const id of [...MAP[kind]().keys()]) removeDoc(kind, id);
+    for (const kind of ['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']) for (const id of [...MAP[kind]().keys()]) removeDoc(kind, id);
     if (S.pubWorlds.has(wid)) { S.pubWorlds.delete(wid); queueDelete(P.pubWorld(wid)); }
     removeDoc('world', wid);
     closeWorld();
@@ -627,7 +640,8 @@
     for (const p of parsed.passages) put('passages', p.id, p, o);
     for (const s of parsed.seeds) put('seeds', s.id, s, o);
     for (const pl of parsed.plates) put('plates', pl.id, pl, o);
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'pub']);
+    if (parsed.atlas && parsed.atlas.spec) put('atlas', 'main', parsed.atlas, o);
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
     S.cid = (parsed.world.chapterOrder || [])[0] || null;
     S.k = 0;
     S.view = 'score';
@@ -2011,7 +2025,7 @@
     if (!can) { panel.append(h('p', { class: 'faint' }, 'Downloads aren’t available in this view.')); return panel; }
     const w = world();
     const base = slug(w.title);
-    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds, plates: S.plates });
+    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds, plates: S.plates, atlas: atlasDoc() });
     const book = (filename, make) => async () => {
       const model = C.bookModel({ world: w, chapters: S.chapters, passages: S.passages, entities: S.canon, plates: S.plates });
       if (model.problems.length) {
@@ -2270,6 +2284,13 @@
     if (!ok) return;
     removeDoc('canon', eid);
     if (S.plates.has(PL.plateId.entity(eid))) removeDoc('plates', PL.plateId.entity(eid));
+    const map = atlasDoc();
+    if (map && map.spec) {
+      const sp = map.spec, gone = (x) => x.entity === eid;
+      if (sp.places.some(gone) || (sp.features || []).some(gone) || sp.regions.some(gone)) {
+        put('atlas', 'main', Object.assign({}, map, { spec: Object.assign({}, sp, { places: sp.places.filter((x) => !gone(x)), features: (sp.features || []).filter((x) => !gone(x)), regions: sp.regions.map((g) => (gone(g) ? Object.assign({}, g, { entity: null }) : g)) }) }), { quiet: true });
+      }
+    }
     for (const ch of S.chapters.values()) {
       if ((ch.cast || []).includes(eid)) {
         const c = C.clone(ch);
@@ -2278,6 +2299,305 @@
         put('chapters', ch.id, c, { quiet: true });
       }
     }
+    render();
+  }
+
+  // ---------------------------------------------------------------- atlas
+  // The world as a map. Claude dreams a world, or draws one around an existing canon, as a small
+  // spec; InkAtlas grows the land from it. The drawn map is kept between renders, so moving,
+  // zooming and choosing on it never redraws it.
+
+  const atlasDoc = () => S.atlas.get('main') || null;
+  // The spec with every name as the canon has it now: rename a place in the canon and the map follows.
+  function liveSpec(spec) {
+    const named = (x) => { const e = x.entity && S.canon.get(x.entity); return e ? Object.assign({}, x, { name: e.name }) : x; };
+    return Object.assign({}, spec, { title: (world() || {}).title || spec.title, regions: spec.regions.map(named), places: spec.places.map(named), features: (spec.features || []).map(named) });
+  }
+  const stage = { key: null, el: null, painting: null, view: null };
+  function atlasStage(spec) {
+    const live = liveSpec(spec), key = S.wid + '|' + JSON.stringify(live);
+    if (stage.key !== key && stage.painting !== key) {
+      stage.painting = key;
+      // drawing a world takes a moment, so it happens after this render, not during it
+      setTimeout(() => {
+        if (stage.painting !== key) return;
+        const el = h('div', { class: 'atlas-stage', tabindex: '0', id: 'atlas-stage', 'aria-label': 'The map. Drag to move, scroll or press + and − to zoom, and choose a region or a place to read about it.' });
+        el.innerHTML = AT.paint(live, { id: S.wid, zoom: 1 });
+        el.dataset.wid = S.wid;
+        wireStage(el);
+        if (!stage.el || stage.el.dataset.wid !== S.wid) stage.view = local.get('atlasView.' + S.wid, null);
+        stage.key = key; stage.el = el; stage.painting = null;
+        setView(stage.view || { x: 0, y: 0, w: AT.W });
+        render();
+      }, 20);
+    }
+    if (!stage.el || stage.el.dataset.wid !== S.wid) return h('div', { class: 'atlas-stage atlas-wait' }, h('p', null, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Drawing the map…'));
+    for (const el of stage.el.querySelectorAll('.selected')) el.classList.remove('selected');
+    const sel = S.atlasSel && stage.el.querySelector(`[data-id="${CSS.escape(S.atlasSel.id)}"]`);
+    if (sel) sel.classList.add('selected');
+    return stage.el;
+  }
+  function setView(v) {
+    const w = Math.min(AT.W, Math.max(AT.W / 10, v.w)), hh = (w * AT.H) / AT.W;
+    const x = Math.min(AT.W - w, Math.max(0, v.x)), y = Math.min(AT.H - hh, Math.max(0, v.y));
+    stage.view = { x, y, w };
+    const svg = stage.el && stage.el.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('viewBox', `${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${hh.toFixed(1)}`);
+      // names of lesser places come in as you zoom closer
+      svg.dataset.z = AT.W / w < 1.6 ? '1' : AT.W / w < 2.8 ? '2' : '3';
+    }
+    if (S.wid) local.set('atlasView.' + S.wid, stage.view);
+  }
+  function zoomAt(factor, x, y) {
+    const v = stage.view, hh = (v.w * AT.H) / AT.W;
+    setView({ x: x - (x - v.x) / factor, y: y - (y - v.y) / factor, w: v.w / factor });
+    void hh;
+  }
+  function zoomBy(factor) { const v = stage.view; zoomAt(factor, v.x + v.w / 2, v.y + (v.w * AT.H) / AT.W / 2); }
+  function wireStage(el) {
+    let drag = null;
+    const toMap = (ev) => { const r = el.getBoundingClientRect(), v = stage.view, hh = (v.w * AT.H) / AT.W; return [v.x + ((ev.clientX - r.left) / r.width) * v.w, v.y + ((ev.clientY - r.top) / r.height) * hh]; };
+    el.addEventListener('wheel', (ev) => { ev.preventDefault(); const [x, y] = toMap(ev); zoomAt(ev.deltaY < 0 ? 1.2 : 1 / 1.2, x, y); }, { passive: false });
+    el.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      drag = { x: ev.clientX, y: ev.clientY, v: Object.assign({}, stage.view), moved: false, target: ev.target.closest && ev.target.closest('.atlas-place, .atlas-region') };
+      try { el.setPointerCapture(ev.pointerId); } catch (e) { /* not capturable */ }
+    });
+    el.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 5) return;
+      drag.moved = true;
+      el.classList.add('dragging');
+      const r = el.getBoundingClientRect();
+      setView({ x: drag.v.x - (dx / r.width) * drag.v.w, y: drag.v.y - (dy / r.height) * ((drag.v.w * AT.H) / AT.W), w: drag.v.w });
+    });
+    el.addEventListener('pointerup', () => {
+      if (!drag) return;
+      const { moved, target } = drag;
+      drag = null;
+      el.classList.remove('dragging');
+      if (!moved && target) chooseOnMap(target.classList.contains('atlas-place') ? 'place' : 'region', target.dataset.id);
+    });
+    el.addEventListener('pointercancel', () => { drag = null; el.classList.remove('dragging'); });
+    el.addEventListener('keydown', (ev) => {
+      const v = stage.view, step = v.w * 0.1, move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[ev.key];
+      if (move) { ev.preventDefault(); setView({ x: v.x + move[0], y: v.y + move[1], w: v.w }); }
+      else if (ev.key === '+' || ev.key === '=') { ev.preventDefault(); zoomBy(1.25); }
+      else if (ev.key === '-' || ev.key === '_') { ev.preventDefault(); zoomBy(0.8); }
+      else if (ev.key === '0') { ev.preventDefault(); setView({ x: 0, y: 0, w: AT.W }); }
+      else if (ev.key === 'Escape' && S.atlasSel) { S.atlasSel = null; render(); }
+    });
+  }
+  function chooseOnMap(type, id) {
+    S.atlasSel = id ? { type, id } : null;
+    render();
+  }
+
+  function atlasView() {
+    const doc = atlasDoc();
+    if (!doc || !doc.spec) return atlasEmpty();
+    const spec = doc.spec;
+    const tools = h('div', { class: 'atlas-tools' },
+      h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Zoom in', onclick: () => zoomBy(1.4) }, '+'),
+      h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Zoom out', onclick: () => zoomBy(1 / 1.4) }, '−'),
+      h('button', { class: 'btn ghost small', type: 'button', onclick: () => setView({ x: 0, y: 0, w: AT.W }) }, 'Whole map'),
+      h('span', { class: 'faint' }, 'Drag to move. Scroll to zoom: lesser places are named as you come closer.'));
+    return h('div', { class: 'atlas-view' }, h('div', { class: 'atlas-main' }, atlasStage(spec), tools), atlasPanel(spec));
+  }
+  const liveFacts = (e) => (e ? (e.facts || []).filter((f) => !f.retired).map((f) => f.text) : []);
+  const KIND_NAME = { capital: 'Capital', city: 'City', town: 'Town', village: 'Village', port: 'Port', fortress: 'Fortress', ruin: 'Ruin', temple: 'Temple', tower: 'Tower', mine: 'Mine', camp: 'Camp', wreck: 'Wreck', landmark: 'Landmark', range: 'Mountain range', forest: 'Forest', desert: 'Desert', marsh: 'Marsh', lake: 'Lake', river: 'River', chasm: 'Chasm', volcano: 'Volcano', plain: 'Plain', bay: 'Bay', island: 'Island' };
+  function atlasPanel(spec) {
+    const w = world(), live = liveSpec(spec), sel = S.atlasSel;
+    const panel = h('aside', { class: 'atlas-panel', 'aria-label': 'About the map' });
+    const add = (...parts) => panel.append(...parts.filter(Boolean));
+    const regionOf = (id) => live.regions.find((g) => g.id === id);
+    const placeList = (list) => h('ul', { class: 'atlas-list' }, list.map((p) => h('li', null, h('button', { class: 'linklike', type: 'button', onclick: () => chooseOnMap('place', p.id) }, p.name), h('span', { class: 'faint' }, ' ' + (KIND_NAME[p.kind] || '').toLowerCase()))));
+    const factsOf = (e) => { const fs = liveFacts(e); return fs.length ? h('ul', { class: 'atlas-facts' }, fs.map((f) => h('li', null, f))) : h('p', { class: 'faint' }, 'Nothing is known about it yet.'); };
+    const plateFor = (eid) => (eid && S.canon.has(eid) ? plateSection({ kind: 'place', id: PL.plateId.entity(eid), eid }) : null);
+    const back = h('button', { class: 'btn ghost small', type: 'button', onclick: () => chooseOnMap(null, null) }, '← The whole world');
+    const pl = sel && sel.type === 'place' ? live.places.concat(live.features || []).find((x) => x.id === sel.id) : null;
+    const rg = sel && sel.type === 'region' ? regionOf(sel.id) : null;
+    if (pl) {
+      const g = regionOf(pl.region), e = pl.entity && S.canon.get(pl.entity);
+      add(back,
+        h('p', { class: 'eyebrow' }, KIND_NAME[pl.kind] || 'Place'),
+        h('h2', null, pl.name),
+        g ? h('p', { class: 'muted' }, 'In ', h('button', { class: 'linklike', type: 'button', onclick: () => chooseOnMap('region', g.id) }, g.name)) : null,
+        factsOf(e), plateFor(pl.entity));
+      return panel;
+    }
+    if (rg) {
+      const e = rg.entity && S.canon.get(rg.entity), here = live.places.filter((p) => p.region === rg.id), feats = (live.features || []).filter((f) => f.region === rg.id);
+      const busy = S.busy['explore:' + rg.id];
+      add(back,
+        h('p', { class: 'eyebrow' }, 'Region'),
+        h('h2', null, rg.name),
+        factsOf(e),
+        busy
+          ? h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), `Exploring ${rg.name}…`, h('button', { class: 'btn ghost small', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop'))
+          : aiOn() ? h('div', { class: 'btn-row' }, h('button', { class: 'btn primary small', type: 'button', onclick: () => exploreDeeper(rg.id) }, 'Explore deeper')) : null,
+        h('h3', null, `Places (${here.length})`), here.length ? placeList(here) : h('p', { class: 'faint' }, 'None mapped yet.'),
+        feats.length ? h('h3', null, 'Features') : null, feats.length ? placeList(feats) : null,
+        plateFor(rg.entity));
+      return panel;
+    }
+    const factsCount = entities().reduce((s, x) => s + (x.facts || []).filter((f) => !f.retired).length, 0);
+    add(
+      h('p', { class: 'eyebrow' }, 'Atlas'),
+      h('h2', null, w.title),
+      w.dream ? h('blockquote', { class: 'atlas-dream' }, w.dream) : null,
+      w.premise ? h('p', null, w.premise) : null,
+      h('p', { class: 'faint' }, `${plural(live.regions.length, 'region')}, ${plural(live.places.length, 'place')} and ${plural(factsCount, 'fact')} in the canon.`),
+      h('h3', null, 'Regions'),
+      h('ul', { class: 'atlas-list' }, live.regions.map((g) => h('li', null, h('button', { class: 'linklike', type: 'button', onclick: () => chooseOnMap('region', g.id) }, g.name), h('span', { class: 'faint' }, ` ${live.places.filter((p) => p.region === g.id).length}`)))),
+      h('p', { class: 'faint' }, 'Choose a region to explore it further: Claude adds the places nobody has mapped yet, and they go into the canon.'),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${slug(w.title)}-map.svg`, AT.paint(live, { id: 'save', zoom: 2 })) }, 'Save the map'),
+        S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: redrawLand }, 'Draw the land again')));
+    return panel;
+  }
+  function atlasEmpty() {
+    const busy = S.busy.atlas;
+    return h('section', { class: 'page-pad' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Atlas'),
+        h('h1', null, 'This world has no map yet'),
+        h('p', { class: 'muted' }, 'Claude can draw one from your canon. Every place you already have stays as it is; the land around them is filled in with regions, seas and new places. Whatever it adds goes into the canon, marked as suggested, so you can change or delete any of it.')),
+      busy
+        ? h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Drawing the atlas… this can take a minute.', h('button', { class: 'btn ghost small', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop'))
+        : aiOn() ? h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', type: 'button', onclick: drawAtlas }, 'Draw the atlas'))
+          : h('p', { class: 'faint' }, 'Drawing a map needs Claude. Open this page on claude.ai.'));
+  }
+  const randomSeed = () => 1 + Math.floor(Math.random() * 2147483646);
+  // A new lie of the land for the same world: every region, place and fact stays; only the ground moves.
+  async function redrawLand() {
+    const doc = atlasDoc();
+    if (!doc) return;
+    const ok = await ask({ title: 'Draw the land again?', body: 'The coasts, mountains and rivers are drawn afresh. Every region and place stays in the world and in the canon, but each one moves to wherever it fits on the new land.', confirm: 'Draw it again' });
+    if (!ok) return;
+    const seed = randomSeed();
+    put('atlas', 'main', Object.assign({}, doc, { spec: AT.normalizeAtlas(Object.assign({}, doc.spec, { seed }), seed) }));
+  }
+  async function drawAtlas() {
+    if (!aiOn() || S.busy.atlas) return;
+    const w = world(), open = (e) => (e.facts || []).filter((f) => !f.retired && !f.secret).map((f) => f.text);
+    const places = entities().filter((e) => e.kind === 'place').map((e) => ({ name: e.name, facts: open(e).slice(0, 4) }));
+    const rules = entities().filter((e) => e.kind === 'rule').flatMap(open).slice(0, 16);
+    const others = entities().filter((e) => e.kind === 'faction' || e.kind === 'character').slice(0, 16).map((e) => e.name + (open(e)[0] ? ': ' + open(e)[0] : ''));
+    const busy = { ctl: new AbortController() }, wid = S.wid;
+    S.busy.atlas = busy;
+    render();
+    try {
+      const json = await S.sample.json(AT.buildAtlasPrompt({ world: w, places, rules, others }), { modelTier: 'complex', signal: busy.ctl.signal, cache: false });
+      const d = AT.parseDream(Object.assign({ title: w.title }, json));
+      if (!d) throw { code: 'invalid_json' };
+      if (S.wid !== wid) return;
+      const seed = randomSeed(), made = C.atlasForWorld(d, S.canon, { now: now(), seed, title: w.title });
+      for (const e of made.entities) put('canon', e.id, e, { quiet: true });
+      const spec = AT.normalizeAtlas(made.atlas, seed);
+      put('atlas', 'main', { spec, drawnAt: now() }, { quiet: true });
+      toast(`Drew ${w.title}: ${plural(spec.regions.length, 'region')} and ${plural(spec.places.length, 'place')}. ${plural(made.entities.length, 'new entry')} joined the canon.`);
+    } catch (e) { aiError(e, 'drawing the atlas'); }
+    finally { delete S.busy.atlas; render(); }
+  }
+  async function exploreDeeper(regionId) {
+    const doc = atlasDoc();
+    if (!doc || !aiOn() || S.busy['explore:' + regionId]) return;
+    const spec = doc.spec, region = spec.regions.find((g) => g.id === regionId);
+    if (!region) return;
+    const w = world(), ent = region.entity && S.canon.get(region.entity), open = (e) => (e ? (e.facts || []).filter((f) => !f.retired && !f.secret).map((f) => f.text) : []);
+    const input = {
+      world: w, region: (ent && ent.name) || region.name, facts: open(ent),
+      places: spec.places.filter((p) => p.region === regionId).map((p) => { const pe = p.entity && S.canon.get(p.entity); return { name: pe ? pe.name : p.name, kind: p.kind, facts: open(pe).slice(1, 3) }; }),
+      rules: entities().filter((e) => e.kind === 'rule').flatMap(open).slice(0, 12),
+      neighbours: spec.regions.filter((g) => g.id !== regionId).map((g) => { const ge = g.entity && S.canon.get(g.entity); return (ge ? ge.name : g.name) + (open(ge)[1] ? ': ' + open(ge)[1] : ''); }),
+    };
+    const busy = { ctl: new AbortController() }, wid = S.wid;
+    S.busy['explore:' + regionId] = busy;
+    render();
+    try {
+      const json = await S.sample.json(AT.buildExplorePrompt(input), { modelTier: 'default', signal: busy.ctl.signal, cache: false });
+      const x = AT.parseExplore(json);
+      if (!x) throw { code: 'invalid_json' };
+      const cur = atlasDoc();
+      if (S.wid !== wid || !cur) return;
+      const res = C.exploreRegion(cur.spec, regionId, x, { now: now() });
+      if (!res || !res.added) { toast('Nothing new came back for that region. Try again.'); return; }
+      for (const e of res.entities) put('canon', e.id, e, { quiet: true });
+      const re = region.entity && S.canon.get(region.entity);
+      if (re && res.regionFacts.length) put('canon', re.id, Object.assign({}, re, { facts: re.facts.concat(res.regionFacts) }), { quiet: true });
+      put('atlas', 'main', Object.assign({}, cur, { spec: AT.normalizeAtlas(res.atlas, cur.spec.seed) }), { quiet: true });
+      toast(`Found ${plural(res.added, 'new place')} in ${input.region}.`);
+    } catch (e) { aiError(e, 'exploring the region'); }
+    finally { delete S.busy['explore:' + regionId]; render(); }
+  }
+
+  // ---------------------------------------------------------------- dreaming a world
+
+  function dreamFormView() {
+    const busy = S.busy.dream, draft = S.dreamDraft || {};
+    const keep = (k) => (ev) => { S.dreamDraft = Object.assign({}, S.dreamDraft, { [k]: ev.target.value }); };
+    return h('section', { class: 'page-pad dream-page' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Dream a world'),
+        h('h1', null, 'Tell it the dream'),
+        h('p', { class: 'muted' }, 'Write the dream the way it came, fragments and all. Claude grows it into a whole world: its lands and seas, its regions and peoples, places, powers and the people who matter now, drawn as a map you can explore further, one region at a time. Everything it invents goes into the canon, marked as suggested, so you can keep, change or delete any of it.')),
+      busy
+        ? h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Dreaming the world… this can take a minute or two.', h('button', { class: 'btn ghost small', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop'))
+        : h('form', { class: 'form-grid', onsubmit: (ev) => { ev.preventDefault(); dreamWorld(); } },
+          h('label', { class: 'field' }, h('span', null, 'The dream'), h('textarea', { id: 'dream-text', rows: 8, 'data-keep': '', value: draft.dream || '', oninput: keep('dream'), placeholder: 'I dreamed the sea went out one night and didn’t come back…' })),
+          h('label', { class: 'field' }, h('span', null, 'Anything else'), h('textarea', { id: 'dream-notes', rows: 3, 'data-keep': '', value: draft.notes || '', oninput: keep('notes'), placeholder: 'A feeling it must keep, something that has to be true, how big it is…' }), h('small', null, 'Optional.')),
+          h('div', { class: 'btn-row' },
+            h('button', { class: 'btn primary', type: 'submit', disabled: !aiOn() }, 'Dream it'),
+            h('button', { class: 'btn', type: 'button', onclick: loadDreamExample }, 'See a dreamed world'),
+            h('button', { class: 'btn ghost', type: 'button', onclick: cancelForm }, 'Cancel')),
+          aiOn() ? null : h('p', { class: 'faint' }, 'Dreaming needs Claude: open this page on claude.ai to dream a world of your own. The dreamed example opens anywhere.')));
+  }
+  function cancelForm() {
+    S.form = null;
+    S.mode = S.wid ? 'studio' : (S.worlds.size ? 'studio' : 'welcome');
+    if (!S.wid && S.worlds.size) chooseWorld();
+    render();
+  }
+  async function dreamWorld() {
+    const draft = S.dreamDraft || {}, dream = String(draft.dream || '').trim(), notes = String(draft.notes || '').trim();
+    if (!dream) { toast('Write the dream first.', 'warn'); return; }
+    if (!aiOn() || S.busy.dream) return;
+    const busy = { ctl: new AbortController() };
+    S.busy.dream = busy;
+    render();
+    try {
+      const json = await S.sample.json(AT.buildDreamPrompt({ dream, notes }), { modelTier: 'complex', signal: busy.ctl.signal, cache: false });
+      const d = AT.parseDream(json);
+      if (!d) throw { code: 'invalid_json' };
+      S.dreamDraft = null;
+      makeDreamWorld(d, dream, randomSeed(), false);
+    } catch (e) { aiError(e, 'dreaming the world'); }
+    finally { delete S.busy.dream; render(); }
+  }
+  async function loadDreamExample() {
+    try {
+      const res = await fetch('dream-example.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const ex = await res.json(), d = AT.parseDream(ex.answer);
+      if (!d) throw new Error('the example is damaged');
+      makeDreamWorld(d, ex.dream, ex.seed || 7401, true);
+    } catch (e) { toast(`Couldn't open the dreamed world (${e.message}).`, 'error'); }
+  }
+  function makeDreamWorld(d, dream, seed, example) {
+    const made = C.worldFromDream(d, { now: now(), seed, dream });
+    const spec = AT.normalizeAtlas(made.atlas, seed);
+    const wid = C.uid('w'), cid = C.uid('c');
+    openWorld(wid);
+    put('world', wid, Object.assign(made.world, { example: !!example, chapterOrder: [cid], createdAt: now() }), { quiet: true });
+    for (const e of made.entities) put('canon', e.id, e, { quiet: true });
+    put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
+    put('atlas', 'main', { spec, dreamedAt: now() }, { quiet: true });
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
+    S.cid = cid; S.k = 0; S.view = 'atlas'; S.atlasSel = null;
+    toast(`${made.world.title}: ${plural(spec.regions.length, 'region')}, ${plural(spec.places.length, 'place')} and ${plural(made.entities.length, 'entry', 'entries')} in the canon.`);
     render();
   }
 

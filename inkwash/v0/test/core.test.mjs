@@ -843,3 +843,120 @@ test('plates travel with published chapters, lore, book exports and backups', ()
   assert.equal(back.plates.length, 2);
   assert.deepEqual(C.readBackup({ format: 'inkwash-backup/1', world: {} }).plates, [], 'old backups have no plates');
 });
+
+// ---------------------------------------------------------------- atlas: worlds dreamed and drawn
+
+const A = require('../src/atlas.js');
+const { readFileSync } = require('node:fs');
+const DREAM = JSON.parse(readFileSync(new URL('../dream-example.json', import.meta.url), 'utf8'));
+const dreamed = () => C.worldFromDream(A.parseDream(DREAM.answer), { now: 5, seed: DREAM.seed, dream: DREAM.dream });
+
+test('an atlas spec is cleaned before anything is drawn from it', () => {
+  const s = A.normalizeAtlas({
+    seed: -4, shape: 'Inland Sea', climate: 'tropical', accent: 'red',
+    regions: [{ name: 'The Fens', biome: 'swamp', at: 'NE', size: 'huge' }, { name: 'The Fens', biome: 'plains', at: 'south west', relief: 'mountains' }, { id: '../x', name: '' }],
+    places: [{ name: 'Moss', kind: 'hamlet', region: 'the fens' }, { name: 'Nowhere', region: 'Atlantis' }, { name: 'Two', kind: 'port', region: 'r_the-fens_2', near: 'coast' }],
+    features: [{ name: 'The Maw', kind: 'chasm', region: 'The Fens' }], seas: [{ name: 'Grey', at: 'centre' }, { at: 'east' }],
+  }, 9);
+  assert.equal(s.seed, 1, 'the seed is clamped');
+  assert.equal(s.shape, 'inland-sea');
+  assert.equal(s.climate, 'temperate');
+  assert.equal(s.accent, '#a8572e');
+  assert.deepEqual(s.regions.map((r) => [r.id, r.name, r.biome, r.at, r.size]), [['r_the-fens', 'The Fens', 'marsh', 'north-east', 'medium'], ['r_the-fens_2', 'The Fens', 'grassland', 'south-west', 'medium'], ['r_region-3', 'Region 3', 'grassland', 'south', 'medium']], 'aliases are understood, a bad id is replaced, and a nameless region gets a name');
+  assert.equal(new Set(s.regions.map((r) => r.id)).size, s.regions.length, 'every id is unique');
+  assert.ok(s.regions.every((r) => /^[A-Za-z0-9_-]+$/.test(r.id)), 'and safe');
+  assert.deepEqual(s.places.map((p) => [p.name, p.kind, p.region]), [['Moss', 'town', 'r_the-fens'], ['Two', 'port', 'r_the-fens_2']], 'a place in no known region is dropped');
+  assert.deepEqual(s.seas, [{ name: 'Grey', at: 'center' }]);
+});
+
+test('the same world draws the same map, and exploring never moves the land', () => {
+  const w = dreamed();
+  const spec = A.normalizeAtlas(w.atlas, DREAM.seed);
+  const a = A.paint(spec, { id: 'a' });
+  assert.equal(a, A.paint(spec, { id: 'a' }), 'the same spec draws the same map');
+  assert.equal(wellFormed(a).status, 0, 'the map is well-formed XML');
+  assert.ok(a.length < 1500000, `the map stays small enough to keep (${Math.round(a.length / 1024)} KB)`);
+  assert.equal((a.match(/class="atlas-region"/g) || []).length, 8);
+  assert.equal((a.match(/class="atlas-place"/g) || []).length, 24);
+  assert.ok(!a.includes('<script'), 'no markup from the spec reaches the map');
+  const L1 = A.layout(spec);
+  const more = A.normalizeAtlas(Object.assign({}, spec, { places: spec.places.concat([{ id: 'p_new', name: 'Newholt', kind: 'village', region: spec.regions[0].id }]) }), DREAM.seed);
+  const L2 = A.layout(more);
+  assert.deepEqual(Array.from(L2.T.e), Array.from(L1.T.e), 'the land is the same');
+  for (const p of L1.places) {
+    const q = L2.places.find((x) => x.id === p.id);
+    assert.deepEqual([q.x, q.y], [p.x, p.y], `${p.name} stays where it was`);
+  }
+  assert.ok(L2.places.some((p) => p.id === 'p_new'), 'and the new place is settled');
+  const other = A.paint(A.normalizeAtlas(Object.assign({}, spec, { seed: 99 }), 99), { id: 'a' });
+  assert.notEqual(other, a, 'another seed, another land');
+  // names come from the spec as text, never as markup
+  const evil = A.normalizeAtlas(Object.assign({}, spec, { title: 'A <b>bold</b> & "quoted" world', regions: spec.regions.map((g, i) => (i ? g : Object.assign({}, g, { name: '<img src=x onerror=alert(1)>' }))) }), DREAM.seed);
+  const svg = A.paint(evil, { id: 'e' });
+  assert.ok(!svg.includes('<img') && !svg.includes('<b>'));
+  assert.equal(wellFormed(svg).status, 0);
+});
+
+test('a dream becomes a world: its canon knows the geography, and the atlas places it all', () => {
+  const brief = A.buildDreamPrompt({ dream: DREAM.dream, notes: 'Keep it sad.' });
+  assert.ok(brief.includes(DREAM.dream) && brief.includes('Keep it sad.'));
+  assert.match(brief, /Reply with only JSON/);
+  assert.match(brief, /"kind": "capital\|city\|town/);
+  assert.equal(A.parseDream('nonsense'), null);
+  assert.equal(A.parseDream({ title: 'No land', regions: [] }), null, 'a world needs ground to stand on');
+  const w = dreamed();
+  assert.equal(w.world.title, 'The Drained Sea');
+  assert.equal(w.world.dream, DREAM.dream);
+  assert.equal(w.world.pigments.length, 4);
+  const byName = new Map(w.entities.map((e) => [e.name, e]));
+  assert.equal(w.entities.length, 3 + 8 + 24 + 4 + 4 + 5);
+  assert.ok(w.entities.every((e) => e.facts.every((f) => f.origin === 'accepted')), 'every invented fact is marked as suggested');
+  assert.equal(byName.get('Harrowgate').facts[0].text, 'Harrowgate is a capital in The Old Coast.');
+  assert.equal(byName.get('The Seabed').facts[0].text, 'The Seabed lies at the heart of The Drained Sea.');
+  assert.equal(byName.get('The Deep').facts[0].text, 'The Deep is a chasm in The Seabed.');
+  assert.equal(byName.get('Ilse Varr').kind, 'character');
+  assert.equal(byName.get('The Salt-Priests').kind, 'faction');
+  assert.equal(byName.get('The Breathing').kind, 'rule');
+  const spec = A.normalizeAtlas(w.atlas, DREAM.seed);
+  assert.equal(spec.shape, 'basin');
+  assert.ok(spec.places.every((p) => byName.get(p.name).id === p.entity), 'every place on the map is an entry in the canon');
+  assert.ok(spec.regions.every((g) => byName.get(g.name).id === g.entity));
+});
+
+test('exploring a region adds new places to the canon and the map, never twice', () => {
+  const w = dreamed(), spec = A.normalizeAtlas(w.atlas, DREAM.seed), coast = spec.regions.find((g) => g.name === 'The Old Coast');
+  const brief = A.buildExplorePrompt({ world: w.world, region: coast.name, facts: ['A line of harbour cities.'], places: [{ name: 'Harrowgate', kind: 'capital', facts: ['Cliff city.'] }], rules: ['The sea drained.'], neighbours: ['Glasswold'] });
+  assert.match(brief, /ALREADY MAPPED HERE[\s\S]*Harrowgate \(capital\): Cliff city\./);
+  assert.match(brief, /HOW THE WORLD WORKS[\s\S]*The sea drained\./);
+  const x = A.parseExplore({ places: [{ name: 'Crabhollow', kind: 'hamlet', facts: ['Crabs.'] }, { name: 'harrowgate', kind: 'city' }], features: [{ name: 'The Stair', kind: 'cliff' }], facts: ['Windy.'] });
+  const res = C.exploreRegion(spec, coast.id, x, { now: 9 });
+  assert.equal(res.added, 2, 'a place already on the map is not added again');
+  assert.deepEqual(res.entities.map((e) => e.facts[0].text), ['Crabhollow is a village in The Old Coast.', 'The Stair is a mountain range in The Old Coast.']);
+  assert.equal(res.regionFacts[0].text, 'Windy.');
+  const next = A.normalizeAtlas(res.atlas, DREAM.seed);
+  assert.equal(next.places.length, spec.places.length + 1);
+  assert.equal(next.features.length, spec.features.length + 1);
+  assert.equal(new Set(next.places.concat(next.features, next.regions).map((p) => p.id)).size, next.places.length + next.features.length + next.regions.length);
+  assert.equal(C.exploreRegion(spec, 'r_nowhere', x, { now: 9 }), null);
+});
+
+test('a map drawn for a world that has a canon leaves that canon as it was', () => {
+  const ents = new Map([['e_vesk', { id: 'e_vesk', kind: 'place', name: 'Vesk', facts: [fact('f1', 'Vesk has nine hundred lamps.')] }], ['e_kael', { id: 'e_kael', kind: 'character', name: 'Kael', facts: [] }]]);
+  const brief = A.buildAtlasPrompt({ world: { title: 'The Hollow Moon', premise: 'Lamps.' }, places: [{ name: 'Vesk', facts: ['Vesk has nine hundred lamps.'] }], rules: [], others: ['Kael: an apprentice'] });
+  assert.match(brief, /use these exact names[\s\S]*- Vesk: Vesk has nine hundred lamps\./);
+  const d = A.parseDream({ title: 'The Hollow Moon', shape: 'coast', regions: [{ name: 'The Lamp Coast', at: 'west' }], places: [{ name: 'VESK', kind: 'capital', region: 'The Lamp Coast' }, { name: 'Gullwick', kind: 'village', region: 'The Lamp Coast', facts: ['Fish.'] }] });
+  const res = C.atlasForWorld(d, ents, { now: 3, seed: 8, title: 'The Hollow Moon' });
+  assert.deepEqual(res.entities.map((e) => e.name), ['The Lamp Coast', 'Gullwick'], 'only what the map adds becomes new canon');
+  assert.equal(res.atlas.places.find((p) => p.name === 'VESK').entity, 'e_vesk', 'the known place keeps its entry');
+  assert.equal(ents.get('e_vesk').facts.length, 1, 'and its facts are untouched');
+});
+
+test('backups carry the atlas', () => {
+  const w = dreamed();
+  const doc = { id: 'main', spec: A.normalizeAtlas(w.atlas, DREAM.seed) };
+  const backup = C.exportBackup({ world: w.world, entities: w.entities, chapters: [], passages: [], seeds: [], plates: [], atlas: doc }, 1);
+  const back = C.readBackup(JSON.parse(JSON.stringify(backup)));
+  assert.deepEqual(back.atlas, doc);
+  assert.equal(C.readBackup(Object.assign({}, backup, { atlas: 'junk' })).atlas, null);
+  assert.equal(C.exportBackup({ world: w.world, entities: [], chapters: [], passages: [], seeds: [], plates: [] }, 1).atlas, undefined);
+});
