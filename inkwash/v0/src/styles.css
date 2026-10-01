@@ -358,7 +358,7 @@ details.brief pre {
 .kind-group { display: grid; gap: 12px; }
 .kind-group > h2 { font-family: var(--font-book); font-size: var(--step-2); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: 14px; }
-.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px; padding: 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-width: 0; }
 .card-head { display: flex; gap: 8px; align-items: center; }
 .card-head input { font-family: var(--font-book); font-size: var(--step-1); flex: 1; border-color: transparent; background: none; padding-left: 4px; margin-left: -5px; }
 .card-head input:hover, .card-head input:focus { border-color: var(--rule); background: var(--paper); }
@@ -413,3 +413,21 @@ details.brief pre {
 @media (prefers-reduced-motion: reduce) {
   .drop, .brush-cursor, .seal-mark.stamp { animation: none; }
 }
+
+/* plates: ink paintings for scenes, places and characters. They keep their paper in both themes. */
+.plate { margin: 0 0 10px; }
+.plate-art svg { display: block; width: 100%; height: auto; border-radius: 2px; box-shadow: 0 1px 4px var(--shadow); }
+.plate figcaption { margin-top: 6px; font-family: var(--font-book); font-style: italic; color: var(--ink-soft); font-size: var(--step--1); text-align: center; }
+.plate.small figcaption { display: none; }
+/* a plate never sets the width of the column it sits in */
+.plate-section { gap: 6px; grid-template-columns: minmax(0, 1fr); }
+.plate, .plate-art { min-width: 0; }
+.plate-wait {
+  display: flex; align-items: center; justify-content: center; gap: 8px; aspect-ratio: 5 / 3;
+  color: var(--ink-faint); border: 1px dashed var(--rule); border-radius: 3px; background: var(--paper);
+}
+.card .plate-section { margin: 2px 0 6px; }
+.scene-block .plate, .book-page .plate { margin: 0.4rem 0 1.1rem; }
+.lore-entry .plate { margin: 4px 0 6px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .plate-art svg { filter: brightness(0.88); } }
+:root[data-theme="dark"] .plate-art svg { filter: brightness(0.88); }

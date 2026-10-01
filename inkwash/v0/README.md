@@ -40,6 +40,13 @@ This is stalefence's premise ledger applied to a story. Scenes are also checked 
 
 Text keeps its origin when it moves. Cut and paste it back, drag it, undo a deletion, or copy a sentence elsewhere: the words stay whoever's they were. The model's words for a scene are remembered after they're deleted, so pasting them back later still counts as ink. Text pasted from outside can't be traced, so it isn't counted as anyone's hand.
 
+**Plates.** Any scene, place or character can have a plate: an ink wash painting on paper, mostly ink with one accent color.
+- "Paint a plate" sends Claude a short brief: the subject and its facts, with secrets fenced off as for inking. For a scene it also sends the text, your notes and pins, and the moods you painted there. With no moods painted it sends the world's palette instead, so a book's plates share its colors.
+- Claude composes the picture as a small JSON description of what's in it and roughly where: time and weather, mountain ranges, water, buildings, a train, people, and voids (clean holes cut out of the world).
+- Inkwash paints it as SVG with its own brushes. The same composition always paints the same picture. "Paint it again" asks for a new one.
+
+Plates show in the scene sheet, the book, the canon cards, the reader view and its lore, and the EPUB and HTML exports. Backups carry them, and the provenance report counts them as composed by a model.
+
 **Canon, Dreams, Book.**
 - **Canon:** versioned facts, each showing which scenes use it.
 - **Dreams:** an inbox where Claude suggests seeds from a fragment, and nothing joins the canon until you keep it.
@@ -54,20 +61,21 @@ Text keeps its origin when it moves. Cut and paste it back, drag it, undo a dele
 
 They never see the studio, because the access rules make `studio/` readable by the owner alone.
 
-**Without the platform.** Without the `db` capability the page runs in sketchbook mode and keeps everything in this browser. Without `sample`, inking is off but painting, writing by hand and setting all still work.
+**Without the platform.** Without the `db` capability the page runs in sketchbook mode and keeps everything in this browser. Without `sample`, inking and plates are off, but painting, writing by hand and setting all still work, and plates already painted still show.
 
 ## Files
 
 | Path | What it is |
 | --- | --- |
 | `src/core.js` | All logic that has to be exactly right, as pure functions shared by the page and the tests: briefs, parsing model output, pin matching, authorship spans, the ledger, publishing, exports (including a stored-ZIP EPUB writer), backups |
+| `src/plates.js` | The plate painter: cleans a composition and paints it as an ink-wash SVG with seeded brushes, and writes the plate brief. Pure, shared by the page, the exports and the tests |
 | `src/app.js` | The page: storage through `claude.use('db')`, the canvas score, the views, the calls to `sample` and `downloads` |
 | `src/styles.css`, `src/page.html` | Look and markup |
 | `build.mjs` | Inlines everything into `dist/index.html` and copies the example world beside it |
-| `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene and a scene ready to ink. Regenerate it with `tools/make-example.mjs` |
+| `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene, a scene ready to ink, and seven plates. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
-| `test/core.test.mjs` | 27 unit tests |
-| `test/e2e.mjs` | 21 browser steps against a fake claude.ai runtime |
+| `test/core.test.mjs` | 31 unit tests |
+| `test/e2e.mjs` | 22 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish
 
@@ -102,13 +110,14 @@ studio/<world>/canon/<entity>       an entity and its versioned facts
 studio/<world>/chapters/<chapter>   the painted score, pins and notes
 studio/<world>/passages/<scene>     text, authorship spans, premises
 studio/<world>/seeds/<fragment>     the dream inbox
-published/<world>                   the public face: title, chapter list, spoiler-safe lore
-published/<world>/chapters/<id>     published chapter text
+studio/<world>/plates/<id>          a plate: <chapter>__s<n> for a scene, ent__<entity> for a place or character
+published/<world>                   the public face: title, chapter list, spoiler-safe lore and its plates
+published/<world>/chapters/<id>     published chapter text and its plates
 ```
 
 ## Where v0 differs from the design
 
-- **Model tiers.** Repainting a selection uses the `default` tier, because waiting on `complex` for a sentence is too slow. Whole scenes use `complex`, continuity checks use `default`, and dream seeds use `quick`.
+- **Model tiers.** Repainting a selection uses the `default` tier, because waiting on `complex` for a sentence is too slow. Whole scenes use `complex`, continuity checks and plates use `default`, and dream seeds use `quick`.
 - **No PDF.** The viewer can't print and there is no PDF library on the page. EPUB and HTML cover reading.
 - **Threads.** The score derives "first time these two share a scene" by itself. There are no marks for fights or exits yet.
 - **Lanes.** The pace and secrets lanes are deferred, as planned. Secrets work through canon facts marked secret, each with the chapter that reveals it.
@@ -124,6 +133,11 @@ published/<world>/chapters/<id>     published chapter text
   - When the model returns no list, Inkwash records every fact about anyone the scene names.
   - Strict continuity is coarse: any change to anyone on the page.
 - **Pasted text is nobody's hand.** That includes your own drafts pasted from another editor: Inkwash can't tell where they came from. Your own words removed in an earlier visit and pasted back count the same way; the model's are recognized.
+- **Plates paint with a fixed set of brushes.**
+  - Claude can compose only from what the painter knows: ranges, water, a few kinds of building, a bridge and a viaduct, a train and a wagon, trees, rocks, lamps, people and crowds. Anything else is left out.
+  - Interiors are painted from outside.
+  - Portraits are silhouettes in profile.
+  - You can't upload your own art yet.
 - **There's no undo.** Back up a world before big changes.
 - **A repaint can't include a pinned line.**
 - **Untested here:**

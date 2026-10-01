@@ -11,6 +11,7 @@ export function exampleDocs(wid) {
   for (const c of ex.chapters) docs[`studio/${wid}/chapters/${c.id}`] = c;
   for (const p of ex.passages) docs[`studio/${wid}/passages/${p.id}`] = p;
   for (const s of ex.seeds) docs[`studio/${wid}/seeds/${s.id}`] = s;
+  for (const pl of ex.plates || []) docs[`studio/${wid}/plates/${pl.id}`] = pl;
   return docs;
 }
 

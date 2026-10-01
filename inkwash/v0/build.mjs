@@ -1,4 +1,4 @@
-// Builds dist/index.html: the page template with styles, core and app inlined, so the published
+// Builds dist/index.html: the page template with styles, plates, core and app inlined, so the published
 // artifact is one self-contained page. Also copies the example world beside it.
 // Run: node inkwash/v0/build.mjs
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
@@ -11,6 +11,7 @@ const js = (s) => s.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!-
 let page = read('./src/page.html');
 const parts = {
   '<!-- STYLES -->': `<style>\n${read('./src/styles.css')}</style>`,
+  '<!-- PLATES -->': `<script>\n${js(read('./src/plates.js'))}</script>`,
   '<!-- CORE -->': `<script>\n${js(read('./src/core.js'))}</script>`,
   '<!-- APP -->': `<script>\n${js(read('./src/app.js'))}</script>`,
 };

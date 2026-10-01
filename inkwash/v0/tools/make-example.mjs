@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const C = require('../src/core.js');
+const PL = require('../src/plates.js');
 const N = C.SAMPLES;
 const T = (s) => Date.parse(s);
 
@@ -215,6 +216,61 @@ const seeds = [
   },
 ];
 
+// Plates: ink paintings for each written scene, for Vesk, and portraits of its people. Composed
+// here the way Claude composes them in the studio, as specs the renderer paints.
+const tPlate = T('2026-09-30T23:05:00Z');
+const plate = (id, target, seed, spec) => ({ id, for: target.for, chapter: target.chapter || null, scene: target.scene == null ? null : target.scene, entity: target.entity || null, spec: PL.normalizePlate(spec, seed), paintedAt: tPlate });
+const plates = [
+  plate('c_lamps__s1', { for: 'scene', chapter: 'c_lamps', scene: 0 }, 1101, {
+    title: 'Sixty lamps in the rain', alt: 'Rain slants over a lamplit city stacked on a cliff above the sea, while a boy with a lamp climbs the guild steps and an old woman waits under an awning.',
+    time: 'dusk', weather: 'rain', accent: '#c0703f', sky: { clouds: 0.8 },
+    ranges: [{ depth: 'mid', from: 0, to: 0.62, height: 0.85, peaks: 2, rough: 0.4 }],
+    water: { level: 0.82, kind: 'sea' },
+    things: [{ kind: 'houses', x: 0.24, depth: 'mid', count: 11, lit: true }, { kind: 'belltower', x: 0.4, depth: 'mid' }, { kind: 'stair', x: 0.6, depth: 'near', size: 'large' }, { kind: 'house', x: 0.14, depth: 'near', size: 'large', lit: true }, { kind: 'lamp', x: 0.82, depth: 'near' }],
+    figures: [{ x: 0.66, depth: 'near', pose: 'walking', facing: 'left', carry: 'lamp' }, { x: 0.26, depth: 'near', pose: 'sitting', facing: 'right', cloak: true }],
+  }),
+  plate('c_lamps__s2', { for: 'scene', chapter: 'c_lamps', scene: 1 }, 1202, {
+    title: 'The last stair', alt: 'The moon rises huge over a black sea while a boy runs up a long stair toward a step that is no longer there.',
+    time: 'dusk', accent: '#c4952b', sky: { moon: { x: 0.8, y: 0.34, size: 2.1 } },
+    water: { level: 0.7, kind: 'sea' },
+    ranges: [{ depth: 'mid', from: 0, to: 0.45, height: 0.8, peaks: 1, rough: 0.3 }],
+    things: [{ kind: 'houses', x: 0.16, depth: 'mid', count: 9, lit: true }, { kind: 'belltower', x: 0.32, depth: 'mid' }, { kind: 'stair', x: 0.5, depth: 'near', size: 'large' }, { kind: 'ship', x: 0.72, depth: 'mid', size: 'small' }],
+    figures: [{ x: 0.47, depth: 'near', pose: 'walking', facing: 'right' }, { x: 0.2, depth: 'mid', pose: 'walking', facing: 'left', carry: 'lamp' }],
+    voids: [{ shape: 'rect', x: 0.535, y: 0.78, w: 0.035, h: 0.06 }],
+  }),
+  plate('c_lamps__s3', { for: 'scene', chapter: 'c_lamps', scene: 2 }, 1303, {
+    title: 'Above him, the moon blinked', alt: 'A boy leans out from a cliff-top lamp over a black sea, and an enormous low moon watches him through the rain.',
+    time: 'night', weather: 'rain', accent: '#e0a849', sky: { moon: { x: 0.62, y: 0.3, size: 2.2 }, stars: false, clouds: 0.3 },
+    water: { level: 0.78, kind: 'sea' },
+    ranges: [{ depth: 'near', from: 0, to: 0.36, height: 0.75, peaks: 1, rough: 0.35 }],
+    things: [{ kind: 'lamp', x: 0.3, depth: 'near', size: 'large' }, { kind: 'houses', x: 0.85, depth: 'far', count: 7, lit: true }],
+    figures: [{ x: 0.34, depth: 'near', pose: 'reaching', facing: 'right' }],
+  }),
+  plate('ent__e_vesk', { for: 'place', entity: 'e_vesk' }, 2101, {
+    title: 'Vesk', alt: 'A city of lamps climbs a black cliff above the sea, with a long stair running down to the harbour.',
+    time: 'night', accent: '#e0a849', sky: { moon: { x: 0.84, y: 0.18, size: 1, phase: 'crescent' }, stars: true },
+    water: { level: 0.76, kind: 'sea' },
+    ranges: [{ depth: 'mid', from: 0, to: 0.7, height: 0.95, peaks: 2, rough: 0.35 }, { depth: 'far', from: 0.5, to: 1, height: 0.35, peaks: 3 }],
+    things: [{ kind: 'houses', x: 0.2, depth: 'mid', count: 13, lit: true }, { kind: 'houses', x: 0.42, depth: 'mid', count: 6, lit: true }, { kind: 'belltower', x: 0.31, depth: 'mid' }, { kind: 'stair', x: 0.58, depth: 'mid', size: 'large' }, { kind: 'ship', x: 0.78, depth: 'mid', size: 'small' }],
+  }),
+  plate('ent__e_kael', { for: 'character', entity: 'e_kael' }, 2202, {
+    title: 'Kael', alt: 'A young lamplighter in profile, cap pulled down, a lit lamp at his chest.', mode: 'portrait',
+    time: 'dusk', accent: '#c0703f', water: { level: 0.74, kind: 'sea' },
+    ranges: [{ depth: 'far', from: 0, to: 0.5, height: 0.6, peaks: 1 }], things: [{ kind: 'houses', x: 0.18, depth: 'far', count: 8, lit: true }],
+    sitter: { facing: 'right', head: 'cap', hair: 'short', holds: 'lamp', age: 'young', build: 'slight' },
+  }),
+  plate('ent__e_mira', { for: 'character', entity: 'e_mira' }, 2303, {
+    title: 'Mira', alt: 'An old woman in a wide-brimmed hat, in profile, with a lamplighter’s staff.', mode: 'portrait',
+    time: 'day', weather: 'rain', accent: '#6b7f95', ranges: [{ depth: 'far', from: 0.3, to: 1, height: 0.5, peaks: 2 }],
+    sitter: { facing: 'left', head: 'brimmed', hair: 'bun', collar: true, holds: 'staff', age: 'old', build: 'medium' },
+  }),
+  plate('ent__e_queen', { for: 'character', entity: 'e_queen' }, 2404, {
+    title: 'The Hollow Queen', alt: 'A hooded figure in profile against a vast moon.', mode: 'portrait',
+    time: 'night', accent: '#3d4f8f', sky: { moon: { x: 0.36, y: 0.4, size: 3 }, stars: true },
+    sitter: { facing: 'left', head: 'hood', hair: 'long', cloak: true, holds: 'none', age: 'adult', build: 'slight' },
+  }),
+];
+
 // Sanity checks: the example must show each state it claims to.
 const idx = C.factIndex(entities);
 const want = { c_lamps__s1: 'set', c_lamps__s2: 'stale', c_lamps__s3: 'wet' };
@@ -227,7 +283,7 @@ for (const p of passages) {
 }
 for (const e of passages[0].edits.concat(passages[1].edits)) if (!passages.some((p) => p.text.includes(e.ins))) throw new Error('edit log does not match text');
 
-const out = { format: 'inkwash-backup/1', exportedAt: new Date(tInk3).toISOString(), world, entities, chapters: [lamps, door], passages, seeds };
+const out = { format: 'inkwash-backup/1', exportedAt: new Date(tInk3).toISOString(), world, entities, chapters: [lamps, door], passages, seeds, plates };
 C.readBackup(out);
 const file = fileURLToPath(new URL('../example-world.json', import.meta.url));
 writeFileSync(file, JSON.stringify(out, null, 1) + '\n');

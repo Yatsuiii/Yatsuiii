@@ -97,6 +97,13 @@ function mockClaude(cfg) {
     M.calls.push({ kind: 'json', input: String(input), tier: opts && opts.modelTier });
     if (String(input).startsWith('You are checking one scene')) return { conflicts: [{ fact: 'F1', quote: 'forgot what came after four', why: 'A test contradiction.' }], relies: ['F1'] };
     if (String(input).includes('caught this fragment')) return { seeds: [{ kind: 'place', name: 'The Candle Gardens', fact: 'Inside the moon, candles grow like tulips.' }] };
+    if (String(input).startsWith('You are composing')) {
+      return String(input).startsWith('You are composing a portrait')
+        ? { title: 'Kael', alt: 'Kael in profile.', mode: 'portrait', time: 'night', sitter: { head: 'cap', holds: 'lamp' } }
+        : { title: 'The door in the moon', alt: 'A boy on a stair under a huge moon.', time: 'night', accent: '#e0a849', sky: { moon: { x: 0.7, y: 0.2, size: 1.8 } },
+          water: { level: 0.78 }, things: [{ kind: 'houses', x: 0.2, depth: 'mid', count: 8, lit: true }, { kind: 'stair', x: 0.45, depth: 'near' }, { kind: '<script>' }],
+          figures: [{ x: 0.42, depth: 'near', carry: 'lamp' }] };
+    }
     return {};
   };
   sample.limits = async () => ({ maxPromptBytes: 262144 });
@@ -329,6 +336,36 @@ await step('repainting a selection changes only those words', async () => {
   assert.equal(await page.textContent('#scene-pill'), 'Wet ink');
 });
 
+await step('painting a plate for a scene and for a character', async () => {
+  await page.waitForSelector('button:has-text("Paint a plate for this scene")');
+  await page.click('button:has-text("Paint a plate for this scene")');
+  await page.waitForSelector('.sheet .plate svg', { timeout: 6000 });
+  const call = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop());
+  assert.match(call.input, /^You are composing an illustration for a scene/);
+  assert.ok(call.input.includes('The moon had a door in it'), 'the scene text is in the plate brief');
+  assert.equal(call.tier, 'default');
+  const plate = await st(page, () => window.__inkwash.state.plates.get('c_door__s1'));
+  assert.equal(plate.spec.things.length, 2, 'the unknown kind was dropped before saving');
+  assert.equal(await page.locator('.sheet .plate svg script').count(), 0);
+  assert.equal(await page.textContent('.sheet .plate figcaption'), 'The door in the moon');
+  // The example world comes with a portrait of Kael. Paint it again.
+  await page.click('.tab >> text=Canon');
+  await page.waitForSelector('.card[aria-label="Kael"] .plate svg');
+  assert.equal(await st(page, () => window.__inkwash.state.plates.get('ent__e_kael').spec.time), 'dusk');
+  await page.click('.card[aria-label="Kael"] button:has-text("Paint it again")');
+  await page.waitForFunction(() => window.__inkwash.state.plates.get('ent__e_kael').spec.time === 'night', null, { timeout: 6000 });
+  assert.match((await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop())).input, /^You are composing a portrait of a character/);
+  // The Hollow Queen's secret (she is Kael’s mother) never goes into her plate's brief.
+  await page.click('.card[aria-label="The Hollow Queen"] button:has-text("Paint it again")');
+  await page.waitForFunction(() => window.__inkwash.state.plates.get('ent__e_queen').spec.sitter.head === 'cap', null, { timeout: 6000 });
+  const queenBrief = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop().input);
+  assert.ok(queenBrief.includes('She has lived inside the moon for twelve years.'));
+  assert.ok(!queenBrief.includes('Kael’s mother'), 'secret facts stay out of a plate brief');
+  await settle(page);
+  assert.match(await st(page, () => window.__mock.docs.get('studio/w_hollow_moon/plates/ent__e_kael')), /"time":"night"/, 'the new plate is saved');
+  await page.click('.tab >> text=Score');
+});
+
 await step('publishing is blocked by wet ink, then goes through once set', async () => {
   await page.click('.tab >> text=Book');
   await page.waitForSelector('.book-page');
@@ -425,6 +462,7 @@ await step('reader preview shows the published chapter', async () => {
   await page.waitForSelector('.reader');
   assert.match(await page.textContent('.reader article'), /The moon had a door in it/);
   assert.match(await page.textContent('.reader article'), /How this book was made: .* wrote \d+% of the words by hand/);
+  assert.equal(await page.locator('.reader article .plate svg').count(), 1, 'the published chapter carries its plate');
   await page.click('text=Back to the studio');
 });
 

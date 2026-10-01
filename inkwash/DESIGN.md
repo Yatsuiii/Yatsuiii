@@ -279,7 +279,7 @@ There's no server and no API key. The page uses four platform capabilities:
 
 | Capability | Used for |
 | --- | --- |
-| `sample` | Inking, seed suggestions and continuity checks. Calls run on the viewer's own Claude account after the viewer allows it. Inking uses the `complex` tier, checks use `default`, and seeds use `quick`. |
+| `sample` | Inking, seed suggestions, continuity checks and plates. Calls run on the viewer's own Claude account after the viewer allows it. Inking uses the `complex` tier, checks and plates use `default`, and seeds use `quick`. |
 | `db` | All of the world's data, stored as documents (layout below). |
 | `user` | `isOwner()` picks the view: the owner gets the studio, and everyone else gets the book. |
 | `downloads` | Exports: the book (EPUB, HTML, Markdown, PDF), the bible (JSON) and the provenance report. |
@@ -292,6 +292,7 @@ studio/<world>/canon/<entity>      one entity and its versioned facts        own
 studio/<world>/chapters/<ch>       that chapter's strokes, pins and notes    owner only
 studio/<world>/passages/<id>       text, authorship spans, premises, state   owner only
 studio/<world>/seeds/<id>          the dream inbox                           owner only
+studio/<world>/plates/<id>         a plate's composition                     owner only
 published/<world>/...              the book and the public lore              signed-in viewers can read
 ```
 
@@ -303,7 +304,7 @@ to it.
 - It has one creator and one world.
 - Readers must be signed in to claude.ai to see the live page, so the book also goes out as an
   exported EPUB or HTML file.
-- There are no payments, no way to discover other worlds, and no images.
+- There are no payments and no way to discover other worlds. Its only images are the plates.
 
 That's enough for stage 0.
 
@@ -351,13 +352,15 @@ license(id, world, tier, terms, buyer, status)
 - the ledger and the stale glow;
 - authorship spans and the hand meter;
 - the book view and exports;
-- the dream inbox: paste in a fragment, get seeds.
+- the dream inbox: paste in a fragment, get seeds;
+- plates: ink wash paintings of scenes, places and characters, composed by the AI and painted by
+  the page.
 
 **Out, for later:**
 - the pace and secrets lanes;
 - the library, other creators and shared worlds;
 - the market and payments;
-- generated maps and images, voice capture, and mobile.
+- generated maps, your own uploaded art, voice capture, and mobile.
 
 **Build order:**
 1. canon editor;

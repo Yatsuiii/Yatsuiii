@@ -1085,21 +1085,27 @@
     return { ok: !problems.some((x) => x.block), problems };
   }
 
-  function publishedChapter({ world, chapter, chapterId, passages, now }) {
-    const scenes = [], stats = [];
+  // A plate is keyed by what it illustrates: a scene shares its passage's id, an entity is ent__<id>.
+  const plateOf = (plates, id) => { const pl = plates ? getFrom(plates, id) : null; return pl && pl.spec ? pl.spec : null; };
+
+  function publishedChapter({ world, chapter, chapterId, passages, plates, now }) {
+    const scenes = [], stats = [], pics = [];
     for (let k = 0; k < chapter.scenes; k++) {
       const p = getFrom(passages, passageId(chapterId, k));
       if (!p || !String(p.text || '').trim()) continue;
       scenes.push(p.text);
       stats.push(handStats(p.text, p.spans));
+      pics.push(plateOf(plates, passageId(chapterId, k)));
     }
     const sum = sumStats(stats);
-    return { id: chapterId, title: chapter.title, order: chapterIndex(world, chapterId), scenes, words: sum.total, hand: round2(sum.hand), publishedAt: now || 0 };
+    const out = { id: chapterId, title: chapter.title, order: chapterIndex(world, chapterId), scenes, words: sum.total, hand: round2(sum.hand), publishedAt: now || 0 };
+    if (pics.some(Boolean)) out.plates = pics;
+    return out;
   }
 
   // The public face of a world: only published chapters, and lore that a reader meets no sooner
   // than the chapter that introduces or reveals it. Unrevealed secrets never leave the studio.
-  function publishedWorld({ world, entities, publishedChapters, now }) {
+  function publishedWorld({ world, entities, publishedChapters, plates, now }) {
     const pubs = valuesOf(publishedChapters).slice().sort((a, b) => a.order - b.order);
     const orderOf = new Map(pubs.map((c) => [c.id, c.order]));
     const lore = [];
@@ -1115,7 +1121,10 @@
         else if (f.reveal && orderOf.has(f.reveal)) facts.push({ text: f.text, from: Math.max(orderOf.get(f.reveal), firstSeen || 0) });
       }
       if (!facts.length) continue;
-      lore.push({ name: e.name, kind: e.kind, from: e.kind === 'rule' ? Math.min(...facts.map((f) => f.from)) : firstSeen, facts });
+      const entry = { name: e.name, kind: e.kind, from: e.kind === 'rule' ? Math.min(...facts.map((f) => f.from)) : firstSeen, facts };
+      const pic = plateOf(plates, 'ent__' + e.id);
+      if (pic) entry.plate = pic;
+      lore.push(entry);
     }
     const words = pubs.reduce((s, c) => s + (c.words || 0), 0);
     const handWords = pubs.reduce((s, c) => s + (c.words || 0) * (c.hand || 0), 0);
@@ -1136,7 +1145,7 @@
 
   // Exports carry set scenes only: wet ink never leaves the studio. Given the canon, the model
   // also lists set scenes that are stale or contradict it, so an export can't carry them silently.
-  function bookModel({ world, chapters, passages, entities }) {
+  function bookModel({ world, chapters, passages, entities, plates }) {
     const out = [], problems = [];
     const idx = entities ? factIndex(entities) : null;
     (world.chapterOrder || []).forEach((cid, order) => {
@@ -1146,7 +1155,7 @@
       for (let k = 0; k < ch.scenes; k++) {
         const p = getFrom(passages, passageId(cid, k));
         if (!p || !String(p.text || '').trim() || isWet(p) || !p.setAt) continue;
-        scenes.push({ k, text: p.text, spans: p.spans, stats: handStats(p.text, p.spans), setAt: p.setAt });
+        scenes.push({ k, text: p.text, spans: p.spans, stats: handStats(p.text, p.spans), setAt: p.setAt, plate: plateOf(plates, passageId(cid, k)) });
         if (!idx) continue;
         const st = staleness(p, idx, { strict: !!world.strict, onPage: castIn(ch, k).map((c) => c.id), entities });
         if (st.stale) problems.push({ chapter: cid, order, title: ch.title, k, kind: 'stale', reasons: st.reasons });
@@ -1191,9 +1200,14 @@
     + 'h1{font-size:2.2em;line-height:1.15;margin:1.5em 0 .2em}h2{font-size:1.35em;margin:2.5em 0 1em}'
     + '.byline{font-style:italic;color:#4a5263}.premise{color:#4a5263}p{margin:0 0 .9em;text-indent:0}p+p{text-indent:1.4em;margin-top:-.9em}'
     + '.break{text-align:center;letter-spacing:.6em;color:#7c8496;margin:1.4em 0}.made{margin-top:3em;font-size:.9em;color:#4a5263;font-style:italic}'
+    + '.plate{margin:1.4em 0}.plate svg{display:block;width:100%;height:auto}'
     + '@media (prefers-color-scheme:dark){body{background:#13151b;color:#e7e5dc}.byline,.premise,.made{color:#b4b6bd}}';
 
-  function exportHtml(model) {
+  // A scene's plate, painted by `paint` (InkPlates.paint) when the caller passes it.
+  const plateHtml = (s, paint, id) => (paint && s.plate ? `<figure class="plate">${paint(s.plate, { id })}</figure>` : '');
+
+  function exportHtml(model, opts) {
+    const paint = opts && opts.paint;
     const body = [];
     body.push(`<h1>${esc(model.title)}</h1>`);
     if (model.byline) body.push(`<p class="byline">by ${esc(model.byline)}</p>`);
@@ -1201,7 +1215,7 @@
     for (const ch of model.chapters) {
       if (!ch.scenes.length) continue;
       body.push(`<h2>Chapter ${ch.order + 1}: ${esc(ch.title)}</h2>`);
-      body.push(ch.scenes.map((s) => paragraphs(s.text).map((p) => `<p>${esc(p)}</p>`).join('\n')).join('\n<p class="break">* * *</p>\n'));
+      body.push(ch.scenes.map((s) => plateHtml(s, paint, `${ch.id}_${s.k}`) + paragraphs(s.text).map((p) => `<p>${esc(p)}</p>`).join('\n')).join('\n<p class="break">* * *</p>\n'));
     }
     body.push(`<p class="made">${esc(howMade(model))}</p>`);
     return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -1265,20 +1279,23 @@
       + `<head><meta charset="UTF-8"/><title>${xmlText(title)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head>\n`
       + `<body>\n${body}\n</body>\n</html>\n`;
   }
-  function exportEpub(model, when) {
+  function exportEpub(model, when, opts) {
+    const paint = opts && opts.paint;
     const now = new Date(when || Date.now());
     const modified = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
     const chapters = model.chapters.filter((c) => c.scenes.length);
     const files = [
       { name: 'mimetype', data: 'application/epub+zip' },
       { name: 'META-INF/container.xml', data: '<?xml version="1.0" encoding="UTF-8"?>\n<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>\n' },
-      { name: 'OEBPS/style.css', data: 'body{font-family:serif;line-height:1.5}h1,h2{text-align:center}p{margin:0;text-indent:1.4em}p.first,p.break,p.byline,p.made{text-indent:0}p.break{text-align:center;margin:1em 0}p.byline{text-align:center;font-style:italic}p.made{font-style:italic;margin-top:2em}\n' },
+      { name: 'OEBPS/style.css', data: 'body{font-family:serif;line-height:1.5}h1,h2{text-align:center}p{margin:0;text-indent:1.4em}p.first,p.break,p.byline,p.made{text-indent:0}p.break{text-align:center;margin:1em 0}p.byline{text-align:center;font-style:italic}p.made{font-style:italic;margin-top:2em}figure.plate{margin:1em 0}figure.plate svg{width:100%;height:auto}\n' },
       { name: 'OEBPS/title.xhtml', data: xhtml(model.title, `<h1>${xmlText(model.title)}</h1>` + (model.byline ? `\n<p class="byline">by ${xmlText(model.byline)}</p>` : '') + (model.premise ? `\n<p class="first">${xmlText(model.premise)}</p>` : '')) },
     ];
     chapters.forEach((ch, i) => {
       const body = [`<h2>Chapter ${ch.order + 1}: ${xmlText(ch.title)}</h2>`];
       ch.scenes.forEach((s, j) => {
         if (j) body.push('<p class="break">* * *</p>');
+        const pic = plateHtml(s, paint, `${ch.id}_${s.k}`);
+        if (pic) body.push(pic);
         paragraphs(s.text).forEach((p, n) => body.push(`<p${n === 0 ? ' class="first"' : ''}>${xmlText(p)}</p>`));
       });
       files.push({ name: `OEBPS/ch${i + 1}.xhtml`, data: xhtml(ch.title, body.join('\n')) });
@@ -1287,7 +1304,7 @@
     const navItems = chapters.map((ch, i) => `<li><a href="ch${i + 1}.xhtml">Chapter ${ch.order + 1}: ${xmlText(ch.title)}</a></li>`).join('');
     files.push({ name: 'OEBPS/nav.xhtml', data: xhtml('Contents', `<nav epub:type="toc" id="toc"><h1>Contents</h1><ol><li><a href="title.xhtml">${xmlText(model.title)}</a></li>${navItems}<li><a href="about.xhtml">How this book was made</a></li></ol></nav>`) });
     const manifest = ['<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>', '<item id="css" href="style.css" media-type="text/css"/>', '<item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>']
-      .concat(chapters.map((c, i) => `<item id="ch${i + 1}" href="ch${i + 1}.xhtml" media-type="application/xhtml+xml"/>`))
+      .concat(chapters.map((c, i) => `<item id="ch${i + 1}" href="ch${i + 1}.xhtml" media-type="application/xhtml+xml"${paint && c.scenes.some((s) => s.plate) ? ' properties="svg"' : ''}/>`))
       .concat(['<item id="about" href="about.xhtml" media-type="application/xhtml+xml"/>']);
     const spine = ['<itemref idref="title"/>'].concat(chapters.map((c, i) => `<itemref idref="ch${i + 1}"/>`), ['<itemref idref="about"/>']);
     files.push({
@@ -1334,8 +1351,8 @@
   }
 
   // The provenance report: who wrote what, from the authorship record.
-  function exportProvenance({ world, entities, chapters, passages }, now) {
-    const model = bookModel({ world, chapters, passages });
+  function exportProvenance({ world, entities, chapters, passages, plates }, now) {
+    const model = bookModel({ world, chapters, passages, plates });
     const list = valuesOf(entities);
     const facts = list.flatMap((e) => (e.facts || []).filter((f) => !f.retired));
     const canon = { total: facts.length, author: facts.filter((f) => f.origin !== 'accepted').length, accepted: facts.filter((f) => f.origin === 'accepted').length };
@@ -1353,10 +1370,11 @@
       }),
     }));
     const edits = rows.reduce((s, c) => s + c.scenes.reduce((t, x) => t + x.edits, 0), 0);
+    const platesPainted = model.chapters.reduce((s, c) => s + c.scenes.filter((x) => x.plate).length, 0);
     const json = {
       format: 'inkwash-provenance/1', exportedAt: new Date(now || Date.now()).toISOString(),
       world: model.title, byline: model.byline,
-      summary: { words: model.stats.total, byAuthor: model.stats.words.typed + model.stats.words.pinned, inkedKept: model.stats.words.inked, pastedIn: model.stats.words.pasted, authorShare: round2(model.stats.hand), edits, direction, canon },
+      summary: { words: model.stats.total, byAuthor: model.stats.words.typed + model.stats.words.pinned, inkedKept: model.stats.words.inked, pastedIn: model.stats.words.pasted, authorShare: round2(model.stats.hand), edits, direction, canon, plates: platesPainted },
       chapters: rows,
       note: 'Inkwash records, for every passage, which text the author typed or pinned, which text an AI model inked, which text was pasted in from outside the studio (its origin unknown, so it is not counted as the author\'s), and when the author set it. This is a record of process, not legal advice.',
     };
@@ -1372,6 +1390,7 @@
         ...(s.pastedIn ? [`- Pasted in from outside the studio, origin unknown: ${s.pastedIn}`] : []),
         `- Edits by the author: ${s.edits}`,
         `- Direction: ${direction.strokes} brush strokes, ${direction.notes} notes, ${direction.pins} pinned lines`,
+        ...(s.plates ? [`- Illustrations: ${s.plates} plates, composed by an AI model and painted by Inkwash`] : []),
         `- Canon: ${canon.total} facts, ${canon.author} written by the author and ${canon.accepted} suggested by AI and kept by the author`,
       ].join('\n'),
       '## Chapter by chapter',
@@ -1386,11 +1405,11 @@
 
   // ---------------------------------------------------------------- backups
 
-  function exportBackup({ world, entities, chapters, passages, seeds }, now) {
+  function exportBackup({ world, entities, chapters, passages, seeds, plates }, now) {
     return {
       format: 'inkwash-backup/1', exportedAt: new Date(now || Date.now()).toISOString(),
       world: clone(world), entities: clone(valuesOf(entities)), chapters: clone(valuesOf(chapters)),
-      passages: clone(valuesOf(passages)), seeds: clone(valuesOf(seeds)),
+      passages: clone(valuesOf(passages)), seeds: clone(valuesOf(seeds)), plates: clone(valuesOf(plates)),
     };
   }
   const SEG = /^[A-Za-z0-9_\-.~:@+]{1,180}$/;
@@ -1407,6 +1426,7 @@
       chapters: need(data.chapters || [], 'chapter'),
       passages: need(data.passages || [], 'passage'),
       seeds: need(data.seeds || [], 'dream'),
+      plates: need(data.plates || [], 'plate'),
     };
   }
 

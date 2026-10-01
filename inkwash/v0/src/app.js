@@ -4,6 +4,7 @@
 (function () {
   'use strict';
   const C = window.InkCore;
+  const PL = window.InkPlates;
   const N = C.SAMPLES;
 
   // ---------------------------------------------------------------- DOM helpers
@@ -64,7 +65,7 @@
     db: null, user: null, sample: null, downloads: null,
     worlds: new Map(), worldsReady: false, pubWorlds: new Map(),
     wid: null, loaded: new Set(),
-    canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), pub: new Map(),
+    canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), plates: new Map(), pub: new Map(),
     view: 'score', cid: null, k: 0,
     tool: 'brush', pigment: null,
     showHand: local.get('showHand', true),
@@ -92,10 +93,11 @@
     chapters: (w, id) => `studio/${w}/chapters/${id}`,
     passages: (w, id) => `studio/${w}/passages/${id}`,
     seeds: (w, id) => `studio/${w}/seeds/${id}`,
+    plates: (w, id) => `studio/${w}/plates/${id}`,
     pubWorld: (w) => `published/${w}`,
     pubChapter: (w, id) => `published/${w}/chapters/${id}`,
   };
-  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, pub: () => S.pub };
+  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, pub: () => S.pub };
   const W = new Map();
   const dirty = new Set();
 
@@ -292,7 +294,7 @@
     closeWorld();
     S.wid = wid;
     local.set('lastWorld', wid);
-    S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.pub = new Map();
+    S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.plates = new Map(); S.pub = new Map();
     S.loaded = new Set();
     S.selection = null; S.confirmReink = null; S.publishTried = {}; S.preview = false;
     const pos = (hot && hot.wid === wid) ? hot : local.get('pos.' + wid, {});
@@ -309,6 +311,7 @@
       sub(`studio/${wid}/chapters`, 'chapters'),
       sub(`studio/${wid}/passages`, 'passages'),
       sub(`studio/${wid}/seeds`, 'seeds'),
+      sub(`studio/${wid}/plates`, 'plates'),
       sub(`published/${wid}/chapters`, 'pub'),
     ];
     S.mode = 'studio';
@@ -579,7 +582,7 @@
     openWorld(wid);
     put('world', wid, Object.assign(fields, { example: false, strict: false, chapterOrder: [cid], createdAt: now() }), { quiet: true });
     put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'pub']);
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'pub']);
     S.cid = cid; S.k = 0; S.view = 'canon';
     toast('World created. Start with its canon: who lives here and what is true.');
     render();
@@ -623,7 +626,8 @@
     for (const c of parsed.chapters) put('chapters', c.id, c, o);
     for (const p of parsed.passages) put('passages', p.id, p, o);
     for (const s of parsed.seeds) put('seeds', s.id, s, o);
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'pub']);
+    for (const pl of parsed.plates) put('plates', pl.id, pl, o);
+    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'pub']);
     S.cid = (parsed.world.chapterOrder || [])[0] || null;
     S.k = 0;
     S.view = 'score';
@@ -743,6 +747,7 @@
     if (!ok) return;
     const cid = S.cid, w = world();
     for (const p of [...S.passages.values()]) if (p.chapter === cid) removeDoc('passages', p.id);
+    for (const pl of [...S.plates.values()]) if (pl.chapter === cid) removeDoc('plates', pl.id);
     if (S.pub.has(cid)) { removeDoc('pub', cid); writePubWorld(); }
     for (const e of entities()) {
       if ((e.facts || []).some((f) => f.reveal === cid)) put('canon', e.id, Object.assign({}, e, { facts: e.facts.map((f) => (f.reveal === cid ? Object.assign({}, f, { reveal: null }) : f)) }), { quiet: true });
@@ -1249,12 +1254,15 @@
       h('span', { class: 'sheet-nav' },
         h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Previous scene', disabled: k === 0, onclick: () => selectScene(k - 1) }, '←'),
         h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Next scene', disabled: k >= ch.scenes - 1, onclick: () => selectScene(k + 1) }, '→'))));
+    const plateId = PL.plateId.scene(S.cid, k);
+    if (S.plates.has(plateId) || S.busy['plate:' + plateId]) sheet.append(plateSection({ kind: 'scene', id: plateId, cid: S.cid, k }));
     if (info.state === 'stale' && !S.busy['ink:' + key]) sheet.append(staleBox(key, info.reasons));
     sheet.append(passageSection(ch, k, key, p, info));
     if (p && !S.busy['ink:' + key]) {
       const sugg = suggestionsSection(key, p);
       if (sugg) sheet.append(sugg);
     }
+    if (!S.plates.has(plateId) && !S.busy['plate:' + plateId] && aiOn()) sheet.append(plateSection({ kind: 'scene', id: plateId, cid: S.cid, k }));
     sheet.append(designSection(ch, k));
     const brief = briefFor(S.cid, k);
     sheet.append(h('details', { class: 'brief' },
@@ -1612,6 +1620,76 @@
     return 'thing';
   }
 
+  // ---------------------------------------------------------------- plates
+  // An ink painting for a scene, a place or a character. Claude composes it (what is in the
+  // picture and roughly where) and InkPlates paints it, so the same composition always paints the
+  // same picture and nothing from the model reaches the page as markup.
+
+  const aiOn = () => !!S.sample && !S.aiOff && !S.readOnly;
+  const plateCache = new Map();
+  function plateFigure(spec, id, opts) {
+    const key = id + '|' + JSON.stringify(spec);
+    if (!plateCache.has(key)) { if (plateCache.size > 60) plateCache.clear(); plateCache.set(key, PL.paint(spec, { id })); }
+    const art = h('div', { class: 'plate-art' });
+    art.innerHTML = plateCache.get(key);
+    return h('figure', { class: 'plate' + (opts && opts.small ? ' small' : '') }, art,
+      opts && opts.caption === false ? null : h('figcaption', null, spec.title || ''));
+  }
+  function plateSection(target) {
+    const pl = S.plates.get(target.id), busy = S.busy['plate:' + target.id];
+    const what = target.kind === 'scene' ? 'this scene' : target.kind === 'character' ? 'this character' : 'this place';
+    const sec = h('section', { class: 'section plate-section', 'aria-label': 'Plate' });
+    if (busy) sec.append(h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), `Composing a plate for ${what}…`));
+    else if (pl) sec.append(plateFigure(pl.spec, target.id, { small: target.kind !== 'scene' }));
+    else sec.append(h('p', { class: 'faint' }, target.kind === 'scene'
+      ? 'An ink painting of this scene. Claude composes it from the scene and your canon, and Inkwash paints it.'
+      : `An ink painting of ${what}, composed by Claude from its facts.`));
+    const row = h('div', { class: 'btn-row' });
+    if (aiOn() && !busy) row.append(h('button', { class: 'btn small', type: 'button', onclick: () => paintPlate(target) }, pl ? 'Paint it again' : target.kind === 'scene' ? 'Paint a plate for this scene' : 'Paint a plate'));
+    if (busy) row.append(h('button', { class: 'btn ghost small', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop'));
+    if (pl && !busy && !S.readOnly) row.append(h('button', { class: 'btn ghost small', type: 'button', onclick: () => { removeDoc('plates', target.id); render(); } }, 'Remove plate'));
+    if (row.childNodes.length) sec.append(row);
+    return sec;
+  }
+  function plateInput(target) {
+    const w = world();
+    if (target.kind === 'scene') {
+      const ch = S.chapters.get(target.cid);
+      if (!ch) return null;
+      const p = S.passages.get(C.passageId(target.cid, target.k));
+      const facts = C.sceneFacts({ world: w, entities: S.canon, chapter: ch, chapterId: target.cid, k: target.k, extraText: p ? p.text : '' });
+      const [i0, i1] = C.sceneRange(ch.scenes, target.k);
+      const mix = C.moodMix(ch.mood, w.pigments, i0, i1);
+      return {
+        world: w, subject: 'scene', name: `${ch.title}, scene ${target.k + 1}`,
+        facts: facts.canon.concat(facts.reveals).slice(0, 40).map(({ e, f }) => `${e.kind === 'rule' ? 'World rule' : e.name}: ${f.text}`),
+        text: p ? p.text : '', notes: notesOf(ch, target.k).map((n) => n.text).concat(pinsOf(ch, target.k).map((x) => x.text)),
+        pigments: mix.length ? mix : (w.pigments || []).slice(0, 5),
+      };
+    }
+    const e = S.canon.get(target.eid);
+    if (!e) return null;
+    return {
+      world: w, subject: e.kind === 'character' ? 'character' : 'place', name: e.name,
+      facts: (e.facts || []).filter((f) => !f.retired && !f.secret).map((f) => f.text), pigments: (w.pigments || []).slice(0, 5),
+    };
+  }
+  async function paintPlate(target) {
+    if (!aiOn() || S.busy['plate:' + target.id]) return;
+    const input = plateInput(target);
+    if (!input) return;
+    const busy = { ctl: new AbortController() };
+    S.busy['plate:' + target.id] = busy;
+    render();
+    try {
+      const json = await S.sample.json(PL.buildPlatePrompt(input), { modelTier: 'default', signal: busy.ctl.signal });
+      const spec = PL.parsePlate(json, 1 + Math.floor(Math.random() * 2147483646));
+      if (!spec) throw { code: 'invalid_json' };
+      put('plates', target.id, { for: target.kind, chapter: target.cid || null, scene: target.k == null ? null : target.k, entity: target.eid || null, spec, paintedAt: now() }, { quiet: true });
+    } catch (e) { aiError(e, 'painting the plate'); }
+    finally { delete S.busy['plate:' + target.id]; render(); }
+  }
+
   // ---------------------------------------------------------------- scene actions
 
   function aiError(e, what) {
@@ -1889,6 +1967,8 @@
         const label = info.state === 'wet' ? 'Wet ink, not set yet.' : info.state === 'draft' ? 'A draft, not set yet.' : `Stale: ${info.reasons.map((r) => r.after ? `${r.entity}: ${r.after}` : `${r.entity || 'a fact'} changed`).join('; ')}`;
         block.append(h('div', { class: 'scene-label' }, pill(info.state), label, open));
       }
+      const pl = S.plates.get(PL.plateId.scene(cid, k));
+      if (pl) block.append(plateFigure(pl.spec, PL.plateId.scene(cid, k)));
       block.append(h('div', { class: 'prose' }, proseView(p.text, p.spans, { wet: true })));
       sec.append(block);
     }
@@ -1905,7 +1985,7 @@
       return;
     }
     S.publishTried[cid] = false;
-    const pc = C.publishedChapter({ world: world(), chapter: ch, chapterId: cid, passages: S.passages, now: now() });
+    const pc = C.publishedChapter({ world: world(), chapter: ch, chapterId: cid, passages: S.passages, plates: S.plates, now: now() });
     put('pub', cid, pc, { quiet: true, keepTime: true });
     writePubWorld();
     toast(`Published ${ch.title}. Anyone you share this page with can read it while signed in to claude.ai.`);
@@ -1920,7 +2000,7 @@
   function writePubWorld() {
     const path = P.pubWorld(S.wid);
     if (!S.pub.size) { S.pubWorlds.delete(S.wid); queueDelete(path); return; }
-    const pw = Object.assign(C.publishedWorld({ world: world(), entities: S.canon, publishedChapters: S.pub, now: now() }), { id: S.wid });
+    const pw = Object.assign(C.publishedWorld({ world: world(), entities: S.canon, publishedChapters: S.pub, plates: S.plates, now: now() }), { id: S.wid });
     S.pubWorlds.set(S.wid, pw);
     queueWrite(path, pw);
   }
@@ -1931,9 +2011,9 @@
     if (!can) { panel.append(h('p', { class: 'faint' }, 'Downloads aren’t available in this view.')); return panel; }
     const w = world();
     const base = slug(w.title);
-    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds });
+    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds, plates: S.plates });
     const book = (filename, make) => async () => {
-      const model = C.bookModel({ world: w, chapters: S.chapters, passages: S.passages, entities: S.canon });
+      const model = C.bookModel({ world: w, chapters: S.chapters, passages: S.passages, entities: S.canon, plates: S.plates });
       if (model.problems.length) {
         const say = { stale: 'is stale: a fact it relies on changed', conflict: 'contradicts the canon' };
         const ok = await ask({
@@ -1950,8 +2030,8 @@
     panel.append(
       h('p', { class: 'faint' }, 'The book includes set scenes only.'),
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.epub`, (m) => C.exportEpub(m, now())) }, 'EPUB'),
-        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.html`, (m) => C.exportHtml(m)) }, 'HTML'),
+        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.epub`, (m) => C.exportEpub(m, now(), { paint: PL.paint })) }, 'EPUB'),
+        h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.html`, (m) => C.exportHtml(m, { paint: PL.paint })) }, 'HTML'),
         h('button', { class: 'btn small', type: 'button', onclick: book(`${base}.md`, (m) => C.exportMarkdown(m)) }, 'Markdown')),
       h('div', { class: 'btn-row' },
         h('button', { class: 'btn small', type: 'button', onclick: () => saveFile(`${base}-bible.json`, JSON.stringify(C.exportBible(all(), now()), null, 2)) }, 'The bible (JSON)')),
@@ -2027,6 +2107,8 @@
       const sec = h('section', { class: 'chapter' }, h('div', { class: 'chapter-head' }, h('h2', null, `Chapter ${cur.order + 1}: ${cur.title}`)));
       cur.scenes.forEach((text, i) => {
         if (i) sec.append(h('p', { class: 'scene-break', 'aria-hidden': 'true' }, '* * *'));
+        const spec = cur.plates && cur.plates[i];
+        if (spec) sec.append(plateFigure(PL.normalizePlate(spec, 1), `r_${cur.id}_${i}`));
         sec.append(h('div', { class: 'prose' }, C.paragraphs(text).map((t) => h('p', null, t))));
       });
       const nav = h('div', { class: 'btn-row', style: { marginTop: '2rem' } },
@@ -2042,7 +2124,9 @@
     const aside = h('aside', { class: 'lore', 'aria-label': 'What you know so far' },
       h('h3', null, 'What you know so far'),
       h('p', { class: 'faint' }, 'Only what this chapter and earlier ones have shown.'),
-      lore.length ? lore.map((e) => h('div', { class: 'lore-entry' }, h('h4', null, e.name), h('ul', null, e.facts.map((f) => h('li', null, f.text))))) : h('p', { class: 'faint' }, 'Nothing yet.'));
+      lore.length ? lore.map((e, i) => h('div', { class: 'lore-entry' }, h('h4', null, e.name),
+        e.plate ? plateFigure(PL.normalizePlate(e.plate, 1), `l_${i}`, { small: true, caption: false }) : null,
+        h('ul', null, e.facts.map((f) => h('li', null, f.text))))) : h('p', { class: 'faint' }, 'Nothing yet.'));
     wrap.append(h('div', { class: 'reader' }, toc, article, aside));
     return wrap;
   }
@@ -2111,6 +2195,10 @@
         }),
         h('select', { 'aria-label': 'Kind', disabled: S.readOnly, onchange: (ev) => put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })) }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k))),
         S.readOnly ? null : h('button', { class: 'btn ghost small danger', type: 'button', 'aria-label': `Delete ${e.name}`, onclick: () => deleteEntity(e.id) }, 'Delete')));
+    if (e.kind === 'place' || e.kind === 'character') {
+      const target = { kind: e.kind, id: PL.plateId.entity(e.id), eid: e.id };
+      if (S.plates.has(target.id) || S.busy['plate:' + target.id] || aiOn()) card.append(plateSection(target));
+    }
     for (const f of live) card.append(factRow(e, f));
     if (retired.length) card.append(h('details', null, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
     if (!S.readOnly) {
@@ -2181,6 +2269,7 @@
     const ok = await ask({ title: `Delete ${e.name}?`, body: `${plural((e.facts || []).length, 'fact')} go with it.` + (uses.size ? ` ${plural(uses.size, 'scene')} that relied on them will be flagged.` : ''), confirm: 'Delete', danger: true });
     if (!ok) return;
     removeDoc('canon', eid);
+    if (S.plates.has(PL.plateId.entity(eid))) removeDoc('plates', PL.plateId.entity(eid));
     for (const ch of S.chapters.values()) {
       if ((ch.cast || []).includes(eid)) {
         const c = C.clone(ch);

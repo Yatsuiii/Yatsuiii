@@ -2227,5 +2227,548 @@
     }
    ]
   }
+ ],
+ "plates": [
+  {
+   "id": "c_lamps__s1",
+   "for": "scene",
+   "chapter": "c_lamps",
+   "scene": 0,
+   "entity": null,
+   "spec": {
+    "v": 1,
+    "mode": "landscape",
+    "seed": 1101,
+    "title": "Sixty lamps in the rain",
+    "alt": "Rain slants over a lamplit city stacked on a cliff above the sea, while a boy with a lamp climbs the guild steps and an old woman waits under an awning.",
+    "accent": "#c0703f",
+    "time": "dusk",
+    "weather": "rain",
+    "sky": {
+     "moon": null,
+     "sun": null,
+     "stars": false,
+     "clouds": 0.8
+    },
+    "ranges": [
+     {
+      "depth": "mid",
+      "from": 0,
+      "to": 0.62,
+      "height": 0.85,
+      "rough": 0.4,
+      "peaks": 2,
+      "wooded": false
+     }
+    ],
+    "water": {
+     "level": 0.82,
+     "kind": "sea"
+    },
+    "ground": "none",
+    "things": [
+     {
+      "kind": "houses",
+      "x": 0.24,
+      "depth": "mid",
+      "size": "medium",
+      "count": 11,
+      "lit": true
+     },
+     {
+      "kind": "belltower",
+      "x": 0.4,
+      "depth": "mid",
+      "size": "medium",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "stair",
+      "x": 0.6,
+      "depth": "near",
+      "size": "large",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "house",
+      "x": 0.14,
+      "depth": "near",
+      "size": "large",
+      "count": 1,
+      "lit": true
+     },
+     {
+      "kind": "lamp",
+      "x": 0.82,
+      "depth": "near",
+      "size": "medium",
+      "count": 1,
+      "lit": false
+     }
+    ],
+    "figures": [
+     {
+      "x": 0.66,
+      "depth": "near",
+      "pose": "walking",
+      "facing": "left",
+      "carry": "lamp",
+      "cloak": false
+     },
+     {
+      "x": 0.26,
+      "depth": "near",
+      "pose": "sitting",
+      "facing": "right",
+      "carry": "none",
+      "cloak": true
+     }
+    ],
+    "voids": []
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "c_lamps__s2",
+   "for": "scene",
+   "chapter": "c_lamps",
+   "scene": 1,
+   "entity": null,
+   "spec": {
+    "v": 1,
+    "mode": "landscape",
+    "seed": 1202,
+    "title": "The last stair",
+    "alt": "The moon rises huge over a black sea while a boy runs up a long stair toward a step that is no longer there.",
+    "accent": "#c4952b",
+    "time": "dusk",
+    "weather": "clear",
+    "sky": {
+     "moon": {
+      "x": 0.8,
+      "y": 0.34,
+      "size": 2.1,
+      "phase": "full"
+     },
+     "sun": null,
+     "stars": false,
+     "clouds": 0.3
+    },
+    "ranges": [
+     {
+      "depth": "mid",
+      "from": 0,
+      "to": 0.45,
+      "height": 0.8,
+      "rough": 0.3,
+      "peaks": 1,
+      "wooded": false
+     }
+    ],
+    "water": {
+     "level": 0.7,
+     "kind": "sea"
+    },
+    "ground": "none",
+    "things": [
+     {
+      "kind": "houses",
+      "x": 0.16,
+      "depth": "mid",
+      "size": "medium",
+      "count": 9,
+      "lit": true
+     },
+     {
+      "kind": "belltower",
+      "x": 0.32,
+      "depth": "mid",
+      "size": "medium",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "stair",
+      "x": 0.5,
+      "depth": "near",
+      "size": "large",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "ship",
+      "x": 0.72,
+      "depth": "mid",
+      "size": "small",
+      "count": 1,
+      "lit": false
+     }
+    ],
+    "figures": [
+     {
+      "x": 0.47,
+      "depth": "near",
+      "pose": "walking",
+      "facing": "right",
+      "carry": "none",
+      "cloak": false
+     },
+     {
+      "x": 0.2,
+      "depth": "mid",
+      "pose": "walking",
+      "facing": "left",
+      "carry": "lamp",
+      "cloak": false
+     }
+    ],
+    "voids": [
+     {
+      "shape": "rect",
+      "depth": "near",
+      "x": 0.535,
+      "y": 0.78,
+      "w": 0.035,
+      "h": 0.06,
+      "angle": 0
+     }
+    ]
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "c_lamps__s3",
+   "for": "scene",
+   "chapter": "c_lamps",
+   "scene": 2,
+   "entity": null,
+   "spec": {
+    "v": 1,
+    "mode": "landscape",
+    "seed": 1303,
+    "title": "Above him, the moon blinked",
+    "alt": "A boy leans out from a cliff-top lamp over a black sea, and an enormous low moon watches him through the rain.",
+    "accent": "#e0a849",
+    "time": "night",
+    "weather": "rain",
+    "sky": {
+     "moon": {
+      "x": 0.62,
+      "y": 0.3,
+      "size": 2.2,
+      "phase": "full"
+     },
+     "sun": null,
+     "stars": false,
+     "clouds": 0.3
+    },
+    "ranges": [
+     {
+      "depth": "near",
+      "from": 0,
+      "to": 0.36,
+      "height": 0.75,
+      "rough": 0.35,
+      "peaks": 1,
+      "wooded": false
+     }
+    ],
+    "water": {
+     "level": 0.78,
+     "kind": "sea"
+    },
+    "ground": "none",
+    "things": [
+     {
+      "kind": "lamp",
+      "x": 0.3,
+      "depth": "near",
+      "size": "large",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "houses",
+      "x": 0.85,
+      "depth": "far",
+      "size": "medium",
+      "count": 7,
+      "lit": true
+     }
+    ],
+    "figures": [
+     {
+      "x": 0.34,
+      "depth": "near",
+      "pose": "reaching",
+      "facing": "right",
+      "carry": "none",
+      "cloak": false
+     }
+    ],
+    "voids": []
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "ent__e_vesk",
+   "for": "place",
+   "chapter": null,
+   "scene": null,
+   "entity": "e_vesk",
+   "spec": {
+    "v": 1,
+    "mode": "landscape",
+    "seed": 2101,
+    "title": "Vesk",
+    "alt": "A city of lamps climbs a black cliff above the sea, with a long stair running down to the harbour.",
+    "accent": "#e0a849",
+    "time": "night",
+    "weather": "clear",
+    "sky": {
+     "moon": {
+      "x": 0.84,
+      "y": 0.18,
+      "size": 1,
+      "phase": "crescent"
+     },
+     "sun": null,
+     "stars": true,
+     "clouds": 0.3
+    },
+    "ranges": [
+     {
+      "depth": "mid",
+      "from": 0,
+      "to": 0.7,
+      "height": 0.95,
+      "rough": 0.35,
+      "peaks": 2,
+      "wooded": false
+     },
+     {
+      "depth": "far",
+      "from": 0.5,
+      "to": 1,
+      "height": 0.35,
+      "rough": 0.5,
+      "peaks": 3,
+      "wooded": false
+     }
+    ],
+    "water": {
+     "level": 0.76,
+     "kind": "sea"
+    },
+    "ground": "none",
+    "things": [
+     {
+      "kind": "houses",
+      "x": 0.2,
+      "depth": "mid",
+      "size": "medium",
+      "count": 13,
+      "lit": true
+     },
+     {
+      "kind": "houses",
+      "x": 0.42,
+      "depth": "mid",
+      "size": "medium",
+      "count": 6,
+      "lit": true
+     },
+     {
+      "kind": "belltower",
+      "x": 0.31,
+      "depth": "mid",
+      "size": "medium",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "stair",
+      "x": 0.58,
+      "depth": "mid",
+      "size": "large",
+      "count": 1,
+      "lit": false
+     },
+     {
+      "kind": "ship",
+      "x": 0.78,
+      "depth": "mid",
+      "size": "small",
+      "count": 1,
+      "lit": false
+     }
+    ],
+    "figures": [],
+    "voids": []
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "ent__e_kael",
+   "for": "character",
+   "chapter": null,
+   "scene": null,
+   "entity": "e_kael",
+   "spec": {
+    "v": 1,
+    "mode": "portrait",
+    "seed": 2202,
+    "title": "Kael",
+    "alt": "A young lamplighter in profile, cap pulled down, a lit lamp at his chest.",
+    "accent": "#c0703f",
+    "time": "dusk",
+    "weather": "clear",
+    "sky": {
+     "moon": null,
+     "sun": null,
+     "stars": false,
+     "clouds": 0.3
+    },
+    "ranges": [
+     {
+      "depth": "far",
+      "from": 0,
+      "to": 0.5,
+      "height": 0.6,
+      "rough": 0.5,
+      "peaks": 1,
+      "wooded": false
+     }
+    ],
+    "water": {
+     "level": 0.74,
+     "kind": "sea"
+    },
+    "ground": "none",
+    "things": [
+     {
+      "kind": "houses",
+      "x": 0.18,
+      "depth": "far",
+      "size": "medium",
+      "count": 8,
+      "lit": true
+     }
+    ],
+    "figures": [],
+    "voids": [],
+    "sitter": {
+     "facing": "right",
+     "head": "cap",
+     "hair": "short",
+     "beard": false,
+     "collar": false,
+     "cloak": false,
+     "holds": "lamp",
+     "age": "young",
+     "build": "slight"
+    }
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "ent__e_mira",
+   "for": "character",
+   "chapter": null,
+   "scene": null,
+   "entity": "e_mira",
+   "spec": {
+    "v": 1,
+    "mode": "portrait",
+    "seed": 2303,
+    "title": "Mira",
+    "alt": "An old woman in a wide-brimmed hat, in profile, with a lamplighter’s staff.",
+    "accent": "#6b7f95",
+    "time": "day",
+    "weather": "rain",
+    "sky": {
+     "moon": null,
+     "sun": null,
+     "stars": false,
+     "clouds": 0.3
+    },
+    "ranges": [
+     {
+      "depth": "far",
+      "from": 0.3,
+      "to": 1,
+      "height": 0.5,
+      "rough": 0.5,
+      "peaks": 2,
+      "wooded": false
+     }
+    ],
+    "water": null,
+    "ground": "none",
+    "things": [],
+    "figures": [],
+    "voids": [],
+    "sitter": {
+     "facing": "left",
+     "head": "brimmed",
+     "hair": "bun",
+     "beard": false,
+     "collar": true,
+     "cloak": false,
+     "holds": "staff",
+     "age": "old",
+     "build": "medium"
+    }
+   },
+   "paintedAt": 1790809500000
+  },
+  {
+   "id": "ent__e_queen",
+   "for": "character",
+   "chapter": null,
+   "scene": null,
+   "entity": "e_queen",
+   "spec": {
+    "v": 1,
+    "mode": "portrait",
+    "seed": 2404,
+    "title": "The Hollow Queen",
+    "alt": "A hooded figure in profile against a vast moon.",
+    "accent": "#3d4f8f",
+    "time": "night",
+    "weather": "clear",
+    "sky": {
+     "moon": {
+      "x": 0.36,
+      "y": 0.4,
+      "size": 2.2,
+      "phase": "full"
+     },
+     "sun": null,
+     "stars": true,
+     "clouds": 0.3
+    },
+    "ranges": [],
+    "water": null,
+    "ground": "none",
+    "things": [],
+    "figures": [],
+    "voids": [],
+    "sitter": {
+     "facing": "left",
+     "head": "hood",
+     "hair": "long",
+     "beard": false,
+     "collar": false,
+     "cloak": true,
+     "holds": "none",
+     "age": "adult",
+     "build": "slight"
+    }
+   },
+   "paintedAt": 1790809500000
+  }
  ]
 }

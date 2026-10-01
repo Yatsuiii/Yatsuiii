@@ -742,3 +742,104 @@ test('publishing and exports name stale and contradicted scenes', () => {
   assert.deepEqual(model.problems.map((x) => [x.chapter, x.k, x.kind]), [['c1', 0, 'stale'], ['c1', 1, 'conflict']]);
   assert.deepEqual(C.bookModel({ world: w, chapters, passages }).problems, [], 'no canon given, nothing to judge');
 });
+
+// ---------------------------------------------------------------- plates
+
+const PL = require('../src/plates.js');
+const wellFormed = (xml) => spawnSync('python3', ['-c', 'import sys,xml.dom.minidom\nxml.dom.minidom.parseString(sys.stdin.buffer.read())'], { input: xml });
+
+test('a plate spec is cleaned before anything is painted from it', () => {
+  const s = PL.normalizePlate({
+    title: 'The <b>Bell</b>', accent: '"/><script>alert(1)</script>', time: 'teatime',
+    ranges: [{ depth: 'far', from: -2, to: 9, height: 7 }, { depth: 'mid', from: 0.5, to: 0.52 }],
+    things: [{ kind: 'viaduct', x: 'center-right', count: 99 }, { kind: '<image href=x>' }],
+    figures: [{ x: 3, carry: 'sword' }], voids: [{ shape: 'star', w: -1 }],
+  }, 7);
+  assert.equal(s.time, 'day', 'unknown values fall back to a default');
+  assert.equal(s.accent, '#b5793a', 'an accent must be a plain hex color');
+  assert.deepEqual(s.ranges.map((r) => [r.from, r.to, r.height]), [[0, 1, 1]], 'numbers are clamped and slivers dropped');
+  assert.deepEqual(s.things.map((t) => [t.kind, t.x, t.count]), [['viaduct', 0.68, 14]], 'unknown kinds are dropped; words place things');
+  assert.equal(s.figures[0].x, 1);
+  assert.equal(s.figures[0].carry, 'none');
+  assert.equal(s.voids[0].shape, 'rect');
+  const svg = PL.paint(s, { id: 'test' });
+  assert.ok(!/<script|<image|<b>/i.test(svg), 'nothing from the model reaches the page as markup');
+  assert.ok(svg.includes('The &lt;b&gt;Bell&lt;/b&gt;') || !svg.includes('<b>'));
+  assert.equal(wellFormed(svg).status, 0, 'the SVG is well-formed XML, so it can go into an EPUB');
+});
+
+test('the same plate paints the same picture, and a new seed a different one', () => {
+  const spec = { title: 'Harbour', time: 'night', sky: { moon: { x: 0.7, y: 0.2 }, stars: true }, water: { level: 0.7 },
+    ranges: [{ depth: 'far' }], things: [{ kind: 'houses', count: 6, lit: true }, { kind: 'ship', x: 0.7 }], figures: [{ carry: 'lamp' }] };
+  const a = PL.paint(PL.normalizePlate(spec, 11), { id: 'a' });
+  assert.equal(a, PL.paint(PL.normalizePlate(spec, 11), { id: 'a' }));
+  assert.notEqual(a, PL.paint(PL.normalizePlate(spec, 12), { id: 'a' }));
+  assert.ok(a.length < 120000, `a plate stays small (${a.length} chars)`);
+  // a void cuts the world away through a mask; a portrait paints a sitter
+  const cut = PL.paint(PL.normalizePlate({ title: 'Gap', things: [{ kind: 'house', depth: 'near' }], voids: [{ x: 0.4, y: 0.5, w: 0.1, h: 0.4 }] }, 3), { id: 'c' });
+  assert.match(cut, /<mask id="pc_cut3">/, 'a near void cuts the near layer only');
+  const deep = PL.paint(PL.normalizePlate({ title: 'Cut', voids: [{ depth: 'mid', x: 0.4, y: 0.5, w: 0.1, h: 0.4 }], ranges: [{ depth: 'mid' }] }, 3), { id: 'd' });
+  assert.match(deep, /<mask id="pd_cut2">/, 'a mid void cuts the middle distance and everything nearer');
+  assert.ok(!deep.includes('pd_cut1'), 'and leaves the far distance alone');
+  // a void takes the land, not the air in front of it
+  const misty = PL.paint(PL.normalizePlate({ title: 'Cut', weather: 'mist', ranges: [{ depth: 'far' }], voids: [{ depth: 'far', x: 0.4, y: 0, w: 0.1, h: 1 }] }, 3), { id: 'm' });
+  assert.match(misty, /<g mask="url\(#pm_cut1\)"><g filter="url\(#pm_ink\)">/, 'the far range is cut');
+  assert.ok(misty.includes('</g></g><rect x="-40"'), 'the mist at its foot is drawn whole, after the cut');
+  assert.ok(misty.includes('opacity="0.55" filter="url(#pm_soft)"') && !/<g mask="url\(#pm_cut3\)"><rect[^>]*opacity="0.55"/.test(misty), 'and so is the weather');
+  assert.equal(wellFormed(misty).status, 0);
+  const face = PL.paint(PL.normalizePlate({ title: 'Kael', mode: 'portrait', sitter: { head: 'hood', holds: 'lamp' } }, 4), { id: 'f' });
+  assert.equal(wellFormed(face).status, 0);
+  assert.equal(wellFormed(cut).status, 0);
+  // two plates on one page never share ids
+  assert.ok(!PL.paint(PL.normalizePlate(spec, 11), { id: 'b' }).includes('id="pa_'));
+});
+
+test('the plate brief carries the subject, its facts and the moods, and asks for JSON', () => {
+  const prompt = PL.buildPlatePrompt({
+    world: { title: 'The Hollow Moon', premise: 'A lamplighter finds the moon is hollow.' }, subject: 'scene', name: 'Nine Hundred Lamps, scene 1',
+    facts: ['Vesk: Vesk has nine hundred lamps.'], text: 'Rain came to Vesk the way gossip did.', notes: ['she doesn’t trust him yet'],
+    pigments: [{ name: 'Dread', color: '#33447a', pct: 70 }],
+  });
+  assert.match(prompt, /illustration for a scene/);
+  assert.ok(prompt.includes('Vesk: Vesk has nine hundred lamps.'));
+  assert.ok(prompt.includes('Rain came to Vesk'));
+  assert.ok(prompt.includes('MOODS THE AUTHOR PAINTED HERE') && prompt.includes('Dread #33447a (70%)'));
+  const unpainted = PL.buildPlatePrompt({ world: {}, subject: 'place', name: 'Vesk', facts: [], pigments: [{ name: 'Dread', color: '#33447a' }] });
+  assert.ok(unpainted.includes("THE WORLD'S MOODS") && unpainted.includes('- Dread #33447a\n'), 'with no moods painted, the world’s palette is offered instead');
+  assert.match(prompt, /Reply with only JSON/);
+  assert.match(PL.buildPlatePrompt({ world: {}, subject: 'character', name: 'Kael', facts: [] }), /"mode": "portrait"/);
+  assert.equal(PL.parsePlate('not json', 1), null);
+  assert.equal(PL.parsePlate({}, 5).title, 'Plate');
+  assert.equal(PL.plateId.scene('c1', 0), C.passageId('c1', 0), 'a scene plate shares its passage id');
+});
+
+test('plates travel with published chapters, lore, book exports and backups', () => {
+  const { w, entities, chapters, c1 } = hollowMoon();
+  const passages = new Map();
+  const a = C.setPassage(C.inkedPassage({ chapterId: 'c1', k: 0, prose: 'Kael lit the lamps of Vesk.', used: [], fresh: [], pins: [], now: 1 }), [], 2).passage;
+  passages.set(a.id, a);
+  const scenePlate = PL.normalizePlate({ title: 'Lamps', things: [{ kind: 'houses', lit: true }] }, 9);
+  const vesk = PL.normalizePlate({ title: 'Vesk', water: { level: 0.7 } }, 10);
+  const plates = new Map([[a.id, { id: a.id, spec: scenePlate }], ['ent__vesk', { id: 'ent__vesk', spec: vesk }]]);
+  const pc = C.publishedChapter({ world: w, chapter: c1, chapterId: 'c1', passages, plates, now: 3 });
+  assert.deepEqual(pc.plates, [scenePlate], 'one plate per published scene, in order');
+  assert.equal(C.publishedChapter({ world: w, chapter: c1, chapterId: 'c1', passages, now: 3 }).plates, undefined);
+  const pub = C.publishedWorld({ world: w, entities, publishedChapters: [pc], plates, now: 4 });
+  assert.deepEqual(pub.lore.find((e) => e.name === 'Vesk').plate, vesk);
+  const model = C.bookModel({ world: w, chapters, passages, plates });
+  assert.deepEqual(model.chapters[0].scenes[0].plate, scenePlate);
+  const html = C.exportHtml(model, { paint: PL.paint });
+  assert.equal((html.match(/<figure class="plate">/g) || []).length, 1);
+  assert.ok(!C.exportHtml(model).includes('<figure'), 'no painter, no plates');
+  const files = unzip(C.exportEpub(model, Date.UTC(2026, 9, 1), { paint: PL.paint }));
+  const opf = new TextDecoder().decode(files.find((f) => f.name === 'OEBPS/content.opf').data);
+  assert.match(opf, /href="ch1.xhtml" media-type="application\/xhtml\+xml" properties="svg"/, 'a chapter with inline SVG says so');
+  const ch1 = files.find((f) => f.name === 'OEBPS/ch1.xhtml').data;
+  assert.equal(wellFormed(Buffer.from(ch1)).status, 0, 'the chapter with its plate is well-formed XHTML');
+  const prov = C.exportProvenance({ world: w, entities, chapters, passages, plates }, 5);
+  assert.equal(prov.json.summary.plates, 1);
+  assert.match(prov.md, /Illustrations: 1 plates, composed by an AI model/);
+  const back = C.readBackup(JSON.parse(JSON.stringify(C.exportBackup({ world: w, entities, chapters: [...chapters.values()].map((c, i) => ({ ...c, id: 'c' + (i + 1) })), passages: [a], seeds: [], plates }, 6))));
+  assert.equal(back.plates.length, 2);
+  assert.deepEqual(C.readBackup({ format: 'inkwash-backup/1', world: {} }).plates, [], 'old backups have no plates');
+});
