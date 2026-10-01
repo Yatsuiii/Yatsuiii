@@ -1,4 +1,4 @@
-# Handoff: stalefence (for Claude on Windows, starting with zero context)
+# Handoff: stalefence and Inkwash (for Claude on Windows, starting with zero context)
 
 You are picking up work that an earlier Claude session did in a Linux cloud container. This file
 is the whole context you need. Where it says a number or a verdict, the repo contains the
@@ -17,6 +17,19 @@ reliability, evals and protocols.
 > treat the outreach as a sales test, and don't push publishing as a product. **Your main job now
 > is helping screen the next idea** (section 5).
 
+> **Later on 2026-10-01: the next idea is a creative product.** Its working name is **Inkwash**:
+> - creators paint the shape of a story and the AI inks it in;
+> - the world keeps its facts straight;
+> - readers can visit;
+> - creators can license their worlds to producers and game developers.
+>
+> The design is in `inkwash/DESIGN.md`. **Nothing is built, and nothing gets built until Raghav
+> approves the design.**
+>
+> Don't run it through the kill screen in `stalefence/DECISION.md`. That screen was written for
+> business tools that sell relief from a pain, and Raghav pushed back on kill-testing this one
+> before it exists. The design has its own stages and signals (its section 13).
+
 ---
 
 ## 1. Get the code (PowerShell)
@@ -25,7 +38,7 @@ reliability, evals and protocols.
 git clone https://github.com/Yatsuiii/Yatsuiii.git
 cd Yatsuiii
 git checkout claude/sleepy-bardeen-shw5sj
-git log --oneline -5        # newest should mention "stalefence-guard" and "K1'"
+git log --oneline -5        # newest should mention "Inkwash"
 ```
 
 - `main` holds only his GitHub profile README. **All of this work is on
@@ -40,6 +53,7 @@ What's on the branch:
 | `stalefence-guard/` | An open-source CLI, `stalefence`, kept as portfolio work (not a product) | Built, 37 tests pass on Linux, **untested on Windows** |
 | `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, none posted, **now optional** |
 | `stalefence/DECISION.md` | Why the business was killed, what would reopen it, and the screen for the next idea | Read this first |
+| `inkwash/DESIGN.md` | Design for the creative product: the brush, the canon and its ledgers, the library, the market, the architecture and the v0 scope | Design only, **not built**, waiting for Raghav's approval |
 | `mcp-drift/`, `pagedrift/`, `rewardhack/` | Earlier, unrelated kill tests (INCONCLUSIVE, KILLED, KILLED) | Finished, no action needed |
 
 ---
@@ -165,7 +179,11 @@ reproduce the incidents. Run `examples/demo.sh` to see two agents end to end; it
 
 The stalefence work is finished. In order:
 
-1. **Help Raghav pick and screen the next idea**, using the screen in `stalefence/DECISION.md`:
+1. **Inkwash.** Read `inkwash/DESIGN.md`.
+   - Help Raghav finish the design. The open questions are in its section 15.
+   - Build v0 only after Raghav approves the design. The build order is in its section 12.
+   - Don't apply the screen below to it.
+2. **For any other new idea**, use the screen in `stalefence/DECISION.md`:
    1. Does a failure cost real money, to someone with a budget?
    2. Is it hard to build yourself, and not something a platform can ship as a free feature?
    3. Can buyers be reached in writing, with no calls?
@@ -174,12 +192,12 @@ The stalefence work is finished. In order:
    Drop any idea that fails question 1 or 2 before building anything. For an idea that survives,
    write a preregistration with kill rules first, in its own folder, the way
    `stalefence/PREREGISTRATION.md` was done.
-2. **Optional, only if he asks:**
+3. **Optional, only if he asks:**
    - get `stalefence-guard` green on Windows (section 6);
    - publish it as its own open-source repo: `git subtree split --prefix=stalefence-guard -b stalefence-guard`,
      then add `windows-latest` to `.github/workflows/test.yml`;
    - help him post the three incident comments as helpful replies (section 4).
-3. **Optional:** before anyone relies on `reserve` or `claim` against GitHub, check that GitHub
+4. **Optional:** before anyone relies on `reserve` or `claim` against GitHub, check that GitHub
    accepts the coordination refs. With his OK, use a throwaway private repo and two clones. If
    pushes to `refs/stalefence/*` are rejected, try `refs/notes/stalefence/*`.
 
@@ -253,7 +271,8 @@ want to check.
    whether to post any of the comments.
 3. Whether to merge this branch into his profile repo's `main`. The research folders would then
    become public on the profile.
+4. Whether the Inkwash design is approved, which unblocks v0, and what the product is called.
 
 **Suggested first message to him:**
-"I've read the handoff. stalefence is closed and kept as portfolio work. What's the next idea you
-want to screen? I'll run it through the four questions in DECISION.md before we build anything."
+"I've read the handoff and the Inkwash design. Do you want to keep shaping the design, starting
+with the open questions in its section 15, or is it approved so I can start on v0?"
