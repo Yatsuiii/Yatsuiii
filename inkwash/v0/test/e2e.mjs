@@ -104,6 +104,15 @@ function mockClaude(cfg) {
         places: [{ name: 'Vesk', kind: 'capital', region: 'The Lamp Coast', facts: [] }, { name: 'Gullwick', kind: 'village', region: 'The Lamp Coast', facts: ['A fishing village under Vesk.'] }, { name: 'Tarn', kind: 'town', region: 'The Black Water', facts: ['A town on stilts.'] }] };
     }
     if (String(input).includes('caught this fragment')) return { seeds: [{ kind: 'place', name: 'The Candle Gardens', fact: 'Inside the moon, candles grow like tulips.' }] };
+    if (String(input).startsWith('You are thinking through one fact')) {
+      const key = (words) => { const m = new RegExp('\\[(F\\d+)\\] [^\\n]*' + words).exec(String(input)); return m ? m[1] : 'F99'; };
+      const scene = /\[(S\d+)\]/.exec(String(input));
+      return {
+        follows: [{ about: 'Mira', kind: 'character', fact: 'Mira has forgotten something she loved, and does not know what.' }, { about: '', kind: 'rule', fact: 'Every lamplighter has lost something to the moon.' }],
+        breaks: [{ ref: key('sense of smell'), why: 'Mira lost her smell, not something she loved.' }, { ref: 'F999', why: 'not a key' }].concat(scene ? [{ ref: scene[1], why: 'Kael stands in moonlight here and forgets nothing.' }] : []),
+        asks: ['Does moonlight through glass count?', 'Who keeps a record of what each person has lost?'],
+      };
+    }
     if (String(input).startsWith('You are composing')) {
       return String(input).startsWith('You are composing a portrait')
         ? { title: 'Kael', alt: 'Kael in profile.', mode: 'portrait', time: 'night', sitter: { head: 'cap', holds: 'lamp' } }
@@ -462,6 +471,52 @@ await step('dream inbox: catch a fragment, find seeds, keep one', async () => {
   await settle(page);
   const names = await st(page, () => [...window.__inkwash.state.canon.values()].map((e) => e.name));
   assert.ok(names.includes('The Candle Gardens'));
+});
+
+await step('ripples: one fact thought through, a consequence kept, a question answered and one saved for later', async () => {
+  await page.click('.tab >> text=Canon');
+  const card = '.card[aria-label="Moonlight"]';
+  await page.waitForSelector(card);
+  await page.click(`${card} .fact:has(#fact-f_moon_forget) button:has-text("Ripples")`);
+  await page.waitForSelector(`${card} .ripples`, { timeout: 6000 });
+  const call = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop());
+  assert.equal(call.tier, 'default');
+  assert.match(call.input, /^You are thinking through one fact of the story world "The Hollow Moon"/);
+  assert.match(call.input, /THE FACT\nWorld rule: Anyone touched by direct moonlight forgets one thing they love\./);
+  assert.match(call.input, /\[F\d+\] Mira: Mira lost her sense of smell to moonlight\./);
+  const panel = `${card} .ripples`;
+  assert.match(await page.textContent(panel), /What it breaks[\s\S]*Mira lost her smell[\s\S]*What follows[\s\S]*Mira has forgotten something she loved[\s\S]*What it leaves to decide[\s\S]*Does moonlight through glass count\?/);
+  assert.doesNotMatch(await page.textContent(panel), /not a key/, 'a reference to nothing is dropped');
+  if (wantShots) { mkdirSync(SHOTS, { recursive: true }); await page.locator(card).screenshot({ path: join(SHOTS, 'ripples-light.png') }); }
+  // the contradiction leads to the fact it breaks
+  await page.click(`${panel} .ripple.break button:has-text("Mira:")`);
+  assert.equal(await st(page, () => document.activeElement.id), 'fact-f_mira_smell');
+  // a consequence kept joins Mira's canon, marked as suggested
+  await page.click(`${panel} .ripple:has-text("Mira has forgotten") button:has-text("Keep")`);
+  // an answer is the author's own fact
+  await page.fill(`${panel} input[aria-label="Answer: Does moonlight through glass count?"]`, 'Moonlight through glass is harmless.');
+  await page.click(`${panel} .ripple.ask:has-text("through glass") button:has-text("Add")`);
+  // and the other question waits in the dream inbox
+  await page.click(`${panel} .ripple.ask:has-text("Who keeps a record") button:has-text("Later")`);
+  await settle(page);
+  const S = await st(page, () => {
+    const s = window.__inkwash.state;
+    return { mira: s.canon.get('e_mira').facts.map((f) => [f.text, f.origin]), moon: s.canon.get('e_moonlight').facts.map((f) => [f.text, f.origin]),
+      rip: s.canon.get('e_moonlight').facts.find((f) => f.id === 'f_moon_forget').ripples, seeds: [...s.seeds.values()].map((d) => d.text) };
+  });
+  assert.ok(S.mira.some(([t, o]) => t === 'Mira has forgotten something she loved, and does not know what.' && o === 'accepted'));
+  assert.ok(S.moon.some(([t, o]) => t === 'Moonlight through glass is harmless.' && o === 'human'));
+  assert.deepEqual(S.rip.follows.map((x) => x.status), ['kept', 'new']);
+  assert.deepEqual(S.rip.asks.map((x) => x.status), ['answered', 'later']);
+  assert.ok(S.seeds.some((t) => t.startsWith('Who keeps a record of what each person has lost? (from Moonlight:')));
+  assert.match(await st(page, () => window.__mock.docs.get('studio/w_hollow_moon/canon/e_moonlight')), /"ripples"/, 'ripples are saved with the fact');
+  // the panel now shows only what is left to think about
+  const left = await page.textContent(panel);
+  assert.doesNotMatch(left, /Mira has forgotten|through glass|Who keeps a record/);
+  assert.match(left, /Moonlight: Every lamplighter has lost something to the moon\./);
+  // and the answer can ripple in turn
+  await page.waitForSelector('.toast:has-text("What follows from that?") button:has-text("Ripples")');
+  await page.click('.tab >> text=Score');
 });
 
 await step('reader preview shows the published chapter', async () => {

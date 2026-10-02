@@ -6,17 +6,28 @@
 > It covers section 12, plus a minimal publish and reader view so stage 0 can happen. Where it
 > differs from this design is listed in `v0/README.md`.
 
-**In one line:** you paint the shape of a story, the AI inks it in, and the world keeps track of
-every fact. Other people can visit it, and when you choose, producers and game developers can
+**In one line:** world creation for people who overthink. You pour in every detail, Inkwash keeps
+it straight and thinks it through with you, and when you paint the shape of a story, the AI inks it
+in. Other people can visit the world, and when you choose, producers and game developers can
 license it.
+
+**The pitch:** Overthink it. Inkwash keeps it straight.
 
 ## 1. Who it's for
 
 Three groups, in the order we need them:
 
-1. **Creators: people with a world in their head.** Most never wrote it down, because the blank
-   page was too big or prose isn't their thing. Fantasy and web-novel readers come first: they
-   already live in other people's worlds, and many have their own.
+1. **Creators: people who overthink their worlds.** They have a world they can't stop thinking
+   about. They know what bread costs in the capital and why the river runs the wrong way, and
+   they worry it doesn't add up. Most never wrote it down, because the blank page was too big or
+   prose isn't their thing, or because every new detail opened five more questions. Where they
+   already are:
+   - r/worldbuilding;
+   - people who daydream whole worlds;
+   - conlangers;
+   - tabletop game masters, who prepare lore their players may never see;
+   - fantasy and web-novel readers, who already live in other people's worlds and often have their
+     own.
 2. **Readers: people who want to wander through worlds.** They follow worlds, read the books and
    look things up in the lore.
 3. **Buyers: producers, game developers, comic artists and audio studios who need worlds that
@@ -24,8 +35,11 @@ Three groups, in the order we need them:
    cheaper games and comics. As it does, the scarce thing becomes a world worth producing.
    Buyers come last; they follow readers.
 
-Dreams are the origin story and a feature (the dream inbox, section 4), not the marketing. The
-pitch is "get the world out of your head."
+The overthinking is the creative kind: the itch to know what follows from every detail and
+whether it all holds together. Inkwash turns that loop into progress. A detail becomes a fact,
+its ripples show what follows and what breaks (section 6), and the open questions get answered
+or saved for later. Keep the copy there: never drift into anxiety or mental-health claims.
+Dreams stay the origin story and a feature (the dream inbox, section 4).
 
 ## 2. Why not just use ChatGPT
 
@@ -167,6 +181,19 @@ When a fact changes, every set passage whose premises include the old version tu
 glows, on the canvas and in the book. A fact changes when you edit the canon, or when a repaint
 changes what happened. You then either ink the stale passage again, or read it and mark it still
 true, which records the new version.
+
+**Ripples: thinking a fact through.** The ledger tells you which scenes a change touches. Ripples
+think through what the change means. On any fact, Claude reads it against the rest of the canon
+and the scenes that touch it, and answers three things:
+- **what follows:** consequences that would also have to be true, each one kept into the canon
+  with a click (marked as suggested) or dismissed;
+- **what it breaks:** clear contradictions with other facts or with written scenes, each linked to
+  the fact or scene it breaks;
+- **what it leaves to decide:** open questions, each answered on the spot (the answer becomes the
+  author's own fact, which can ripple in turn) or saved to the dream inbox for later.
+
+Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after
+you add or reword a fact; it never spends your usage on them unasked.
 
 ## 7. The authorship record
 
@@ -371,7 +398,8 @@ license(id, world, tier, terms, buyer, status)
   the page;
 - dreaming a world: a dream grown by the AI into a whole world (regions, places, peoples, powers),
   kept in the canon as suggestions;
-- the atlas: the world drawn as a map, explored one region at a time.
+- the atlas: the world drawn as a map, explored one region at a time;
+- ripples: what follows from a fact, what it breaks, and what it leaves to decide.
 
 **Out, for later:**
 - the pace and secrets lanes;

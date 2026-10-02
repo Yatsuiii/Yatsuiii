@@ -1040,6 +1040,84 @@
     }));
   }
 
+  // ---------------------------------------------------------------- ripples
+
+  // A fact is never alone. Ripples think one through the way an overthinker would: what follows
+  // from it, what it breaks, and what it leaves for the author to decide. The canon goes in
+  // nearest first: the fact's own entity, then everything the fact names, then the rest.
+  function rippleCanon(entities, eid, fid, limit) {
+    const all = valuesOf(entities), self = all.find((e) => e.id === eid);
+    const fact = self && (self.facts || []).find((f) => f.id === fid);
+    const text = fact ? fact.text : '';
+    const rank = (e) => (e.id === eid ? 0 : mentions(text, e.name) ? 1 : 2);
+    const items = [];
+    for (const e of all.slice().sort((a, b) => rank(a) - rank(b))) for (const f of e.facts || []) if (!f.retired && f.id !== fid) items.push({ e, f });
+    return items.slice(0, limit || 120);
+  }
+  // The scenes it may touch: the ones that rely on the fact, then the ones that name its subject.
+  function rippleScenes(passages, entity, fid, where, limit) {
+    const list = valuesOf(passages).filter((p) => p && p.text);
+    const relies = (p) => (p.premises || []).concat(p.pending || []).some((x) => x.f === fid);
+    const picked = list.filter(relies).concat(list.filter((p) => !relies(p) && entity && entity.kind !== 'rule' && mentions(p.text, entity.name)));
+    return picked.slice(0, limit || 6).map((p) => ({ p, where: where ? where(p) : '' }));
+  }
+  function buildRipplePrompt({ world, entity, fact, items, scenes }) {
+    const refMap = {}, lines = [], sceneLines = [];
+    let n = 0, m = 0;
+    for (const { e, f } of items || []) {
+      const key = 'F' + ++n;
+      refMap[key] = { type: 'fact', id: f.id, v: f.v, eid: e.id };
+      lines.push(`[${key}] ${e.kind === 'rule' ? 'World rule' : e.name}: ${f.text}`);
+    }
+    for (const { p, where } of scenes || []) {
+      const key = 'S' + ++m;
+      refMap[key] = { type: 'scene', id: p.id, chapter: p.chapter, scene: p.scene };
+      sceneLines.push(`[${key}] ${where || 'A scene'}:\n"""\n${String(p.text).slice(0, 600)}\n"""`);
+    }
+    const was = (fact.history || []).length ? fact.history[fact.history.length - 1].text : null;
+    const prompt = `You are thinking through one fact of the story world "${world.title || 'Untitled'}"` + (world.premise ? ` (${world.premise})` : '')
+      + ' with its author, the way a careful worldbuilder would: what follows from it, what it contradicts, and what it leaves open.\n\n'
+      + 'THE FACT\n' + `${entity.kind === 'rule' ? 'World rule' : entity.name}: ${fact.text}` + (was ? `\n(It used to say: ${was})` : '') + '\n\n'
+      + 'THE REST OF THE CANON\n' + (lines.join('\n') || '(none)') + '\n\n'
+      + (sceneLines.length ? 'SCENES THAT MAY BE AFFECTED\n' + sceneLines.join('\n\n') + '\n\n' : '')
+      + 'Think it through, then reply with only JSON in this form: {"follows": [{"about": "who or what it is about, using an existing name where there is one", "kind": "character|place|faction|thing|rule", "fact": "one sentence that would also have to be true"}], "breaks": [{"ref": "F2", "why": "one short sentence"}], "asks": ["a question the author has to decide, under 20 words"]}. '
+      + 'Up to 5 follows: real consequences, not restatements of the fact. In breaks, only clear contradictions with the canon or the scenes above, by their key. Up to 5 asks. Ground everything in the world as written. If nothing breaks, "breaks" is [].';
+    return { prompt, refMap };
+  }
+  function parseRipples(json, refMap) {
+    const clean = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+    const seen = new Set();
+    const once = (k) => { k = k.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; };
+    const list = (k) => (json && Array.isArray(json[k]) ? json[k] : []);
+    const follows = list('follows').slice(0, 10)
+      .map((x) => ({ about: clean(x && x.about, 80), kind: KINDS.includes(String(x && x.kind).toLowerCase()) ? String(x.kind).toLowerCase() : 'thing', fact: clean(x && x.fact, 300) }))
+      .filter((x) => x.fact && once('f:' + x.fact)).slice(0, 5)
+      .map((x) => Object.assign({ id: uid('rp'), status: 'new' }, x));
+    const breaks = list('breaks').slice(0, 12)
+      .map((x) => ({ key: clean(x && (x.ref || x.fact || x.scene), 12).toUpperCase().replace(/^\[|\]$/g, ''), why: clean(x && x.why, 240) }))
+      .filter((x) => refMap && refMap[x.key] && once('b:' + x.key)).slice(0, 6)
+      .map((x) => { const t = refMap[x.key]; return Object.assign({ id: uid('rp'), type: t.type, target: t.id }, t.type === 'fact' ? { eid: t.eid, v: t.v } : { chapter: t.chapter, scene: t.scene }, { why: x.why }); });
+    const asks = list('asks').slice(0, 10)
+      .map((q) => clean(typeof q === 'string' ? q : q && (q.question || q.text), 200))
+      .filter((q) => q && once('a:' + q)).slice(0, 5)
+      .map((q) => ({ id: uid('rp'), text: q, status: 'new' }));
+    return { follows, breaks, asks };
+  }
+  // A fact keeps the ripples of the wording they were made from.
+  function withRipples(entity, fid, ripples, now) {
+    const e = clone(entity);
+    const f = (e.facts || []).find((x) => x.id === fid);
+    if (f) f.ripples = Object.assign({ at: now || 0, v: f.v }, ripples);
+    return e;
+  }
+  // kept, dismissed, answered or later: what the author did with one consequence or question
+  function setRippleStatus(entity, fid, rid, status) {
+    const e = clone(entity);
+    const f = (e.facts || []).find((x) => x.id === fid);
+    if (f && f.ripples) for (const r of (f.ripples.follows || []).concat(f.ripples.asks || [])) if (r.id === rid) r.status = status;
+    return e;
+  }
+
   // ---------------------------------------------------------------- repaint a selection
 
   function buildRepaintPrompt({ brief, text, s, e, direction }) {
@@ -1540,7 +1618,7 @@
     passageId, mergePremises, inkedPassage, handPassage, repaintPassage, editPassage, recordEdit, setPassage,
     staleness, stillTrue, passageState, dependents,
     buildContinuityPrompt, parseContinuity, parseRelies, openConflicts, keepConflict, mergeConflicts,
-    buildSeedPrompt, parseSeeds, buildRepaintPrompt, parseRepaint,
+    buildSeedPrompt, parseSeeds, rippleCanon, rippleScenes, buildRipplePrompt, parseRipples, withRipples, setRippleStatus, buildRepaintPrompt, parseRepaint,
     chapterProblems, publishedChapter, publishedWorld, visibleLore,
     bookModel, exportMarkdown, exportHtml, exportEpub, exportBible, exportProvenance, exportBackup, readBackup,
     worldFromDream, atlasForWorld, exploreRegion,

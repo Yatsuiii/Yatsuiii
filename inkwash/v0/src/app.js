@@ -499,15 +499,15 @@
   function openingView(title) {
     return h('section', { class: 'opening' },
       h('p', { class: 'eyebrow' }, title || 'Opening your studio'),
-      h('h1', null, 'Dream a world. Paint its stories. Keep every fact of it straight.'),
+      h('h1', null, 'Overthink it. Inkwash keeps it straight.'),
       h('p', { class: 'muted' }, 'Your worlds, maps, chapters and scenes appear here once your studio has loaded.'));
   }
 
   function welcomeView() {
     return h('section', { class: 'welcome' },
       h('p', { class: 'eyebrow' }, 'Inkwash'),
-      h('h1', null, 'Dream a world. Paint its stories. Keep every fact of it straight.'),
-      h('p', { class: 'muted' }, 'Tell Inkwash a dream and Claude grows it into a whole world: lands, peoples, places and powers, on a map you can explore one region at a time. Then paint each scene’s tension, mood and who is in it, and Claude inks the prose inside your strokes. Every fact a scene relies on is tracked, so when your world changes, Inkwash shows you exactly which scenes it breaks.'),
+      h('h1', null, 'Overthink it. Inkwash keeps it straight.'),
+      h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Pour in every detail, and Inkwash keeps it all in one canon. Add a fact and see its ripples: what follows from it, what it breaks, and what it leaves for you to decide. Tell it a dream, and Claude grows a whole world around it, on a map you can explore. Paint each scene’s tension and mood, and Claude inks the prose inside your strokes. When your world changes, Inkwash shows you exactly which scenes it breaks.'),
       h('div', { class: 'choices' },
         h('div', { class: 'choice' },
           h('h2', null, 'Dream a world'),
@@ -2216,7 +2216,7 @@
     for (const f of live) card.append(factRow(e, f));
     if (retired.length) card.append(h('details', null, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
     if (!S.readOnly) {
-      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); ent.facts.push(C.newFact(v, 'human', now())); put('canon', e.id, ent); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
+      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. What follows from it?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
         h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: 'Add a fact', 'aria-label': `New fact about ${e.name}` }),
         h('button', { class: 'btn small', type: 'submit' }, 'Add')));
     }
@@ -2238,8 +2238,10 @@
         h('option', { value: '' }, 'not revealed yet'),
         order.map((cid, i) => h('option', { value: cid, selected: f.reveal === cid }, `revealed in chapter ${i + 1}`))) : null,
       uses.length ? h('span', { class: 'uses' }, 'Used in ', uses.map((p, i) => [i ? ', ' : '', h('button', { type: 'button', onclick: () => { S.cid = p.chapter; S.k = p.scene; savePos(); go('score'); } }, `ch. ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`)])) : h('span', null, 'Not used by any scene yet'),
-      S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire'));
-    return h('div', { class: 'fact' }, ta, meta);
+      S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire'),
+      aiOn() ? h('button', { class: 'btn ghost small', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What follows from this fact, what it breaks, and what it leaves to decide', onclick: () => rippleFact(e.id, f.id) },
+        S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples') : null);
+    return h('div', { class: 'fact' }, ta, meta, f.ripples ? ripplesPanel(e, f) : null);
   }
   function reviseFactUI(eid, fid, text) {
     const e = C.clone(S.canon.get(eid));
@@ -2248,7 +2250,7 @@
     const before = new Set([...S.passages.values()].filter((p) => sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
     if (!C.reviseFact(f, text, now())) return;
     put('canon', eid, e, { quiet: true });
-    reportNewlyStale(before, `${e.name} changed.`);
+    reportNewlyStale(before, `${e.name} changed.`, aiOn() ? { label: 'Ripples', run: () => rippleFact(eid, fid) } : null);
     render();
   }
   function retireFactUI(eid, fid) {
@@ -2261,13 +2263,92 @@
     reportNewlyStale(before, 'Fact retired.');
     render();
   }
-  function reportNewlyStale(before, lead) {
+  function reportNewlyStale(before, lead, ripple) {
     const now_ = [...S.passages.values()].filter((p) => !before.has(p.id) && S.chapters.has(p.chapter) && sceneInfo(p.chapter, p.scene).state === 'stale');
-    if (!now_.length) { toast(`${lead} No written scene relied on the old wording.`); return; }
+    if (!now_.length) { toast(`${lead} No written scene relied on the old wording.` + (ripple ? ' See what else it moves?' : ''), null, ripple || undefined); return; }
     const order = chapterOrder();
     const first = now_[0];
     toast(`${lead} ${plural(now_.length, 'scene')} relied on the old wording and ${now_.length === 1 ? 'is' : 'are'} now flagged: ${now_.map((p) => `chapter ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`).join('; ')}.`, 'warn',
       { label: 'Show me', run: () => { S.cid = first.chapter; S.k = first.scene; savePos(); go('score'); } });
+  }
+  // ---------------------------------------------------------------- ripples
+
+  // Think one fact through: what follows from it, what it breaks, what it leaves to decide. Claude
+  // reads it against the rest of the canon and the scenes that touch it; the author keeps what's
+  // true, answers what's open, and saves the rest for later.
+  async function rippleFact(eid, fid) {
+    const key = 'ripple:' + fid, e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
+    if (!f || !aiOn() || S.busy[key]) return;
+    const busy = { ctl: new AbortController() };
+    S.busy[key] = busy;
+    render();
+    try {
+      const order = chapterOrder();
+      const scenes = C.rippleScenes([...S.passages.values()].filter((p) => S.chapters.has(p.chapter)), e, fid, (p) => `Chapter ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`, 6);
+      const { prompt, refMap } = C.buildRipplePrompt({ world: world(), entity: e, fact: f, items: C.rippleCanon(S.canon, eid, fid, 120), scenes });
+      const ripples = C.parseRipples(await S.sample.json(prompt, { modelTier: 'default', signal: busy.ctl.signal, cache: false }), refMap);
+      const cur = S.canon.get(eid);
+      if (cur) put('canon', eid, C.withRipples(cur, fid, ripples, now()), { quiet: true });
+      if (!ripples.follows.length && !ripples.breaks.length && !ripples.asks.length) toast('Nothing came back for that fact. Try again in a moment.');
+      else announce(`Ripples: ${plural(ripples.follows.length, 'thing follows', 'things follow')}, ${plural(ripples.breaks.length, 'break')}, ${plural(ripples.asks.length, 'question')}.`);
+    } catch (err) { aiError(err, 'following the ripples'); }
+    finally { delete S.busy[key]; render(); }
+  }
+  function ripplesPanel(e, f) {
+    const r = f.ripples, ro = S.readOnly;
+    const follows = (r.follows || []).filter((x) => x.status === 'new'), asks = (r.asks || []).filter((x) => x.status === 'new'), breaks = r.breaks || [];
+    const group = (title, items) => (items.length ? h('div', { class: 'ripple-group' }, h('p', { class: 'ripple-head' }, title), items) : null);
+    return h('div', { class: 'ripples', role: 'group', 'aria-label': `Ripples of a fact about ${e.name}` },
+      h('p', { class: 'eyebrow' }, 'Ripples', r.v !== f.v ? h('span', { class: 'faint' }, ' · of an earlier wording') : null),
+      group('What it breaks', breaks.map((b) => h('div', { class: 'ripple break' }, h('p', null, b.why || 'A contradiction.'), rippleTarget(b)))),
+      group('What follows', follows.map((x) => h('div', { class: 'ripple' },
+        h('p', null, h('strong', null, (x.about || e.name) + ': '), x.fact),
+        ro ? null : h('div', { class: 'btn-row' },
+          h('button', { class: 'btn small', type: 'button', onclick: () => keepRipple(e.id, f.id, x) }, 'Keep'),
+          h('button', { class: 'btn ghost small', type: 'button', onclick: () => markRipple(e.id, f.id, x.id, 'dismissed') }, 'Dismiss'))))),
+      group('What it leaves to decide', asks.map((q) => h('div', { class: 'ripple ask' },
+        h('p', null, q.text),
+        ro ? null : h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const v = ev.target.querySelector('input').value.trim(); if (v) answerRipple(e.id, f.id, q, v); } },
+          h('input', { type: 'text', id: 'ripple-answer-' + q.id, 'data-keep': '', placeholder: 'Decide it', 'aria-label': `Answer: ${q.text}` }),
+          h('button', { class: 'btn small', type: 'submit' }, 'Add'),
+          h('button', { class: 'btn ghost small', type: 'button', onclick: () => laterRipple(e.id, f.id, q) }, 'Later'))))),
+      !follows.length && !asks.length && !breaks.length ? h('p', { class: 'faint' }, 'All thought through. Ripple again after you change it.') : null);
+  }
+  // where a contradiction is: the fact it breaks, or the scene
+  function rippleTarget(b) {
+    if (b.type === 'scene') {
+      const order = chapterOrder();
+      if (!S.chapters.has(b.chapter)) return h('span', { class: 'faint' }, 'That scene is gone.');
+      return h('button', { class: 'btn ghost small', type: 'button', onclick: () => { S.cid = b.chapter; S.k = b.scene; savePos(); go('score'); } }, `Go to ch. ${order.indexOf(b.chapter) + 1}, scene ${b.scene + 1}`);
+    }
+    const t = S.canon.get(b.eid), tf = t && (t.facts || []).find((x) => x.id === b.target && !x.retired);
+    if (!tf) return h('span', { class: 'faint' }, 'That fact has since been retired.');
+    return h('button', { class: 'btn ghost small', type: 'button', title: tf.text, onclick: () => { const el = document.getElementById('fact-' + tf.id); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } } },
+      `${t.kind === 'rule' ? 'World rule' : t.name}: ${tf.text.length > 70 ? tf.text.slice(0, 67) + '…' : tf.text}` + (tf.v !== b.v ? ' (since reworded)' : ''));
+  }
+  function markRipple(eid, fid, rid, status) {
+    const e = S.canon.get(eid);
+    if (e) put('canon', eid, C.setRippleStatus(e, fid, rid, status));
+  }
+  function keepRipple(eid, fid, x) {
+    markRipple(eid, fid, x.id, 'kept');
+    const e = S.canon.get(eid);
+    addFactTo(x.about || (e && e.name) || 'Unnamed', x.fact, x.kind);
+  }
+  // an answer is the author's own: a new fact on the same entity, which can ripple in turn
+  function answerRipple(eid, fid, q, text) {
+    const e = C.setRippleStatus(S.canon.get(eid), fid, q.id, 'answered');
+    const nf = C.newFact(text, 'human', now());
+    e.facts.push(nf);
+    put('canon', eid, e);
+    toast(`Added to ${e.name}. What follows from that?`, null, { label: 'Ripples', run: () => rippleFact(eid, nf.id) });
+  }
+  // not ready to decide: the question waits in the dream inbox
+  function laterRipple(eid, fid, q) {
+    const e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
+    put('seeds', C.uid('d'), { text: `${q.text} (from ${e ? e.name : 'a fact'}: ${f ? f.text : ''})`, at: now(), proposals: [], askedAt: null });
+    markRipple(eid, fid, q.id, 'later');
+    toast('Saved in the dream inbox for later.');
   }
   function updateFact(eid, fid, patch) {
     const e = C.clone(S.canon.get(eid));

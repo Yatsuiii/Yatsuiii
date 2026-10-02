@@ -10,6 +10,15 @@ It runs as a single page published as a claude.ai artifact:
 
 ## What it does
 
+**Overthink it. Inkwash keeps it straight.** Inkwash is world creation for people who overthink: pour in every detail, and it keeps the world consistent and thinks it through with you.
+
+**Ripples.** On any fact, Claude reads it against the rest of the canon and the scenes that touch it, and shows three things:
+- **What follows:** consequences that would also have to be true. Keep one with a click (it joins the canon, marked as suggested) or dismiss it.
+- **What it breaks:** clear contradictions, each linked to the fact or scene it breaks.
+- **What it leaves to decide:** open questions. Answer one on the spot, and the answer becomes your own fact, which can ripple in turn. Or save it to the dream inbox for later.
+
+Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after you add or reword a fact, and never spends your usage on them unasked.
+
 **Dream a world.** Write a dream the way it came. Claude grows it into a whole world, and Inkwash keeps all of it in the canon, each fact marked as suggested. The world has:
 - its shape and climate;
 - 6 to 9 regions, each with its own people, look and trouble;
