@@ -1063,10 +1063,11 @@
     const picked = list.filter(relies).concat(list.filter((p) => !relies(p) && entity && entity.kind !== 'rule' && mentions(p.text, entity.name)));
     return picked.slice(0, limit || 6).map((p) => ({ p, where: where ? where(p) : '' }));
   }
-  // `toward`, when the author names a direction of their own: one question that way, and nothing else.
+  // `toward`, when the author asks for help with an idea of their own: one question that takes it
+  // further, and nothing else.
   function buildRipplePrompt({ world, entity, fact, items, scenes, toward }) {
     const refMap = {}, lines = [], sceneLines = [];
-    const own = String(toward || '').replace(/\s+/g, ' ').replace(/"/g, "'").trim().slice(0, 120);
+    const own = String(toward || '').replace(/\s+/g, ' ').replace(/"/g, "'").trim().slice(0, 200);
     let n = 0, m = 0;
     for (const { e, f } of items || []) {
       const key = 'F' + ++n;
@@ -1087,13 +1088,13 @@
     const way = '{"label": "where it leads, in 2 to 4 words", "about": "the entry of the canon an answer would belong to, using an existing name where there is one", "kind": "character|place|faction|thing|rule", "question": "one question for the author to decide, under 20 words", "options": ["a possible answer: one sentence that could stand in the canon as written"]}';
     const options = 'Each way has 4 options that differ from each other and that the canon allows: possibilities for the author to pick from or rewrite, not your preference. Ground everything in the world as written.';
     const prompt = own
-      ? head + `The author wants to follow it toward: "${own}".\n\nReply with only JSON in this form: {"ways": [${way}]}. Exactly 1 way, in that direction. ` + options
+      ? head + `The author has an idea of where it leads: "${own}".\n\nReply with only JSON in this form: {"ways": [${way}]}. Exactly 1 way: a question that takes the author's idea further, without deciding it for them. ` + options
       : head + `Reply with only JSON in this form: {"breaks": [{"ref": "F2", "why": "one short sentence"}], "ways": [${way}]}. `
         + 'Exactly 4 ways, each a different thread the fact pulls on, named for the part of the world it leads to: a people, a place, a power, a thing, what came before, what comes next. ' + options + ' '
         + 'In breaks, only clear contradictions with the canon or the scenes above, by their key. If nothing breaks, "breaks" is [].';
     return { prompt, refMap };
   }
-  // `max`: how many ways to keep (4, or 1 for a direction the author named)
+  // `max`: how many ways to keep (4, or 1 for help with the author's own idea)
   function parseRipples(json, refMap, max) {
     const clean = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
     const seen = new Set();
@@ -1129,7 +1130,7 @@
     if (Array.isArray(r.ways)) return r.ways;
     return (r.asks || []).map((q) => ({ id: q.id, label: 'An open question', about: '', kind: 'thing', question: q.text, options: [], status: q.status }));
   }
-  // a direction the author named joins the others
+  // a way of the author's own joins the others: a question about their idea, or the idea itself
   function addRippleWay(entity, fid, way) {
     const e = clone(entity);
     const f = (e.facts || []).find((x) => x.id === fid);

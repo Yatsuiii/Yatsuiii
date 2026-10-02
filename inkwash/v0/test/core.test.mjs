@@ -1011,13 +1011,13 @@ test('the ripple prompt states the fact, what it used to say, the canon and the 
   assert.deepEqual(refMap.S1, { type: 'scene', id: 'p1', chapter: 'c1', scene: 0 });
 });
 
-test('a direction the author names asks for one question that way, and nothing else', () => {
+test('help with the author\'s own idea asks one question that takes it further, and nothing else', () => {
   const ents = drained();
   const sea = ents.get('e_sea');
   const scenes = [{ p: { id: 'p1', chapter: 'c1', scene: 0, text: 'The fleet put out to sea at dawn.' }, where: 'Chapter 1, scene 1' }];
   const { prompt, refMap } = C.buildRipplePrompt({ world: { title: 'The Drained Sea' }, entity: sea, fact: sea.facts[0], items: C.rippleCanon(ents, 'e_sea', 'f_night'), scenes, toward: '  the "fish"\n left behind ' });
-  assert.match(prompt, /The author wants to follow it toward: "the 'fish' left behind"\./);
-  assert.match(prompt, /Reply with only JSON in this form: \{"ways": \[\{"label"[\s\S]*Exactly 1 way, in that direction\./);
+  assert.match(prompt, /The author has an idea of where it leads: "the 'fish' left behind"\./);
+  assert.match(prompt, /Reply with only JSON in this form: \{"ways": \[\{"label"[\s\S]*Exactly 1 way: a question that takes the author's idea further, without deciding it for them\./);
   assert.doesNotMatch(prompt, /"breaks"|SCENES THAT MAY BE AFFECTED/);
   assert.equal(refMap.S1, undefined);
   assert.match(prompt, /\[F1\] The Drained Sea: Its bed is a white plain of salt\./, 'the canon still grounds it');
@@ -1050,7 +1050,7 @@ test('ripples come back clean: known keys only, four ways of four answers, no re
   assert.deepEqual(r.ways[1].options, []);
   assert.deepEqual([r.ways[3].question.length, r.ways[3].options[0].length], [200, 300]);
   assert.ok(r.breaks.concat(r.ways).every((x) => /^rp_/.test(x.id)), 'every item has an id');
-  assert.equal(C.parseRipples({ ways: [way('A', 'One?', []), way('B', 'Two?', [])] }, {}, 1).ways.length, 1, 'a direction the author named keeps one');
+  assert.equal(C.parseRipples({ ways: [way('A', 'One?', []), way('B', 'Two?', [])] }, {}, 1).ways.length, 1, 'help with the author\'s own idea keeps one');
   assert.deepEqual(C.parseRipples(null, refMap), { breaks: [], ways: [] });
   assert.deepEqual(C.parseRipples({ breaks: {}, ways: 3 }, null), { breaks: [], ways: [] });
 });

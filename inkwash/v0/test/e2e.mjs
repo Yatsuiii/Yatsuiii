@@ -105,7 +105,7 @@ function mockClaude(cfg) {
     }
     if (String(input).includes('caught this fragment')) return { seeds: [{ kind: 'place', name: 'The Candle Gardens', fact: 'Inside the moon, candles grow like tulips.' }] };
     if (String(input).startsWith('You are thinking through one fact')) {
-      if (/The author wants to follow it toward: "the tides"/.test(String(input))) {
+      if (/The author has an idea of where it leads: "the tides"/.test(String(input))) {
         return { ways: [{ label: 'The tides', about: 'The Tide Wardens', kind: 'faction', question: 'Who watches the tides, if looking at the moon is dangerous?',
           options: ['The Tide Wardens watch the water through smoked glass.', 'Nobody: the tide tables are a hundred years old.', 'Blind keepers, who have nothing left to lose to it.', 'The children, before they have loved anything.'] }] };
       }
@@ -485,7 +485,7 @@ await step('dream inbox: catch a fragment, find seeds, keep one', async () => {
   assert.ok(names.includes('The Candle Gardens'));
 });
 
-await step('ripples: the author picks the way, then picks an answer, rewrites it or writes their own', async () => {
+await step("ripples: the author's own idea comes first, then Claude's ways; an answer is the author's own first, Claude's to start from", async () => {
   await page.click('.tab >> text=Canon');
   const card = '.card[aria-label="Moonlight"]';
   await page.waitForSelector(card);
@@ -499,38 +499,61 @@ await step('ripples: the author picks the way, then picks an answer, rewrites it
   assert.match(call.input, /Exactly 4 ways/);
   const panel = `${card} .ripples`;
   const frame = () => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))); // the page redraws on the next frame
-  assert.match(await page.textContent(panel), /What it breaks[\s\S]*Mira lost her smell[\s\S]*Where does it lead\? Pick a way/);
-  assert.deepEqual(await page.locator(`${panel} .ripple-ways .btn`).allTextContents(), ['The lamplighters', 'Through glass', 'The records', 'Children', 'Other…']);
-  assert.equal(await page.locator(`${panel} .ripple-options`).count(), 0, 'no answers are offered until the author picks a way');
+  assert.match(await page.textContent(panel), /What it breaks[\s\S]*Mira lost her smell[\s\S]*Where does it lead\?\s*My own idea\s*or one of Claude’s:/);
+  assert.deepEqual(await page.locator(`${panel} .ripple-ways .btn`).allTextContents(), ['My own idea', 'The lamplighters', 'Through glass', 'The records', 'Children'], 'the author\'s own idea comes first');
+  assert.equal(await page.locator(`${panel} .way-open`).count(), 0, 'nothing is open until the author picks');
   assert.doesNotMatch(await page.textContent(panel), /not a key/, 'a reference to nothing is dropped');
   // the contradiction leads to the fact it breaks
   await page.click(`${panel} .ripple.break button:has-text("Mira:")`);
   assert.equal(await st(page, () => document.activeElement.id), 'fact-f_mira_smell');
 
-  // a way, and an answer picked as it was offered: it's kept from a suggestion
+  // the author's own idea: written by them, filed where they say
+  await page.click(`${panel} .ripple-ways .btn:has-text("My own idea")`);
+  await frame();
+  const idea = `${panel} .way-open.mine`;
+  assert.match(await st(page, () => document.activeElement.id), /^ripple-idea-/, 'the box is ready to write in');
+  assert.match(await page.textContent(`${idea} button[type="submit"]`), /^Add to Moonlight$/, 'it goes into the fact\'s own entry unless the author says otherwise');
+  await page.fill(`${idea} textarea`, 'Kael has started wearing his hood up at dusk, and won\'t say why.');
+  await page.selectOption(`${idea} select[id^="ripple-into-"]`, { label: 'Kael' });
+  await frame();
+  await page.click(`${idea} button:has-text("Add to Kael")`);
+  await page.waitForSelector('.toast:has-text("Added to Kael. Where does that lead?") button:has-text("Ripples")');
+  // and one in a new entry
+  await page.click(`${panel} .ripple-ways .btn:has-text("My own idea")`);
+  await frame();
+  await page.fill(`${idea} textarea`, 'They tend the glass roofs of Vesk, and are paid in forgetting.');
+  await page.selectOption(`${idea} select[id^="ripple-into-"]`, '__new');
+  await frame();
+  await page.click(`${idea} button:has-text("Add it")`);
+  await page.waitForSelector('.toast:has-text("Give the new entry a name first.")');
+  await page.fill(`${idea} input[aria-label="Name of the new entry"]`, 'The Glaziers');
+  await page.selectOption(`${idea} select[aria-label="What the new entry is"]`, 'faction');
+  await page.click(`${idea} button:has-text("Add it")`);
+  await page.waitForSelector('.toast:has-text("The Glaziers is new in your canon. Where does that lead?")');
+
+  // one of Claude's ways: the author's own answer comes first, Claude's are there to start from
   await page.click(`${panel} .ripple-ways .btn:has-text("The lamplighters")`);
   await frame();
   assert.equal(await page.getAttribute(`${panel} .ripple-ways .btn:has-text("The lamplighters")`, 'aria-pressed'), 'true');
-  assert.match(await page.textContent(`${panel} .way-open`), /The lamplighters: What has Mira already forgotten\?/);
-  assert.deepEqual(await page.locator(`${panel} .ripple-options .btn`).allTextContents(), ['Mira has forgotten her mother’s face.', 'Mira has forgotten the song her brother used to hum.', 'Mira has forgotten why she became a lamplighter.', 'Mira has forgotten something, and keeps a list to find out what.', 'Other, in my own words']);
+  assert.match(await page.textContent(`${panel} .way-open`), /^The lamplighters: What has Mira already forgotten\?\s*My own answer[\s\S]*Or start from one of Claude’s:/);
+  assert.deepEqual(await page.locator(`${panel} .ripple-options .btn`).allTextContents(), ['Mira has forgotten her mother’s face.', 'Mira has forgotten the song her brother used to hum.', 'Mira has forgotten why she became a lamplighter.', 'Mira has forgotten something, and keeps a list to find out what.']);
+  const box = `${panel} .way-open textarea`;
+  assert.equal(await page.inputValue(box), '', 'my own answer starts from an empty box');
   await page.click(`${panel} .ripple-options .btn:has-text("the song her brother")`);
   await frame();
-  const box = `${panel} .way-open textarea`;
-  assert.equal(await page.inputValue(box), 'Mira has forgotten the song her brother used to hum.', 'the answer goes into the box, to keep or rewrite');
+  assert.equal(await page.inputValue(box), 'Mira has forgotten the song her brother used to hum.', 'Claude\'s answer goes into the box, to keep or rewrite');
   assert.match(await st(page, () => document.activeElement.id), /^ripple-answer-/);
   await page.click(`${panel} .way-open button:has-text("Add to Mira")`);
   await page.waitForSelector('.toast:has-text("Added to Mira. Where does that lead?") button:has-text("Ripples")');
 
-  // a way answered in the author's own words: it's theirs, on the fact's own entry
+  // the author's own words are never thrown away by a click on Claude's
   await page.click(`${panel} .ripple-ways .btn:has-text("Through glass")`);
+  await frame();
+  await page.fill(box, 'Glass only dims it.');
   await page.click(`${panel} .ripple-options .btn:has-text("Glass makes it worse.")`);
-  await page.click(`${panel} .ripple-options .btn:has-text("Other, in my own words")`);
   await frame();
-  assert.equal(await page.inputValue(box), '', 'my own words start from an empty box');
+  assert.equal(await page.inputValue(box), 'Glass only dims it. Glass makes it worse.');
   await page.fill(box, 'Moonlight through glass is harmless, which is why the rich never leave their glasshouses.');
-  await page.click(`${panel} .ripple-options .btn:has-text("Other, in my own words")`);
-  await frame();
-  assert.equal(await page.inputValue(box), 'Moonlight through glass is harmless, which is why the rich never leave their glasshouses.', 'what the author wrote is never thrown away');
   await page.click(`${panel} .way-open button:has-text("Add to Moonlight")`);
 
   // a way not ready to decide waits in the dream inbox; its entry would be new
@@ -548,13 +571,16 @@ await step('ripples: the author picks the way, then picks an answer, rewrites it
   await frame();
   assert.equal(await page.locator(`${panel} .way-open`).count(), 0, 'a way closes again');
 
-  // a way of the author's own: one question that way, answered and rewritten
-  await page.click(`${panel} .ripple-ways .btn:has-text("Other…")`);
-  await page.fill(`${panel} input[aria-label="Your own way to follow it"]`, 'the tides');
-  await page.click(`${panel} .ripple-toward button:has-text("Ask me")`);
+  // a bit of help with the author's own idea: one question that takes it further
+  await page.click(`${panel} .ripple-ways .btn:has-text("My own idea")`);
+  await frame();
+  await page.click(`${idea} button:has-text("Help me think it through")`);
+  await page.waitForSelector('.toast:has-text("Write a few words of your idea first")');
+  await page.fill(`${idea} textarea`, 'the tides');
+  await page.click(`${idea} button:has-text("Help me think it through")`);
   await page.waitForSelector(`${panel} .way-open:has-text("Who watches the tides")`, { timeout: 6000 });
   const asked = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop());
-  assert.match(asked.input, /The author wants to follow it toward: "the tides"\.[\s\S]*Exactly 1 way, in that direction\./);
+  assert.match(asked.input, /The author has an idea of where it leads: "the tides"\.[\s\S]*Exactly 1 way: a question that takes the author's idea further/);
   await page.click(`${panel} .ripple-options .btn:has-text("smoked glass")`);
   await page.fill(box, 'The Tide Wardens work blindfolded and count the waves by ear.');
   await page.click(`${panel} .way-open button:has-text("Add to The Tide Wardens")`);
@@ -564,22 +590,24 @@ await step('ripples: the author picks the way, then picks an answer, rewrites it
   const S = await st(page, () => {
     const s = window.__inkwash.state, by = (name) => [...s.canon.values()].find((e) => e.name === name);
     const facts = (e) => (e ? e.facts.map((f) => [f.text, f.origin]) : null);
-    return { mira: facts(by('Mira')), moon: facts(by('Moonlight')), wardens: by('The Tide Wardens') ? [by('The Tide Wardens').kind, facts(by('The Tide Wardens'))] : null, archive: !!by('The Archive of Losses'),
+    return { kael: facts(by('Kael')), mira: facts(by('Mira')), moon: facts(by('Moonlight')), glaziers: by('The Glaziers') ? [by('The Glaziers').kind, facts(by('The Glaziers'))] : null,
+      wardens: by('The Tide Wardens') ? [by('The Tide Wardens').kind, facts(by('The Tide Wardens'))] : null, archive: !!by('The Archive of Losses'),
       rip: s.canon.get('e_moonlight').facts.find((f) => f.id === 'f_moon_forget').ripples, seeds: [...s.seeds.values()].map((d) => d.text) };
   });
-  assert.ok(S.mira.some(([t, o]) => t === 'Mira has forgotten the song her brother used to hum.' && o === 'accepted'), 'an answer picked as offered is marked as a suggestion kept');
+  assert.ok(S.kael.some(([t, o]) => t === 'Kael has started wearing his hood up at dusk, and won\'t say why.' && o === 'human'), 'the author\'s own idea is theirs, where they filed it');
+  assert.deepEqual(S.glaziers, ['faction', [['They tend the glass roofs of Vesk, and are paid in forgetting.', 'human']]]);
+  assert.ok(S.mira.some(([t, o]) => t === 'Mira has forgotten the song her brother used to hum.' && o === 'accepted'), 'Claude\'s answer added as it was is marked as a suggestion kept');
   assert.ok(S.moon.some(([t, o]) => t === 'Moonlight through glass is harmless, which is why the rich never leave their glasshouses.' && o === 'human'));
   assert.deepEqual(S.wardens, ['faction', [['The Tide Wardens work blindfolded and count the waves by ear.', 'human']]], 'a rewritten answer is the author\'s, in a new entry of the kind it was about');
   assert.equal(S.archive, false, 'nothing joins the canon unless the author adds it');
-  assert.deepEqual(S.rip.ways.map((w) => [w.label, w.status]), [['The lamplighters', 'answered'], ['Through glass', 'answered'], ['The records', 'later'], ['Children', 'new'], ['The tides', 'answered']]);
-  assert.deepEqual([S.rip.ways[4].own, S.rip.ways[4].toward], [true, 'the tides']);
-  assert.equal(S.rip.ways[0].answer.text, 'Mira has forgotten the song her brother used to hum.');
+  assert.deepEqual(S.rip.ways.map((w) => [w.label, w.status]), [['The lamplighters', 'answered'], ['Through glass', 'answered'], ['The records', 'later'], ['Children', 'new'], ['My own idea', 'answered'], ['My own idea', 'answered'], ['The tides', 'answered']]);
+  assert.deepEqual([S.rip.ways[4].mine, S.rip.ways[4].answer.text, S.rip.ways[6].own, S.rip.ways[6].toward], [true, 'Kael has started wearing his hood up at dusk, and won\'t say why.', true, 'the tides']);
   assert.equal(S.rip.follows, undefined, 'Claude writes no consequences of its own');
   assert.ok(S.seeds.some((t) => t.startsWith('Who keeps a record of what each person has lost? (from Moonlight:')));
   assert.match(await st(page, () => window.__mock.docs.get('studio/w_hollow_moon/canon/e_moonlight')), /"ways"/, 'ripples are saved with the fact');
-  // the panel now offers only the way still open, and shows what was decided
-  assert.deepEqual(await page.locator(`${panel} .ripple-ways .btn`).allTextContents(), ['Children', 'Other…']);
-  assert.match(await page.textContent(panel), /Decided[\s\S]*The lamplighters: Mira has forgotten the song[\s\S]*Through glass: Moonlight through glass is harmless[\s\S]*The tides: The Tide Wardens work blindfolded/);
+  // the panel now offers the author's own idea and the way still open, and shows what was decided
+  assert.deepEqual(await page.locator(`${panel} .ripple-ways .btn`).allTextContents(), ['My own idea', 'Children']);
+  assert.match(await page.textContent(panel), /Decided[\s\S]*The lamplighters: Mira has forgotten the song[\s\S]*Through glass: Moonlight through glass is harmless[\s\S]*My own idea: Kael has started wearing his hood[\s\S]*My own idea: They tend the glass roofs[\s\S]*The tides: The Tide Wardens work blindfolded/);
   await page.click('.tab >> text=Score');
 });
 

@@ -190,15 +190,19 @@ for them. On any fact, Claude reads it against the rest of the canon and the sce
 and shows:
 - **what it breaks:** clear contradictions with other facts or with written scenes, each linked to
   the fact or scene it breaks;
-- **where it leads:** four ways the fact pulls on the world (a people, a place, a power, what came
-  before, what comes next), plus **Other**, where the author names a way of their own. Each way
-  is a question for the author, with four possible answers and **Other, in my own words**.
+- **where it leads:** first **My own idea**, where the author writes where they think it leads
+  and files it under any entry, or a new one; then four ways Claude sees the fact pulling on the
+  world (a people, a place, a power, what came before, what comes next). Each of Claude's ways is
+  a question, answered first in **My own answer**, with four of Claude's answers below it to start
+  from.
 
-A picked answer goes into a box, to keep or rewrite. Nothing joins the canon until the author
-adds it, under the entry the question is about; a question not ready to decide goes to the dream
-inbox. The answers offered are a way in, not the answer: an answer added as it was offered, or
-nearly, is marked as suggested, and one the author rewrote until most of its words are theirs is
-the author's own. Either can ripple in turn.
+The author's own option always comes first: Inkwash is for people designing their world, with a
+bit of help from Claude. That help is a way in, never the answer. One of Claude's answers goes
+into the box to keep or rewrite, and never over the author's own words. "Help me think it
+through" asks the author one question about their idea rather than finishing it. Nothing joins the
+canon until the author adds it; a question not ready to decide goes to the dream inbox. An answer
+added as Claude offered it, or nearly, is marked as suggested; one the author rewrote until most
+of its words are theirs is the author's own. Either can ripple in turn.
 
 Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after
 you add or reword a fact; it never spends your usage on them unasked.

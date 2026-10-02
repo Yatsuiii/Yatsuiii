@@ -14,9 +14,10 @@ It runs as a single page published as a claude.ai artifact:
 
 **Ripples.** On any fact, Claude reads it against the rest of the canon and the scenes that touch it. Then you think it through, and you decide:
 - **What it breaks:** clear contradictions, each linked to the fact or scene it breaks.
-- **Where does it lead?** Four ways the fact could lead, plus **Other** to name your own. Pick one, and it asks you a question, with four possible answers and **Other, in my own words**.
-  - A picked answer lands in a box, for you to keep or rewrite.
-  - Add it, and it joins the canon under the entry it's about. It's your own fact, unless most of its words are the answer that was offered; then it's marked as suggested. Either can ripple in turn.
+- **Where does it lead?**
+  - **My own idea** comes first. Write where you think it leads, and choose the entry it goes into, or start a new one. Stuck? **Help me think it through**, and Claude asks you one question about your idea.
+  - Then four ways Claude sees it leading. Pick one, and it asks you a question. **My own answer** comes first, with four of Claude's answers below it to start from. Pick one of Claude's and it goes into your box to keep or rewrite; it never replaces what you've written.
+  - Add it, and it joins the canon under the entry it's about. It's your own fact, unless most of its words are Claude's answer; then it's marked as suggested. Either can ripple in turn.
   - Not ready to decide? Save the question to the dream inbox.
 
 Nothing from a ripple joins your canon unless you add it. Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after you add or reword a fact, and never spends your usage on them unasked.
