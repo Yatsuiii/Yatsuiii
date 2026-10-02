@@ -1042,9 +1042,11 @@
 
   // ---------------------------------------------------------------- ripples
 
-  // A fact is never alone. Ripples think one through the way an overthinker would: what follows
-  // from it, what it breaks, and what it leaves for the author to decide. The canon goes in
-  // nearest first: the fact's own entity, then everything the fact names, then the rest.
+  // A fact is never alone. Ripples think one through with its author, who overthinks it and
+  // decides. Claude checks what the fact breaks, then offers four directions it could lead, each a
+  // question with four possible answers: the author picks one, rewrites it, or answers in their own
+  // words. Claude never adds a fact itself. The canon goes in nearest first: the fact's own
+  // entity, then everything the fact names, then the rest.
   function rippleCanon(entities, eid, fid, limit) {
     const all = valuesOf(entities), self = all.find((e) => e.id === eid);
     const fact = self && (self.facts || []).find((f) => f.id === fid);
@@ -1061,47 +1063,58 @@
     const picked = list.filter(relies).concat(list.filter((p) => !relies(p) && entity && entity.kind !== 'rule' && mentions(p.text, entity.name)));
     return picked.slice(0, limit || 6).map((p) => ({ p, where: where ? where(p) : '' }));
   }
-  function buildRipplePrompt({ world, entity, fact, items, scenes }) {
+  // `toward`, when the author names a direction of their own: one question that way, and nothing else.
+  function buildRipplePrompt({ world, entity, fact, items, scenes, toward }) {
     const refMap = {}, lines = [], sceneLines = [];
+    const own = String(toward || '').replace(/\s+/g, ' ').replace(/"/g, "'").trim().slice(0, 120);
     let n = 0, m = 0;
     for (const { e, f } of items || []) {
       const key = 'F' + ++n;
       refMap[key] = { type: 'fact', id: f.id, v: f.v, eid: e.id };
       lines.push(`[${key}] ${e.kind === 'rule' ? 'World rule' : e.name}: ${f.text}`);
     }
-    for (const { p, where } of scenes || []) {
+    for (const { p, where } of own ? [] : scenes || []) {
       const key = 'S' + ++m;
       refMap[key] = { type: 'scene', id: p.id, chapter: p.chapter, scene: p.scene };
       sceneLines.push(`[${key}] ${where || 'A scene'}:\n"""\n${String(p.text).slice(0, 600)}\n"""`);
     }
     const was = (fact.history || []).length ? fact.history[fact.history.length - 1].text : null;
-    const prompt = `You are thinking through one fact of the story world "${world.title || 'Untitled'}"` + (world.premise ? ` (${world.premise})` : '')
-      + ' with its author, the way a careful worldbuilder would: what follows from it, what it contradicts, and what it leaves open.\n\n'
+    const head = `You are thinking through one fact of the story world "${world.title || 'Untitled'}"` + (world.premise ? ` (${world.premise})` : '')
+      + ' with its author, who overthinks it. The author decides what is true in this world, never you: you show them what the fact breaks and where it could lead, and they choose.\n\n'
       + 'THE FACT\n' + `${entity.kind === 'rule' ? 'World rule' : entity.name}: ${fact.text}` + (was ? `\n(It used to say: ${was})` : '') + '\n\n'
       + 'THE REST OF THE CANON\n' + (lines.join('\n') || '(none)') + '\n\n'
-      + (sceneLines.length ? 'SCENES THAT MAY BE AFFECTED\n' + sceneLines.join('\n\n') + '\n\n' : '')
-      + 'Think it through, then reply with only JSON in this form: {"follows": [{"about": "who or what it is about, using an existing name where there is one", "kind": "character|place|faction|thing|rule", "fact": "one sentence that would also have to be true"}], "breaks": [{"ref": "F2", "why": "one short sentence"}], "asks": ["a question the author has to decide, under 20 words"]}. '
-      + 'Up to 5 follows: real consequences, not restatements of the fact. In breaks, only clear contradictions with the canon or the scenes above, by their key. Up to 5 asks. Ground everything in the world as written. If nothing breaks, "breaks" is [].';
+      + (sceneLines.length ? 'SCENES THAT MAY BE AFFECTED\n' + sceneLines.join('\n\n') + '\n\n' : '');
+    const way = '{"label": "where it leads, in 2 to 4 words", "about": "the entry of the canon an answer would belong to, using an existing name where there is one", "kind": "character|place|faction|thing|rule", "question": "one question for the author to decide, under 20 words", "options": ["a possible answer: one sentence that could stand in the canon as written"]}';
+    const options = 'Each way has 4 options that differ from each other and that the canon allows: possibilities for the author to pick from or rewrite, not your preference. Ground everything in the world as written.';
+    const prompt = own
+      ? head + `The author wants to follow it toward: "${own}".\n\nReply with only JSON in this form: {"ways": [${way}]}. Exactly 1 way, in that direction. ` + options
+      : head + `Reply with only JSON in this form: {"breaks": [{"ref": "F2", "why": "one short sentence"}], "ways": [${way}]}. `
+        + 'Exactly 4 ways, each a different thread the fact pulls on, named for the part of the world it leads to: a people, a place, a power, a thing, what came before, what comes next. ' + options + ' '
+        + 'In breaks, only clear contradictions with the canon or the scenes above, by their key. If nothing breaks, "breaks" is [].';
     return { prompt, refMap };
   }
-  function parseRipples(json, refMap) {
+  // `max`: how many ways to keep (4, or 1 for a direction the author named)
+  function parseRipples(json, refMap, max) {
     const clean = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
     const seen = new Set();
     const once = (k) => { k = k.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; };
     const list = (k) => (json && Array.isArray(json[k]) ? json[k] : []);
-    const follows = list('follows').slice(0, 10)
-      .map((x) => ({ about: clean(x && x.about, 80), kind: KINDS.includes(String(x && x.kind).toLowerCase()) ? String(x.kind).toLowerCase() : 'thing', fact: clean(x && x.fact, 300) }))
-      .filter((x) => x.fact && once('f:' + x.fact)).slice(0, 5)
-      .map((x) => Object.assign({ id: uid('rp'), status: 'new' }, x));
     const breaks = list('breaks').slice(0, 12)
       .map((x) => ({ key: clean(x && (x.ref || x.fact || x.scene), 12).toUpperCase().replace(/^\[|\]$/g, ''), why: clean(x && x.why, 240) }))
       .filter((x) => refMap && refMap[x.key] && once('b:' + x.key)).slice(0, 6)
       .map((x) => { const t = refMap[x.key]; return Object.assign({ id: uid('rp'), type: t.type, target: t.id }, t.type === 'fact' ? { eid: t.eid, v: t.v } : { chapter: t.chapter, scene: t.scene }, { why: x.why }); });
-    const asks = list('asks').slice(0, 10)
-      .map((q) => clean(typeof q === 'string' ? q : q && (q.question || q.text), 200))
-      .filter((q) => q && once('a:' + q)).slice(0, 5)
-      .map((q) => ({ id: uid('rp'), text: q, status: 'new' }));
-    return { follows, breaks, asks };
+    const ways = list('ways').slice(0, 8).filter((x) => x && typeof x === 'object')
+      .map((x) => {
+        const said = new Set();
+        const options = (Array.isArray(x.options) ? x.options : []).slice(0, 8)
+          .map((o) => clean(typeof o === 'string' ? o : o && (o.text || o.answer), 300))
+          .filter((o) => o && !said.has(o.toLowerCase()) && said.add(o.toLowerCase())).slice(0, 4);
+        const kind = String(x.kind).toLowerCase();
+        return { label: clean(x.label, 60), about: clean(x.about, 80), kind: KINDS.includes(kind) ? kind : 'thing', question: clean(x.question, 200), options };
+      })
+      .filter((x) => x.question && once('w:' + x.question)).slice(0, max || 4)
+      .map((x) => Object.assign({ id: uid('rp'), status: 'new' }, x, { label: x.label || x.about || 'Another way' }));
+    return { breaks, ways };
   }
   // A fact keeps the ripples of the wording they were made from.
   function withRipples(entity, fid, ripples, now) {
@@ -1110,12 +1123,40 @@
     if (f) f.ripples = Object.assign({ at: now || 0, v: f.v }, ripples);
     return e;
   }
-  // kept, dismissed, answered or later: what the author did with one consequence or question
-  function setRippleStatus(entity, fid, rid, status) {
+  // The directions of a fact's ripples. Ripples from before directions offer their open questions.
+  function rippleWays(r) {
+    if (!r) return [];
+    if (Array.isArray(r.ways)) return r.ways;
+    return (r.asks || []).map((q) => ({ id: q.id, label: 'An open question', about: '', kind: 'thing', question: q.text, options: [], status: q.status }));
+  }
+  // a direction the author named joins the others
+  function addRippleWay(entity, fid, way) {
     const e = clone(entity);
     const f = (e.facts || []).find((x) => x.id === fid);
-    if (f && f.ripples) for (const r of (f.ripples.follows || []).concat(f.ripples.asks || [])) if (r.id === rid) r.status = status;
+    if (f && f.ripples && way) f.ripples.ways = rippleWays(f.ripples).concat([way]);
     return e;
+  }
+  // what the author did with a direction: answered (`extra` says with what) or later; and with a
+  // consequence or question of earlier ripples: kept, dismissed, answered or later
+  function setRippleStatus(entity, fid, rid, status, extra) {
+    const e = clone(entity);
+    const f = (e.facts || []).find((x) => x.id === fid);
+    if (f && f.ripples) for (const r of [].concat(f.ripples.ways || [], f.ripples.follows || [], f.ripples.asks || [])) if (r.id === rid) Object.assign(r, extra || {}, { status });
+    return e;
+  }
+  // Whose fact is it? The author's, unless most of its words came from one of the answers offered.
+  function factOrigin(text, offered) {
+    const words = (t) => String(t || '').toLowerCase().replace(/[’‘]/g, "'").normalize('NFKD').replace(/[̀-ͯ]/g, '').match(/[\p{L}\p{N}']+/gu) || [];
+    const mine = words(text);
+    if (!mine.length) return 'human';
+    for (const o of offered || []) {
+      const pool = new Map();
+      for (const w of words(o)) pool.set(w, (pool.get(w) || 0) + 1);
+      let borrowed = 0;
+      for (const w of mine) { const k = pool.get(w); if (k) { borrowed++; pool.set(w, k - 1); } }
+      if (borrowed * 2 > mine.length) return 'accepted';
+    }
+    return 'human';
   }
 
   // ---------------------------------------------------------------- repaint a selection
@@ -1618,7 +1659,7 @@
     passageId, mergePremises, inkedPassage, handPassage, repaintPassage, editPassage, recordEdit, setPassage,
     staleness, stillTrue, passageState, dependents,
     buildContinuityPrompt, parseContinuity, parseRelies, openConflicts, keepConflict, mergeConflicts,
-    buildSeedPrompt, parseSeeds, rippleCanon, rippleScenes, buildRipplePrompt, parseRipples, withRipples, setRippleStatus, buildRepaintPrompt, parseRepaint,
+    buildSeedPrompt, parseSeeds, rippleCanon, rippleScenes, buildRipplePrompt, parseRipples, withRipples, rippleWays, addRippleWay, setRippleStatus, factOrigin, buildRepaintPrompt, parseRepaint,
     chapterProblems, publishedChapter, publishedWorld, visibleLore,
     bookModel, exportMarkdown, exportHtml, exportEpub, exportBible, exportProvenance, exportBackup, readBackup,
     worldFromDream, atlasForWorld, exploreRegion,

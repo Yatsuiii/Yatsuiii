@@ -999,52 +999,100 @@ test('the ripple prompt states the fact, what it used to say, the canon and the 
   f.history = [{ v: 1, text: 'The sea drained over a century.', at: 1 }]; f.v = 2;
   const scenes = [{ p: { id: 'p1', chapter: 'c1', scene: 0, text: 'The fleet put out to sea at dawn.' }, where: 'Chapter 1, scene 1' }];
   const { prompt, refMap } = C.buildRipplePrompt({ world: { title: 'The Drained Sea', premise: 'A sea that drained in a night.' }, entity: sea, fact: f, items: C.rippleCanon(ents, 'e_sea', f.id), scenes });
-  assert.match(prompt, /^You are thinking through one fact of the story world "The Drained Sea" \(A sea that drained in a night\.\)/);
+  assert.match(prompt, /^You are thinking through one fact of the story world "The Drained Sea" \(A sea that drained in a night\.\) with its author, who overthinks it\. The author decides what is true in this world, never you/);
   assert.match(prompt, /THE FACT\nThe Drained Sea: The sea drained in a single night\.\n\(It used to say: The sea drained over a century\.\)/);
   assert.match(prompt, /\[F2\] Gullwick: A fishing village under the cliffs\.\n\[F3\] The Harbour Fleet: The fleet still sails from Harrowgate every spring\./);
   assert.match(prompt, /\[F4\] World rule: Footprints in salt never fade\./);
   assert.match(prompt, /\[S1\] Chapter 1, scene 1:\n"""\nThe fleet put out to sea at dawn\.\n"""/);
-  assert.match(prompt, /"follows": \[\{"about"[\s\S]*"breaks": \[\{"ref": "F2"[\s\S]*"asks": \[/);
+  assert.match(prompt, /\{"breaks": \[\{"ref": "F2"[\s\S]*"ways": \[\{"label"[\s\S]*"about"[\s\S]*"question"[\s\S]*"options": \[/);
+  assert.match(prompt, /Exactly 4 ways[\s\S]*4 options[\s\S]*not your preference/);
+  assert.doesNotMatch(prompt, /"follows"/, 'Claude no longer writes consequences into the canon');
   assert.deepEqual(refMap.F3, { type: 'fact', id: 'f_sail', v: 1, eid: 'e_fleet' });
   assert.deepEqual(refMap.S1, { type: 'scene', id: 'p1', chapter: 'c1', scene: 0 });
 });
 
-test('ripples come back clean: known keys only, no repeats, nothing too long', () => {
+test('a direction the author names asks for one question that way, and nothing else', () => {
+  const ents = drained();
+  const sea = ents.get('e_sea');
+  const scenes = [{ p: { id: 'p1', chapter: 'c1', scene: 0, text: 'The fleet put out to sea at dawn.' }, where: 'Chapter 1, scene 1' }];
+  const { prompt, refMap } = C.buildRipplePrompt({ world: { title: 'The Drained Sea' }, entity: sea, fact: sea.facts[0], items: C.rippleCanon(ents, 'e_sea', 'f_night'), scenes, toward: '  the "fish"\n left behind ' });
+  assert.match(prompt, /The author wants to follow it toward: "the 'fish' left behind"\./);
+  assert.match(prompt, /Reply with only JSON in this form: \{"ways": \[\{"label"[\s\S]*Exactly 1 way, in that direction\./);
+  assert.doesNotMatch(prompt, /"breaks"|SCENES THAT MAY BE AFFECTED/);
+  assert.equal(refMap.S1, undefined);
+  assert.match(prompt, /\[F1\] The Drained Sea: Its bed is a white plain of salt\./, 'the canon still grounds it');
+});
+
+test('ripples come back clean: known keys only, four ways of four answers, no repeats, nothing too long', () => {
   const refMap = { F2: { type: 'fact', id: 'f_sail', v: 1, eid: 'e_fleet' }, S1: { type: 'scene', id: 'p1', chapter: 'c1', scene: 0 } };
+  const way = (label, question, options, extra) => Object.assign({ label, about: 'Gullwick', kind: 'place', question, options }, extra);
   const r = C.parseRipples({
-    follows: [
-      { about: 'Gullwick', kind: 'PLACE', fact: 'Gullwick is now a village with no sea.' },
-      { about: 'Gullwick', kind: 'place', fact: '  Gullwick is now   a village with no sea. ' },
-      { about: '', kind: 'weather', fact: 'The fish were left on the salt overnight.' },
-      { about: 'x', fact: '' },
-      'not an object',
-    ],
     breaks: [{ ref: 'F2', why: 'The fleet cannot sail from a harbour with no sea.' }, { ref: '[f2]', why: 'again' }, { ref: 'S1', why: 'The fleet puts out to sea.' }, { ref: 'F99', why: 'unknown' }, { fact: 'S1', why: 'dup' }],
-    asks: ['Who drained it?', { question: 'Where did the water go?' }, 'Who drained it?', '', 'x'.repeat(500)],
+    ways: [
+      way('The village', 'What does Gullwick live on now?', ['Salt.', ' salt. ', 'Wrecks.', '', { text: 'The gulls.' }, 'Crabs.', 'Too many.'], { kind: 'PLACE' }),
+      way('Again', '  What does Gullwick   live on now? ', ['x']),
+      way('', 'Who owns the wrecks?', 'not a list', { about: 'Salt law', kind: 'weather' }),
+      way('Where it went', 'Where did the water go?', ['Down.']),
+      'not an object',
+      way('Long', 'x'.repeat(500), ['y'.repeat(500)]),
+      way('Fifth', 'One too many?', ['Yes.']),
+    ],
   }, refMap);
-  assert.deepEqual(r.follows.map((x) => [x.about, x.kind, x.fact, x.status]), [
-    ['Gullwick', 'place', 'Gullwick is now a village with no sea.', 'new'],
-    ['', 'thing', 'The fish were left on the salt overnight.', 'new'],
-  ]);
   assert.deepEqual(r.breaks.map((x) => [x.type, x.target, x.why]), [['fact', 'f_sail', 'The fleet cannot sail from a harbour with no sea.'], ['scene', 'p1', 'The fleet puts out to sea.']]);
   assert.deepEqual([r.breaks[0].eid, r.breaks[0].v, r.breaks[1].chapter, r.breaks[1].scene], ['e_fleet', 1, 'c1', 0]);
-  assert.deepEqual(r.asks.map((x) => x.text.length > 100 ? 'long' : x.text), ['Who drained it?', 'Where did the water go?', 'long']);
-  assert.equal(r.asks[2].text.length, 200);
-  assert.ok(r.follows.concat(r.breaks, r.asks).every((x) => /^rp_/.test(x.id)), 'every item has an id');
-  assert.deepEqual(C.parseRipples(null, refMap), { follows: [], breaks: [], asks: [] });
-  assert.deepEqual(C.parseRipples({ follows: 'no', breaks: {}, asks: 3 }, null), { follows: [], breaks: [], asks: [] });
+  assert.deepEqual(r.ways.map((x) => [x.label, x.about, x.kind, x.question.length > 100 ? 'long' : x.question, x.status]), [
+    ['The village', 'Gullwick', 'place', 'What does Gullwick live on now?', 'new'],
+    ['Salt law', 'Salt law', 'thing', 'Who owns the wrecks?', 'new'],
+    ['Where it went', 'Gullwick', 'place', 'Where did the water go?', 'new'],
+    ['Long', 'Gullwick', 'place', 'long', 'new'],
+  ]);
+  assert.deepEqual(r.ways[0].options, ['Salt.', 'Wrecks.', 'The gulls.', 'Crabs.'], 'four answers, none repeated or empty');
+  assert.deepEqual(r.ways[1].options, []);
+  assert.deepEqual([r.ways[3].question.length, r.ways[3].options[0].length], [200, 300]);
+  assert.ok(r.breaks.concat(r.ways).every((x) => /^rp_/.test(x.id)), 'every item has an id');
+  assert.equal(C.parseRipples({ ways: [way('A', 'One?', []), way('B', 'Two?', [])] }, {}, 1).ways.length, 1, 'a direction the author named keeps one');
+  assert.deepEqual(C.parseRipples(null, refMap), { breaks: [], ways: [] });
+  assert.deepEqual(C.parseRipples({ breaks: {}, ways: 3 }, null), { breaks: [], ways: [] });
 });
 
 test('a fact keeps its ripples for the wording they were made from, and what the author did with each', () => {
   const sea = drained().get('e_sea');
-  const r = C.parseRipples({ follows: [{ about: 'Gullwick', kind: 'place', fact: 'Gullwick has no sea.' }], asks: ['Who drained it?'] }, {});
+  const r = C.parseRipples({ ways: [{ label: 'The village', about: 'Gullwick', kind: 'place', question: 'What does Gullwick live on now?', options: ['Salt.'] }, { label: 'The water', question: 'Where did it go?', options: [] }] }, {});
   const kept = C.withRipples(sea, 'f_night', r, 42);
   assert.equal(sea.facts[0].ripples, undefined, 'the entity it was given is untouched');
   assert.deepEqual([kept.facts[0].ripples.at, kept.facts[0].ripples.v], [42, 1]);
-  const done = C.setRippleStatus(C.setRippleStatus(kept, 'f_night', r.follows[0].id, 'kept'), 'f_night', r.asks[0].id, 'answered');
-  assert.deepEqual([done.facts[0].ripples.follows[0].status, done.facts[0].ripples.asks[0].status], ['kept', 'answered']);
-  assert.equal(kept.facts[0].ripples.follows[0].status, 'new', 'each change makes a new copy');
+  const answer = { eid: 'e_gull', fid: 'f_new', text: 'Gullwick eats its boats.' };
+  const done = C.setRippleStatus(C.setRippleStatus(kept, 'f_night', r.ways[0].id, 'answered', { answer }), 'f_night', r.ways[1].id, 'later');
+  assert.deepEqual(done.facts[0].ripples.ways.map((x) => x.status), ['answered', 'later']);
+  assert.deepEqual(done.facts[0].ripples.ways[0].answer, answer);
+  assert.equal(kept.facts[0].ripples.ways[0].status, 'new', 'each change makes a new copy');
+  const own = C.parseRipples({ ways: [{ label: 'The fish', question: 'What happened to the fish?', options: ['They rotted.'] }] }, {}, 1).ways[0];
+  const more = C.addRippleWay(done, 'f_night', Object.assign(own, { own: true }));
+  assert.deepEqual(C.rippleWays(more.facts[0].ripples).map((x) => [x.label, !!x.own]), [['The village', false], ['The water', false], ['The fish', true]]);
+  assert.equal(C.rippleWays(done.facts[0].ripples).length, 2, 'adding a direction makes a new copy');
   assert.equal(C.reviseFact(done.facts[0], 'The sea drained in a week.', 50), true);
   assert.equal(done.facts[0].ripples.v, 1, 'after a rewording the old ripples say which wording they were for');
   assert.equal(done.facts[0].v, 2);
+});
+
+test('ripples from before directions still offer their open questions', () => {
+  const old = { at: 1, v: 1, follows: [{ id: 'rp_a', about: 'Gullwick', kind: 'place', fact: 'Gullwick has no sea.', status: 'new' }], breaks: [], asks: [{ id: 'rp_q', text: 'Who drained it?', status: 'new' }, { id: 'rp_r', text: 'Why?', status: 'later' }] };
+  assert.deepEqual(C.rippleWays(old).map((x) => [x.id, x.question, x.options.length, x.about, x.status]), [['rp_q', 'Who drained it?', 0, '', 'new'], ['rp_r', 'Why?', 0, '', 'later']]);
+  assert.deepEqual(C.rippleWays(null), []);
+  const sea = drained().get('e_sea');
+  sea.facts[0].ripples = old;
+  const done = C.setRippleStatus(sea, 'f_night', 'rp_q', 'answered', { answer: { eid: 'e_sea', fid: 'f_x', text: 'Nobody.' } });
+  assert.deepEqual([done.facts[0].ripples.asks[0].status, done.facts[0].ripples.asks[0].answer.text], ['answered', 'Nobody.']);
+});
+
+test('a fact is the author\'s unless most of its words came from an answer offered', () => {
+  const offered = ['The harbour cities live on the fish stranded in the salt pools.', 'They trade with the hill kingdoms on ruinous terms.'];
+  assert.equal(C.factOrigin('The harbour cities live on the fish stranded in the salt pools.', offered), 'accepted', 'picked as it was');
+  assert.equal(C.factOrigin('The harbour cities live on fish stranded in the pools.', offered), 'accepted', 'a few words cut is still the suggestion');
+  assert.equal(C.factOrigin('They trade with the hill kingdoms on terms that ruin them.', offered), 'accepted', 'measured against each answer offered');
+  assert.equal(C.factOrigin('The towns eat their own boats, plank by plank, and pretend it is a feast.', offered), 'human', 'common words alone don\'t make it borrowed');
+  assert.equal(C.factOrigin('The harbour cities eat their boats, plank by plank, and call it mourning.', offered), 'human');
+  assert.equal(C.factOrigin('Salt pools.', []), 'human', 'nothing was offered');
+  assert.equal(C.factOrigin('They’re trading with the hill kingdoms.', ["They're trading with the hill kingdoms."]), 'accepted', 'curly and straight apostrophes are the same');
+  assert.equal(C.factOrigin('', offered), 'human');
 });

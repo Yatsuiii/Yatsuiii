@@ -37,8 +37,10 @@ Three groups, in the order we need them:
 
 The overthinking is the creative kind: the itch to know what follows from every detail and
 whether it all holds together. Inkwash turns that loop into progress. A detail becomes a fact,
-its ripples show what follows and what breaks (section 6), and the open questions get answered
-or saved for later. Keep the copy there: never drift into anxiety or mental-health claims.
+its ripples show what it breaks and the ways it could lead (section 6), and the author decides
+each one or saves it for later. The author does the thinking; Inkwash offers directions and keeps
+score, and a ripple never puts a fact in the canon on its own. Keep the copy there: never drift
+into anxiety or mental-health claims.
 Dreams stay the origin story and a feature (the dream inbox, section 4).
 
 ## 2. Why not just use ChatGPT
@@ -182,15 +184,21 @@ glows, on the canvas and in the book. A fact changes when you edit the canon, or
 changes what happened. You then either ink the stale passage again, or read it and mark it still
 true, which records the new version.
 
-**Ripples: thinking a fact through.** The ledger tells you which scenes a change touches. Ripples
-think through what the change means. On any fact, Claude reads it against the rest of the canon
-and the scenes that touch it, and answers three things:
-- **what follows:** consequences that would also have to be true, each one kept into the canon
-  with a click (marked as suggested) or dismissed;
+**Ripples: thinking a fact through, led by the author.** The ledger tells you which scenes a
+change touches. Ripples help the author think through what the change means, without thinking it
+for them. On any fact, Claude reads it against the rest of the canon and the scenes that touch it,
+and shows:
 - **what it breaks:** clear contradictions with other facts or with written scenes, each linked to
   the fact or scene it breaks;
-- **what it leaves to decide:** open questions, each answered on the spot (the answer becomes the
-  author's own fact, which can ripple in turn) or saved to the dream inbox for later.
+- **where it leads:** four ways the fact pulls on the world (a people, a place, a power, what came
+  before, what comes next), plus **Other**, where the author names a way of their own. Each way
+  is a question for the author, with four possible answers and **Other, in my own words**.
+
+A picked answer goes into a box, to keep or rewrite. Nothing joins the canon until the author
+adds it, under the entry the question is about; a question not ready to decide goes to the dream
+inbox. The answers offered are a way in, not the answer: an answer added as it was offered, or
+nearly, is marked as suggested, and one the author rewrote until most of its words are theirs is
+the author's own. Either can ripple in turn.
 
 Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after
 you add or reword a fact; it never spends your usage on them unasked.
@@ -399,7 +407,7 @@ license(id, world, tier, terms, buyer, status)
 - dreaming a world: a dream grown by the AI into a whole world (regions, places, peoples, powers),
   kept in the canon as suggestions;
 - the atlas: the world drawn as a map, explored one region at a time;
-- ripples: what follows from a fact, what it breaks, and what it leaves to decide.
+- ripples: what a fact breaks, and the ways it could lead, each one decided by the author.
 
 **Out, for later:**
 - the pace and secrets lanes;

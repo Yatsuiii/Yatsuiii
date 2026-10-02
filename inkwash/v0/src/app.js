@@ -74,6 +74,7 @@
     busy: {}, aiOff: null, form: null,
     confirmReink: null, selection: null, flash: null,
     publishTried: {}, preview: false,
+    ripple: { open: {}, pick: {}, draft: {}, toward: {} }, // per fact: the open way; per way: the answer picked and drafted
     reader: { wid: null, chapters: new Map(), pos: 0, unsub: null },
     editBase: {}, editTimers: {}, removed: [],
     unsub: [], ver: 0,
@@ -507,7 +508,7 @@
     return h('section', { class: 'welcome' },
       h('p', { class: 'eyebrow' }, 'Inkwash'),
       h('h1', null, 'Overthink it. Inkwash keeps it straight.'),
-      h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Pour in every detail, and Inkwash keeps it all in one canon. Add a fact and see its ripples: what follows from it, what it breaks, and what it leaves for you to decide. Tell it a dream, and Claude grows a whole world around it, on a map you can explore. Paint each scene’s tension and mood, and Claude inks the prose inside your strokes. When your world changes, Inkwash shows you exactly which scenes it breaks.'),
+      h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Pour in every detail, and Inkwash keeps it all in one canon. Add a fact, and Inkwash shows what it breaks and asks where it leads: pick a way or name your own, then pick an answer, rewrite it, or write your own. Nothing from a ripple joins your canon unless you add it. Tell it a dream, and Claude grows a whole world around it, on a map you can explore. Paint each scene’s tension and mood, and Claude inks the prose inside your strokes. When your world changes, Inkwash shows you exactly which scenes it breaks.'),
       h('div', { class: 'choices' },
         h('div', { class: 'choice' },
           h('h2', null, 'Dream a world'),
@@ -2216,7 +2217,7 @@
     for (const f of live) card.append(factRow(e, f));
     if (retired.length) card.append(h('details', null, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
     if (!S.readOnly) {
-      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. What follows from it?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
+      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. Where does it lead?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
         h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: 'Add a fact', 'aria-label': `New fact about ${e.name}` }),
         h('button', { class: 'btn small', type: 'submit' }, 'Add')));
     }
@@ -2239,7 +2240,7 @@
         order.map((cid, i) => h('option', { value: cid, selected: f.reveal === cid }, `revealed in chapter ${i + 1}`))) : null,
       uses.length ? h('span', { class: 'uses' }, 'Used in ', uses.map((p, i) => [i ? ', ' : '', h('button', { type: 'button', onclick: () => { S.cid = p.chapter; S.k = p.scene; savePos(); go('score'); } }, `ch. ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`)])) : h('span', null, 'Not used by any scene yet'),
       S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire'),
-      aiOn() ? h('button', { class: 'btn ghost small', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What follows from this fact, what it breaks, and what it leaves to decide', onclick: () => rippleFact(e.id, f.id) },
+      aiOn() ? h('button', { class: 'btn ghost small', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What this fact breaks, and the ways it could lead: you pick one and decide', onclick: () => rippleFact(e.id, f.id) },
         S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples') : null);
     return h('div', { class: 'fact' }, ta, meta, f.ripples ? ripplesPanel(e, f) : null);
   }
@@ -2273,9 +2274,10 @@
   }
   // ---------------------------------------------------------------- ripples
 
-  // Think one fact through: what follows from it, what it breaks, what it leaves to decide. Claude
-  // reads it against the rest of the canon and the scenes that touch it; the author keeps what's
-  // true, answers what's open, and saves the rest for later.
+  // Think one fact through, led by the author. Claude reads it against the rest of the canon and
+  // the scenes that touch it, says what it breaks, and offers four ways it could lead, each a
+  // question with four possible answers. The author picks a way or names their own, then picks an
+  // answer, rewrites it or writes their own. Only what they add joins the canon.
   async function rippleFact(eid, fid) {
     const key = 'ripple:' + fid, e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
     if (!f || !aiOn() || S.busy[key]) return;
@@ -2289,30 +2291,105 @@
       const ripples = C.parseRipples(await S.sample.json(prompt, { modelTier: 'default', signal: busy.ctl.signal, cache: false }), refMap);
       const cur = S.canon.get(eid);
       if (cur) put('canon', eid, C.withRipples(cur, fid, ripples, now()), { quiet: true });
-      if (!ripples.follows.length && !ripples.breaks.length && !ripples.asks.length) toast('Nothing came back for that fact. Try again in a moment.');
-      else announce(`Ripples: ${plural(ripples.follows.length, 'thing follows', 'things follow')}, ${plural(ripples.breaks.length, 'break')}, ${plural(ripples.asks.length, 'question')}.`);
+      delete S.ripple.open[fid];
+      if (!ripples.breaks.length && !ripples.ways.length) toast('Nothing came back for that fact. Try again in a moment.');
+      else announce(`Ripples: ${plural(ripples.breaks.length, 'break')}, and ${plural(ripples.ways.length, 'way')} it could lead.`);
     } catch (err) { aiError(err, 'following the ripples'); }
     finally { delete S.busy[key]; render(); }
   }
+  // a way the author names: Claude asks one question that way, with answers to start from
+  async function rippleToward(eid, fid, toward) {
+    const key = 'ripple-way:' + fid, e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
+    if (!f || !f.ripples || !aiOn() || S.busy[key] || !toward) return;
+    const busy = { ctl: new AbortController() };
+    S.busy[key] = busy;
+    render();
+    try {
+      const { prompt, refMap } = C.buildRipplePrompt({ world: world(), entity: e, fact: f, items: C.rippleCanon(S.canon, eid, fid, 120), toward });
+      const [way] = C.parseRipples(await S.sample.json(prompt, { modelTier: 'default', signal: busy.ctl.signal, cache: false }), refMap, 1).ways;
+      const cur = S.canon.get(eid);
+      if (!way) toast('Nothing came back for that way. Try again in a moment.');
+      else if (cur) {
+        put('canon', eid, C.addRippleWay(cur, fid, Object.assign(way, { own: true, toward })), { quiet: true });
+        delete S.ripple.toward[fid];
+        S.ripple.open[fid] = way.id;
+        announce(`${way.label}: ${way.question}`);
+      }
+    } catch (err) { aiError(err, 'following that way'); }
+    finally { delete S.busy[key]; render(); }
+  }
   function ripplesPanel(e, f) {
-    const r = f.ripples, ro = S.readOnly;
-    const follows = (r.follows || []).filter((x) => x.status === 'new'), asks = (r.asks || []).filter((x) => x.status === 'new'), breaks = r.breaks || [];
+    const r = f.ripples, ro = S.readOnly, breaks = r.breaks || [], ways = C.rippleWays(r);
+    const fresh = ways.filter((w) => w.status === 'new'), decided = ways.filter((w) => w.status === 'answered' && w.answer);
+    const openId = S.ripple.open[f.id], open = fresh.find((w) => w.id === openId);
     const group = (title, items) => (items.length ? h('div', { class: 'ripple-group' }, h('p', { class: 'ripple-head' }, title), items) : null);
+    const wayBtn = (id, label) => h('button', { class: 'btn small way' + (openId === id ? ' on' : ''), type: 'button', 'aria-pressed': String(openId === id), onclick: () => openWay(f.id, id) }, label);
+    const canAsk = !ro && aiOn();
     return h('div', { class: 'ripples', role: 'group', 'aria-label': `Ripples of a fact about ${e.name}` },
       h('p', { class: 'eyebrow' }, 'Ripples', r.v !== f.v ? h('span', { class: 'faint' }, ' · of an earlier wording') : null),
       group('What it breaks', breaks.map((b) => h('div', { class: 'ripple break' }, h('p', null, b.why || 'A contradiction.'), rippleTarget(b)))),
-      group('What follows', follows.map((x) => h('div', { class: 'ripple' },
-        h('p', null, h('strong', null, (x.about || e.name) + ': '), x.fact),
-        ro ? null : h('div', { class: 'btn-row' },
-          h('button', { class: 'btn small', type: 'button', onclick: () => keepRipple(e.id, f.id, x) }, 'Keep'),
-          h('button', { class: 'btn ghost small', type: 'button', onclick: () => markRipple(e.id, f.id, x.id, 'dismissed') }, 'Dismiss'))))),
-      group('What it leaves to decide', asks.map((q) => h('div', { class: 'ripple ask' },
-        h('p', null, q.text),
-        ro ? null : h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const v = ev.target.querySelector('input').value.trim(); if (v) answerRipple(e.id, f.id, q, v); } },
-          h('input', { type: 'text', id: 'ripple-answer-' + q.id, 'data-keep': '', placeholder: 'Decide it', 'aria-label': `Answer: ${q.text}` }),
-          h('button', { class: 'btn small', type: 'submit' }, 'Add'),
-          h('button', { class: 'btn ghost small', type: 'button', onclick: () => laterRipple(e.id, f.id, q) }, 'Later'))))),
-      !follows.length && !asks.length && !breaks.length ? h('p', { class: 'faint' }, 'All thought through. Ripple again after you change it.') : null);
+      ro || !(fresh.length || canAsk) ? null : h('div', { class: 'ripple-group' },
+        h('p', { class: 'ripple-head', id: 'ripple-ways-' + f.id }, 'Where does it lead? Pick a way'),
+        h('div', { class: 'ripple-ways', role: 'group', 'aria-labelledby': 'ripple-ways-' + f.id },
+          fresh.map((w) => wayBtn(w.id, w.label)), canAsk ? wayBtn('other', 'Other…') : null),
+        openId === 'other' && canAsk ? towardForm(e, f) : null,
+        open ? wayView(e, f, open) : null),
+      group('Decided', decided.map((w) => h('p', { class: 'ripple decided' }, h('strong', null, w.label + ': '), w.answer.text))),
+      !fresh.length && !breaks.length && !canAsk ? h('p', { class: 'faint' }, 'All thought through. Ripple again after you change it.') : null);
+  }
+  function openWay(fid, id) {
+    if (S.ripple.open[fid] === id) delete S.ripple.open[fid];
+    else S.ripple.open[fid] = id;
+    render();
+  }
+  // a way of the author's own: Claude asks a question that way
+  function towardForm(e, f) {
+    const busy = !!S.busy['ripple-way:' + f.id];
+    return h('form', { class: 'inline-form ripple-toward', onsubmit: (ev) => { ev.preventDefault(); const v = (S.ripple.toward[f.id] || '').replace(/\s+/g, ' ').trim().slice(0, 120); if (v) rippleToward(e.id, f.id, v); } },
+      h('input', { type: 'text', id: 'ripple-toward-' + f.id, 'data-keep': '', maxlength: 120, value: S.ripple.toward[f.id] || '', disabled: busy, placeholder: 'Your own way: the fish, the children, a year from now…', 'aria-label': 'Your own way to follow it', oninput: (ev) => { S.ripple.toward[f.id] = ev.target.value; } }),
+      h('button', { class: 'btn small', type: 'submit', disabled: busy }, busy ? 'Thinking…' : 'Ask me'));
+  }
+  // one way: its question, four answers to start from, and the author's own words
+  function wayView(e, f, w) {
+    const pick = S.ripple.pick[w.id], box = 'ripple-answer-' + w.id;
+    const name = (w.about || '').trim() || e.name;
+    const known = entities().some((x) => x.name.toLowerCase() === name.toLowerCase());
+    const option = (i, label, cls) => h('button', { class: 'btn small option' + (cls || '') + (pick === i ? ' on' : ''), type: 'button', 'aria-pressed': String(pick === i), onclick: () => pickOption(w, i) }, label);
+    return h('div', { class: 'ripple way-open' },
+      h('p', { class: 'ripple-q' }, h('strong', null, w.label + ': '), w.question),
+      w.options.length ? h('div', { class: 'ripple-options', role: 'group', 'aria-label': 'Answers to start from' },
+        w.options.map((o, i) => option(i, o)), option('own', 'Other, in my own words', ' own')) : null,
+      h('form', { class: 'ripple-answer', onsubmit: (ev) => { ev.preventDefault(); const v = (S.ripple.draft[w.id] || '').trim(); if (v) answerWay(e.id, f.id, w, v); } },
+        h('label', { class: 'sr-only', for: box }, `Your answer: ${w.question}`),
+        h('textarea', { id: box, rows: 2, 'data-keep': '', value: S.ripple.draft[w.id] || '', placeholder: w.options.length ? 'Start from an answer above and make it yours, or write your own.' : 'Your answer, in your words.', oninput: (ev) => { S.ripple.draft[w.id] = ev.target.value; } }),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn small primary', type: 'submit' }, `Add to ${name}`),
+          h('button', { class: 'btn ghost small', type: 'button', onclick: () => laterWay(e.id, f.id, w) }, 'Later')),
+        known ? null : h('p', { class: 'faint' }, `${name} is new: adding it starts a ${w.kind === 'rule' ? 'world rule' : w.kind} in your canon.`)));
+  }
+  // an answer to start from goes into the box, to keep or rewrite; "my own words" empties it
+  function pickOption(w, i) {
+    const draft = S.ripple.draft[w.id] || '';
+    S.ripple.pick[w.id] = i;
+    if (i !== 'own') S.ripple.draft[w.id] = w.options[i];
+    else if (!draft.trim() || w.options.includes(draft.trim())) S.ripple.draft[w.id] = '';
+    render();
+    requestAnimationFrame(() => { const el = document.getElementById('ripple-answer-' + w.id); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } });
+  }
+  // the answer joins the canon under the entry it's about, as the author's own unless most of its
+  // words are one of the answers offered; and it can ripple in turn
+  function answerWay(eid, fid, w, text) {
+    const src = S.canon.get(eid);
+    if (!src) return;
+    const name = (w.about || '').trim() || src.name;
+    const found = entities().find((x) => x.name.toLowerCase() === name.toLowerCase());
+    const target = found ? C.clone(found) : C.newEntity(w.kind, name, now());
+    const nf = C.newFact(text, C.factOrigin(text, w.options), now());
+    target.facts.push(nf);
+    put('canon', target.id, target);
+    put('canon', eid, C.setRippleStatus(S.canon.get(eid), fid, w.id, 'answered', { answer: { eid: target.id, fid: nf.id, text: nf.text } }));
+    delete S.ripple.open[fid]; delete S.ripple.pick[w.id]; delete S.ripple.draft[w.id];
+    toast(found ? `Added to ${target.name}. Where does that lead?` : `${target.name} is new in your canon. Where does that lead?`, null, { label: 'Ripples', run: () => rippleFact(target.id, nf.id) });
   }
   // where a contradiction is: the fact it breaks, or the scene
   function rippleTarget(b) {
@@ -2326,28 +2403,13 @@
     return h('button', { class: 'btn ghost small', type: 'button', title: tf.text, onclick: () => { const el = document.getElementById('fact-' + tf.id); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } } },
       `${t.kind === 'rule' ? 'World rule' : t.name}: ${tf.text.length > 70 ? tf.text.slice(0, 67) + '…' : tf.text}` + (tf.v !== b.v ? ' (since reworded)' : ''));
   }
-  function markRipple(eid, fid, rid, status) {
-    const e = S.canon.get(eid);
-    if (e) put('canon', eid, C.setRippleStatus(e, fid, rid, status));
-  }
-  function keepRipple(eid, fid, x) {
-    markRipple(eid, fid, x.id, 'kept');
-    const e = S.canon.get(eid);
-    addFactTo(x.about || (e && e.name) || 'Unnamed', x.fact, x.kind);
-  }
-  // an answer is the author's own: a new fact on the same entity, which can ripple in turn
-  function answerRipple(eid, fid, q, text) {
-    const e = C.setRippleStatus(S.canon.get(eid), fid, q.id, 'answered');
-    const nf = C.newFact(text, 'human', now());
-    e.facts.push(nf);
-    put('canon', eid, e);
-    toast(`Added to ${e.name}. What follows from that?`, null, { label: 'Ripples', run: () => rippleFact(eid, nf.id) });
-  }
   // not ready to decide: the question waits in the dream inbox
-  function laterRipple(eid, fid, q) {
+  function laterWay(eid, fid, w) {
     const e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
-    put('seeds', C.uid('d'), { text: `${q.text} (from ${e ? e.name : 'a fact'}: ${f ? f.text : ''})`, at: now(), proposals: [], askedAt: null });
-    markRipple(eid, fid, q.id, 'later');
+    if (!e) return;
+    put('seeds', C.uid('d'), { text: `${w.question} (from ${e.name}: ${f ? f.text : ''})`, at: now(), proposals: [], askedAt: null });
+    put('canon', eid, C.setRippleStatus(e, fid, w.id, 'later'));
+    if (S.ripple.open[fid] === w.id) delete S.ripple.open[fid];
     toast('Saved in the dream inbox for later.');
   }
   function updateFact(eid, fid, patch) {

@@ -12,12 +12,14 @@ It runs as a single page published as a claude.ai artifact:
 
 **Overthink it. Inkwash keeps it straight.** Inkwash is world creation for people who overthink: pour in every detail, and it keeps the world consistent and thinks it through with you.
 
-**Ripples.** On any fact, Claude reads it against the rest of the canon and the scenes that touch it, and shows three things:
-- **What follows:** consequences that would also have to be true. Keep one with a click (it joins the canon, marked as suggested) or dismiss it.
+**Ripples.** On any fact, Claude reads it against the rest of the canon and the scenes that touch it. Then you think it through, and you decide:
 - **What it breaks:** clear contradictions, each linked to the fact or scene it breaks.
-- **What it leaves to decide:** open questions. Answer one on the spot, and the answer becomes your own fact, which can ripple in turn. Or save it to the dream inbox for later.
+- **Where does it lead?** Four ways the fact could lead, plus **Other** to name your own. Pick one, and it asks you a question, with four possible answers and **Other, in my own words**.
+  - A picked answer lands in a box, for you to keep or rewrite.
+  - Add it, and it joins the canon under the entry it's about. It's your own fact, unless most of its words are the answer that was offered; then it's marked as suggested. Either can ripple in turn.
+  - Not ready to decide? Save the question to the dream inbox.
 
-Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after you add or reword a fact, and never spends your usage on them unasked.
+Nothing from a ripple joins your canon unless you add it. Ripples are kept with the fact, for the wording they were made from. Inkwash offers them after you add or reword a fact, and never spends your usage on them unasked.
 
 **Dream a world.** Write a dream the way it came. Claude grows it into a whole world, and Inkwash keeps all of it in the canon, each fact marked as suggested. The world has:
 - its shape and climate;
@@ -107,8 +109,8 @@ They never see the studio, because the access rules make `studio/` readable by t
 | `dream-example.json` | The dream behind *The Drained Sea* and the world grown from it, composed in place of the model; the page builds the example world from it with no call to Claude |
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene, a scene ready to ink, and seven plates. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
-| `test/core.test.mjs` | 37 unit tests |
-| `test/e2e.mjs` | 27 browser steps against a fake claude.ai runtime |
+| `test/core.test.mjs` | 45 unit tests |
+| `test/e2e.mjs` | 28 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish
 

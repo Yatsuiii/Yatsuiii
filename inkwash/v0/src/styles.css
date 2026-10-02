@@ -464,7 +464,7 @@ details.brief pre {
 .linklike { background: none; border: 0; padding: 0; font: inherit; color: var(--indigo); text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; cursor: pointer; }
 .linklike:hover { text-decoration-thickness: 2px; }
 
-/* ripples: what follows from a fact, what it breaks, what it leaves to decide */
+/* ripples: what a fact breaks, and the ways it could lead; the author picks a way and decides */
 .ripples { display: grid; gap: 10px; margin: 2px 0 4px; padding: 10px 12px; border-left: 3px solid var(--wet); background: var(--paper-deep); border-radius: 0 8px 8px 0; }
 .ripples .eyebrow { margin: 0; }
 .ripple-group { display: grid; gap: 6px; }
@@ -475,3 +475,16 @@ details.brief pre {
 .ripple .inline-form input { min-width: 0; }
 .ripples, .ripple-group, .ripple { min-width: 0; grid-template-columns: minmax(0, 1fr); }
 .ripple > .btn { justify-self: start; text-align: left; white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+/* the ways, and the answers to start from: the author picks one, rewrites it, or writes their own */
+.ripple-ways { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.ripple-ways .btn { white-space: normal; text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.btn.way[aria-pressed="true"], .btn.option[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.ripple.way-open { gap: 8px; padding: 10px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; }
+.ripple-options { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.ripple-options .btn { text-align: left; white-space: normal; overflow-wrap: anywhere; font-family: var(--font-book); font-size: var(--step-0); padding: 6px 10px; }
+.ripple-options .btn.own { font-family: var(--font-ui); font-style: italic; color: var(--ink-soft); }
+.ripple-options .btn.own[aria-pressed="true"] { color: var(--paper); }
+.ripple-answer { display: grid; gap: 6px; min-width: 0; }
+.ripple-answer textarea { width: 100%; min-width: 0; font-family: var(--font-book); }
+.ripple-toward input[type="text"] { min-width: 0; }
+.ripple.decided { color: var(--ink-soft); }
