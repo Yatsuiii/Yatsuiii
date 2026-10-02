@@ -20,10 +20,18 @@ It runs as a small server on your own computer, because a page on claude.ai can'
 - **Make it move.** Veo turns the picture into a 4, 6 or 8 second video.
   - Say what moves: "the lamp turns, gulls wheel over the flats".
   - Or leave it blank for wind, water, light, small lives and a slow drift forward.
-- **Step inside.**
-  - World Labs (Marble) builds a 3D world from the panorama, or from the picture if there's no panorama.
-  - Walk through it right in the page: W A S D or the arrow keys to move, drag to look, Shift to run, Escape to leave.
-  - Or open it in Marble.
+- **Step inside, free, on your device.**
+  - An open depth model, Depth Anything V2 Small (Apache-2.0), runs in the browser. It reads how far away everything in the picture is.
+  - The page then turns the picture into a 3D scene of soft splats:
+    - each disc lies on the surface it belongs to;
+    - the background is carried on behind near edges;
+    - a haze of the picture's own colours fills what it doesn't show.
+  - You can look around and take a few steps. The picture never leaves your devices, no key is needed and nothing is charged.
+  - It works on the panorama, the picture, or the sketch itself ("Step into the sketch", before anything is made). A sketch becomes a little paper-theatre stage; a realistic picture becomes a convincing place.
+- **Or build a whole world with World Labs.**
+  - Marble builds a fuller 3D world from the panorama, or from the picture if there's no panorama. It's paid, on your World Labs key.
+  - Walk through it right in the page, or open it in Marble.
+- **Walking**, either way: W A S D or the arrow keys to move, drag to look, Shift to run, Escape to leave.
 - **Paint it again.**
   - Each painting is a take, with its own panorama, video and world.
   - You can go back to any earlier take. Nothing you've made, or paid for, is thrown away.
@@ -40,7 +48,7 @@ It runs as a small server on your own computer, because a page on claude.ai can'
      - a Google Cloud key (`AQ.…`, Vertex AI) goes through Vertex AI, and its videos come with sound.
 
      The canvas tries the Gemini API first, for either kind, and Vertex AI if that refuses the key. Google charges for each picture and each second of video, so the key's project needs billing turned on.
-   - `WORLDLABS_API_KEY`, from https://platform.worldlabs.ai/api-keys, for worlds. It's optional: without it, everything but "Step inside" works.
+   - `WORLDLABS_API_KEY`, from https://platform.worldlabs.ai/api-keys, for worlds. It's optional: without it, everything but building a whole world works, including stepping inside on your device.
 2. Start the server from the repository's root:
    ```
    GEMINI_API_KEY=... WORLDLABS_API_KEY=... node inkwash/canvas/server.mjs
@@ -89,7 +97,8 @@ Rough prices; the panel shows them for the models in use.
   - your words;
   - the style;
   - if you loaded a world: its title, its premise, the place's facts and its rules.
-- **World Labs** gets the panorama (or the picture) and your words. Worlds are made private (`public: false`) and tagged `inkwash`.
+- **World Labs** gets the panorama (or the picture) and your words, only when you build a whole world. Worlds are made private (`public: false`) and tagged `inkwash`.
+- **Stepping inside on your device** sends nothing. The browser fetches two open things once, then keeps them in its cache: the transformers.js library (Apache-2.0) from jsdelivr, and the depth model's weights (27 MB, 50 MB on a graphics card) from Hugging Face.
 - **Your disk** keeps everything in `data/`:
   - `scenes/` holds one JSON file per scene;
   - `media/` holds sketches, pictures, videos and world files.
@@ -108,16 +117,27 @@ Without `--lan`, the server listens only on this computer. It also refuses any r
 | `public/index.html`, `style.css` | The page. |
 | `public/app.js` | Drawing, the panel, the views, the gallery. |
 | `public/walk.js` | The walk: three.js and Spark, loaded from their CDNs only when you step inside. |
-| `test/` | Unit tests for the providers and the server, and an end-to-end test in Chromium. |
+| `public/depthworld.js` | Stepping inside on the device: runs the open depth model in the browser. |
+| `public/depth3d.js` | From a picture and its depth to splats, and splats to a standard PLY. Pure, so it's unit-tested. |
+| `test/` | Unit tests for the providers, the server and the scene builder, and an end-to-end test in Chromium. |
 
 ## Test
 
 ```
-node --test 'inkwash/canvas/test/*.test.mjs'   # providers and server
+node --test 'inkwash/canvas/test/*.test.mjs'   # providers, server, scene builder
 node inkwash/canvas/test/e2e.mjs [--shots]     # the page, start to finish
 ```
 
-The end-to-end test needs Playwright installed globally. It takes the page from the first stroke through a refusal, making it real, widening, a video, a world, walking inside, a second take with an Inkwash world's canon, a reload and a delete. three.js and Spark are fetched once from npm into `test/.cache`, so the walk is tested without their CDNs.
+The end-to-end test needs Playwright installed globally. It takes the page through, in order:
+- the first stroke;
+- stepping into the sketch;
+- a refusal;
+- making it real, widening, a video and a world;
+- walking inside both ways;
+- a second take with an Inkwash world's canon;
+- a reload and a delete.
+
+three.js, Spark, transformers.js and its runtime are fetched once from npm into `test/.cache`, and the depth model from Hugging Face. So both walks are tested without the CDNs, and the test checks that stepping inside on the device asks no service.
 
 ## Known limits
 
@@ -128,4 +148,9 @@ The end-to-end test needs Playwright installed globally. It takes the page from 
 - **The picture is a new painting, not an exact trace.** The model keeps the layout, but it may move or change small things.
 - **The panorama is painted fresh at 21:9**, with the picture at its centre. It isn't an exact outpainting, so details near the middle can shift.
 - **Worlds take minutes**, and a draft world is rough at the edges. Walking needs WebGL2. Phones and tablets load a lighter version of each world.
+- **A scene from one picture is whole only from near where it was taken.**
+  - What the picture doesn't show isn't there: behind things, beyond its edges.
+  - So the walk keeps you within a step or two of the start, and turning far shows the haze.
+  - World Labs fills all of that in; that's what its whole worlds are for.
+- **Stepping inside on a phone** uses the lighter scene (150,000 splats instead of 500,000). The first time, it waits for the model download.
 - **One person at a time.** The server is for you, not for a crowd.

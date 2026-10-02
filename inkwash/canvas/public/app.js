@@ -530,6 +530,9 @@ function syncPanel() {
   const canPaint = !!(s && s.paint), canWorld = !!(s && s.world);
   $('#make').hidden = !!scene;
   $('#make').disabled = busy || !canPaint;
+  $('#sketch-step').hidden = !!scene;
+  $('#walk-sketch').disabled = busy;
+  $('#walk-here').disabled = busy;
   $('#next').hidden = !scene;
   for (const id of ['again', 'widen']) $('#' + id).disabled = busy || !canPaint;
   $('#move').disabled = busy || !canPaint || running(t && t.video);
@@ -576,31 +579,28 @@ function renderGallery() {
 
 // ---------------------------------------------------------------- walking inside
 
-// The world's splat file is brought home by the server (once), then drawn here by three.js and
-// Spark, which load only now. Phones and tablets get the lighter file.
+// Two ways inside. A World Labs world's splat file is brought home by the server (once). Or the
+// page builds a scene itself from any picture, with an open depth model, on this device and for
+// free. Either is drawn by three.js and Spark, which load only now. Phones and tablets get the
+// lighter version.
 let walker = null, walkSession = 0;
-async function walkIn() {
-  const scene = state.scene, t = scene && take(scene), w = t && t.world3d && t.world3d.world;
-  if (!w) return;
+const lighter = () => matchMedia('(pointer: coarse)').matches || innerWidth < 900;
+async function enterWalk({ title, link, prepare }) {
   const session = ++walkSession, box = $('#walk'), view = $('#walk-view'), marble = $('#walk-marble');
   const say = (text) => { const p = view.querySelector('.pending p'); if (p) p.textContent = text; };
-  $('#walk-title').textContent = w.name || scene.dream || 'Your world';
-  marble.hidden = !safeLink(w.url);
-  if (safeLink(w.url)) marble.href = w.url;
-  view.replaceChildren(el('div', { class: 'pending' }, el('span', { class: 'dot' }), el('p', { text: 'Bringing the world home…' })));
+  $('#walk-title').textContent = title;
+  marble.hidden = !safeLink(link);
+  if (safeLink(link)) marble.href = link;
+  view.replaceChildren(el('div', { class: 'pending' }, el('span', { class: 'dot' }), el('p', { text: 'Getting ready…' })));
   box.hidden = false;
   $('#walk-close').focus();
   try {
-    const small = matchMedia('(pointer: coarse)').matches || innerWidth < 900;
-    const got = await api('POST', `/api/scenes/${scene.id}/splat`, { budget: small ? 150000 : 600000 });
+    const opts = await prepare(say);
     if (session !== walkSession) return;
     say('Opening the world…');
     const { walk } = await import('./walk.js');
     if (session !== walkSession) return;
-    const opened = await walk(view, {
-      url: media(got.file), scale: got.scale,
-      onProgress: (e) => { if (e && e.total) say(`Opening the world… ${Math.round((100 * e.loaded) / e.total)}%`); },
-    });
+    const opened = await walk(view, Object.assign({ onProgress: (e) => { if (e && e.total) say(`Opening the world… ${Math.round((100 * e.loaded) / e.total)}%`); } }, opts));
     if (session !== walkSession) { opened.close(); return; }
     walker = opened;
     const pending = view.querySelector('.pending');
@@ -609,6 +609,37 @@ async function walkIn() {
     if (session === walkSession) { const p = view.querySelector('.pending'); if (p) p.replaceChildren(el('p', { text: `Couldn't open the world: ${e.message}` })); }
   }
 }
+function walkIn() {
+  const scene = state.scene, t = scene && take(scene), w = t && t.world3d && t.world3d.world;
+  if (!w) return;
+  enterWalk({
+    title: w.name || scene.dream || 'Your world', link: w.url,
+    prepare: async (say) => {
+      say('Bringing the world home…');
+      const got = await api('POST', `/api/scenes/${scene.id}/splat`, { budget: lighter() ? 150000 : 600000 });
+      return { url: media(got.file), scale: got.scale };
+    },
+  });
+}
+function walkHere(src, title) {
+  enterWalk({
+    title,
+    prepare: async (say) => {
+      const { sceneFromPicture } = await import('./depthworld.js');
+      const built = await sceneFromPicture(src, { budget: lighter() ? 150000 : 500000, say });
+      return { fileBytes: built.fileBytes, fileType: built.fileType, bound: built.bound, fov: built.fov, backdrop: built.backdrop };
+    },
+  });
+}
+$('#walk-here').addEventListener('click', () => {
+  const scene = state.scene, t = scene && take(scene);
+  if (t) walkHere(media(t.wide || t.image), scene.dream || 'Your picture');
+});
+$('#walk-sketch').addEventListener('click', () => {
+  if (!hasInk()) return showError(new Error('Draw something first: a horizon and a few shapes are enough.'));
+  showError(null);
+  walkHere(paper.toDataURL('image/png'), 'Your sketch');
+});
 function closeWalk() {
   walkSession++;
   $('#walk').hidden = true;

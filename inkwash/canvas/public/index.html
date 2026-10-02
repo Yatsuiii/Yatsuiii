@@ -71,6 +71,10 @@
 
     <button class="btn primary big" id="make">Make it real</button>
     <p class="hint cost" id="make-cost">About 5¢ a picture, on your Google key.</p>
+    <div class="step" id="sketch-step">
+      <button class="btn ghost" id="walk-sketch">Step into the sketch</button>
+      <p class="hint">Free, on this device: your drawing as a little stage to look around.</p>
+    </div>
 
     <div class="next" id="next" hidden>
       <h2>Take it further</h2>
@@ -90,9 +94,13 @@
         <p class="hint" id="move-cost">Video with Veo, about 5–10¢ a second.</p>
       </div>
       <div class="step">
-        <button class="btn" id="world">Step inside</button>
-        <label class="inline">World <select id="quality"><option value="quick" selected>Quick (≈$0.15)</option><option value="full">Full (≈$1.20)</option></select></label>
-        <p class="hint">World Labs builds a 3D world from the picture that you can walk through.</p>
+        <button class="btn" id="walk-here">Step inside here</button>
+        <p class="hint">Free, on this device: an open depth model turns the picture into a scene you can look around and take a few steps in. The picture never leaves your devices.</p>
+      </div>
+      <div class="step">
+        <button class="btn" id="world">Build a whole world</button>
+        <label class="inline">With World Labs <select id="quality"><option value="quick" selected>Quick (≈$0.15)</option><option value="full">Full (≈$1.20)</option></select></label>
+        <p class="hint">A fuller world you can roam, built by World Labs. Paid, on your World Labs key.</p>
       </div>
       <button class="btn ghost danger" id="delete">Delete this scene</button>
     </div>
