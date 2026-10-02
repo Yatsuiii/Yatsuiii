@@ -473,4 +473,5 @@ details.brief pre {
 .ripple p { margin: 0; }
 .ripple.break { border-left: 2px solid var(--seal); padding-left: 8px; }
 .ripple .inline-form input { min-width: 0; }
-.ripple > .btn { justify-self: start; text-align: left; }
+.ripples, .ripple-group, .ripple { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.ripple > .btn { justify-self: start; text-align: left; white-space: normal; max-width: 100%; overflow-wrap: anywhere; }

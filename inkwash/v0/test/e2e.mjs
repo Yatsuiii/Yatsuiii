@@ -109,7 +109,7 @@ function mockClaude(cfg) {
       const scene = /\[(S\d+)\]/.exec(String(input));
       return {
         follows: [{ about: 'Mira', kind: 'character', fact: 'Mira has forgotten something she loved, and does not know what.' }, { about: '', kind: 'rule', fact: 'Every lamplighter has lost something to the moon.' }],
-        breaks: [{ ref: key('sense of smell'), why: 'Mira lost her smell, not something she loved.' }, { ref: 'F999', why: 'not a key' }].concat(scene ? [{ ref: scene[1], why: 'Kael stands in moonlight here and forgets nothing.' }] : []),
+        breaks: [{ ref: key('sense of smell'), why: 'Mira lost her smell, not something she loved.' }, { ref: key('costs its lighter'), why: 'A lighter who forgot a lamp is not the same as one who let it go dark.' }, { ref: 'F999', why: 'not a key' }].concat(scene ? [{ ref: scene[1], why: 'Kael stands in moonlight here and forgets nothing.' }] : []),
         asks: ['Does moonlight through glass count?', 'Who keeps a record of what each person has lost?'],
       };
     }
@@ -487,6 +487,7 @@ await step('ripples: one fact thought through, a consequence kept, a question an
   const panel = `${card} .ripples`;
   assert.match(await page.textContent(panel), /What it breaks[\s\S]*Mira lost her smell[\s\S]*What follows[\s\S]*Mira has forgotten something she loved[\s\S]*What it leaves to decide[\s\S]*Does moonlight through glass count\?/);
   assert.doesNotMatch(await page.textContent(panel), /not a key/, 'a reference to nothing is dropped');
+  assert.ok(await st(page, () => { const c = document.querySelector('.card[aria-label="Moonlight"]'); return c.scrollWidth <= c.clientWidth + 1; }), 'a long linked fact wraps inside its card');
   if (wantShots) { mkdirSync(SHOTS, { recursive: true }); await page.locator(card).screenshot({ path: join(SHOTS, 'ripples-light.png') }); }
   // the contradiction leads to the fact it breaks
   await page.click(`${panel} .ripple.break button:has-text("Mira:")`);
