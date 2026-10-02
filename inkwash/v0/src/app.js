@@ -68,6 +68,7 @@
     wid: null, loaded: new Set(),
     canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), plates: new Map(), atlas: new Map(), pub: new Map(),
     atlasSel: null, dreamDraft: null,
+    codexSel: null, codexBack: null, codexFind: '', // the canon's open entry, the one before it, and what the index is filtered by
     view: 'score', cid: null, k: 0,
     tool: 'brush', pigment: null,
     showHand: local.get('showHand', true),
@@ -301,6 +302,7 @@
     S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.plates = new Map(); S.atlas = new Map(); S.pub = new Map();
     S.loaded = new Set();
     S.atlasSel = null;
+    S.codexSel = local.get('codex.' + wid, null); S.codexBack = null; S.codexFind = '';
     S.selection = null; S.confirmReink = null; S.publishTried = {}; S.preview = false;
     const pos = (hot && hot.wid === wid) ? hot : local.get('pos.' + wid, {});
     S.cid = pos.cid || null; S.k = pos.k || 0;
@@ -413,9 +415,13 @@
       else main.append(scoreView());
     }
     restoreFocus(keep);
+    for (const ta of document.querySelectorAll('textarea.prose')) fitProse(ta);
     if (S.mode === 'studio' && S.view === 'score' && !S.preview) Score.draw();
     renderSaveState();
   }
+
+  // a field that reads as prose grows with its words
+  function fitProse(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
 
   function renderSaveState() {
     const el = $('#save-state');
@@ -1650,12 +1656,13 @@
     return h('figure', { class: 'plate' + (opts && opts.small ? ' small' : '') }, art,
       opts && opts.caption === false ? null : h('figcaption', null, spec.title || ''));
   }
-  function plateSection(target) {
+  // `figure: false` when the page already shows the plate at its head
+  function plateSection(target, opts) {
     const pl = S.plates.get(target.id), busy = S.busy['plate:' + target.id];
     const what = target.kind === 'scene' ? 'this scene' : target.kind === 'character' ? 'this character' : 'this place';
     const sec = h('section', { class: 'section plate-section', 'aria-label': 'Plate' });
     if (busy) sec.append(h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), `Composing a plate for ${what}…`));
-    else if (pl) sec.append(plateFigure(pl.spec, target.id, { small: target.kind !== 'scene' }));
+    else if (pl) { if (!opts || opts.figure !== false) sec.append(plateFigure(pl.spec, target.id, { small: target.kind !== 'scene' })); }
     else sec.append(h('p', { class: 'faint' }, target.kind === 'scene'
       ? 'An ink painting of this scene. Claude composes it from the scene and your canon, and Inkwash paints it.'
       : `An ink painting of ${what}, composed by Claude from its facts.`));
@@ -2179,69 +2186,268 @@
 
   // ---------------------------------------------------------------- canon view
 
+  // ---------------------------------------------------------------- the canon, as the world's codex
+
+  // The canon reads like the world's own book: an index of everything in it, and one entry at a
+  // time as an illustrated page. A place or region shows where it lies on the map; anyone else
+  // shows their plate, or an ink seal until they have one. Facts read as prose and are edited where
+  // they stand; the tools for each stay quiet until you reach for them.
   function canonView() {
     const list = entities().slice().sort((a, b) => C.KINDS.indexOf(a.kind) - C.KINDS.indexOf(b.kind) || a.name.localeCompare(b.name));
-    const kindSel = h('select', { id: 'new-kind', 'aria-label': 'Kind' }, C.KINDS.map((k) => h('option', { value: k }, k)));
-    const page = h('section', { class: 'page-pad' },
+    const sel = (S.codexSel && S.canon.get(S.codexSel)) || list.find((e) => e.kind === 'rule') || list[0] || null;
+    return h('div', { class: 'codex' }, codexIndex(list, sel), h('div', { class: 'codex-page' }, sel ? entryPage(sel) : codexEmpty()));
+  }
+  function codexEmpty() {
+    return h('section', { class: 'codex-empty' },
       h('div', { class: 'page-head' },
         h('p', { class: 'eyebrow' }, 'Canon'),
         h('h1', null, 'What is true in ' + world().title),
-        h('p', { class: 'muted' }, 'Every fact here is something the ink must respect. Each fact shows which scenes rely on it. Reword one, and those scenes are flagged until you’ve checked them.')),
-      S.readOnly ? null : h('form', { class: 'add-entity', onsubmit: (e) => { e.preventDefault(); const name = e.target.querySelector('#new-entity-name').value.trim(); if (!name) return; const ent = C.newEntity(kindSel.value, name, now()); put('canon', ent.id, ent); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + ent.id); if (el) el.focus(); }); } },
-        kindSel,
-        h('input', { type: 'text', id: 'new-entity-name', placeholder: 'Name: Kael, Vesk, the Lamplighters’ Guild', 'aria-label': 'Name' }),
-        h('button', { class: 'btn primary', type: 'submit' }, 'Add to canon')));
-    if (!list.length) page.append(h('p', { class: 'muted' }, 'Nothing in the canon yet. Add the first character, place or rule above, or catch a dream and keep its seeds.'));
-    for (const kind of C.KINDS) {
-      const group = list.filter((e) => e.kind === kind);
-      if (!group.length) continue;
-      page.append(h('section', { class: 'kind-group' }, h('h2', null, C.KIND_LABEL[kind]), h('div', { class: 'cards' }, group.map(entityCard))));
-    }
-    return page;
+        h('p', { class: 'muted' }, 'Nothing in the canon yet. Name the first character, place or rule of this world, or catch a dream and keep its seeds.')));
   }
-  function entityCard(e) {
-    const live = (e.facts || []).filter((f) => !f.retired);
-    const retired = (e.facts || []).filter((f) => f.retired);
-    const card = h('article', { class: 'card', 'aria-label': e.name },
-      h('div', { class: 'card-head' },
-        h('input', {
-          type: 'text', id: 'ent-name-' + e.id, value: e.name, 'data-keep': '', 'aria-label': 'Name', disabled: S.readOnly,
-          onchange: (ev) => { const v = ev.target.value.trim(); if (v && v !== e.name) put('canon', e.id, Object.assign({}, e, { name: v })); },
-        }),
-        h('select', { 'aria-label': 'Kind', disabled: S.readOnly, onchange: (ev) => put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })) }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k))),
-        S.readOnly ? null : h('button', { class: 'btn ghost small danger', type: 'button', 'aria-label': `Delete ${e.name}`, onclick: () => deleteEntity(e.id) }, 'Delete')));
+  function codexIndex(list, sel) {
+    const q = (S.codexFind || '').trim().toLowerCase();
+    const hit = (e) => !q || e.name.toLowerCase().includes(q) || (e.facts || []).some((f) => !f.retired && f.text.toLowerCase().includes(q));
+    const nav = h('nav', { class: 'codex-index', 'aria-label': `Everything in ${world().title}` },
+      h('p', { class: 'eyebrow' }, 'Canon'),
+      h('p', { class: 'codex-world' }, world().title),
+      list.length > 6 ? h('input', { type: 'search', id: 'codex-find', 'data-keep': '', value: S.codexFind || '', placeholder: 'Find a name or a fact', 'aria-label': 'Find in the canon', oninput: (ev) => { S.codexFind = ev.target.value; render(); } }) : null,
+      // on a phone, a menu instead of the list
+      list.length ? h('select', { class: 'codex-jump', 'aria-label': 'Open an entry', onchange: (ev) => openEntry(ev.target.value) },
+        C.KINDS.map((k) => { const of = list.filter((e) => e.kind === k); return of.length ? h('optgroup', { label: C.KIND_LABEL[k] }, of.map((e) => h('option', { value: e.id, selected: !!sel && e.id === sel.id }, e.name))) : null; })) : null);
+    for (const kind of C.KINDS) {
+      const group = list.filter((e) => e.kind === kind && hit(e));
+      if (!group.length) continue;
+      nav.append(h('div', { class: 'codex-group' }, h('h2', null, C.KIND_LABEL[kind]),
+        h('ul', null, group.map((e) => h('li', null, h('button', { class: 'codex-link', type: 'button', 'aria-current': sel && e.id === sel.id ? 'page' : null, onclick: () => openEntry(e.id) }, e.name))))));
+    }
+    if (q && !list.some(hit)) nav.append(h('p', { class: 'faint' }, 'Nothing matches.'));
+    if (!S.readOnly) {
+      const kindSel = h('select', { id: 'new-kind', 'aria-label': 'Kind' }, C.KINDS.map((k) => h('option', { value: k }, k === 'rule' ? 'world rule' : k)));
+      nav.append(h('details', { class: 'codex-add', open: !list.length },
+        h('summary', null, 'Something new in this world'),
+        h('form', { class: 'add-entity', onsubmit: (ev) => { ev.preventDefault(); const name = ev.target.querySelector('#new-entity-name').value.trim(); if (!name) return; const ent = C.newEntity(kindSel.value, name, now()); put('canon', ent.id, ent); openEntry(ent.id, { focus: 'new-fact-' + ent.id }); } },
+          h('div', { class: 'inline-form' }, kindSel, h('input', { type: 'text', id: 'new-entity-name', placeholder: 'Its name', 'aria-label': 'Name' })),
+          h('button', { class: 'btn primary small', type: 'submit' }, 'Add to canon'))));
+    }
+    return nav;
+  }
+  // open an entry's page; `focus` is the id of what to put the cursor in once it's there
+  function openEntry(id, opts) {
+    if (!id || !S.canon.has(id)) return;
+    if (S.codexSel && S.codexSel !== id) S.codexBack = S.codexSel;
+    S.codexSel = id;
+    if (S.wid) local.set('codex.' + S.wid, id);
+    if (S.view !== 'canon') { S.view = 'canon'; local.set('view', 'canon'); }
+    S.preview = false;
+    render();
+    requestAnimationFrame(() => {
+      const el = opts && opts.focus && document.getElementById(opts.focus);
+      if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); }
+      else window.scrollTo(0, 0);
+    });
+  }
+  // One entry as a page. `art: false` leaves out its picture (beside the map, the map is the
+  // picture), `head: false` its title, `tools: false` its kind and Delete; `onLink` opens a
+  // connected entry somewhere other than the codex.
+  function entryPage(e, opts) {
+    opts = opts || {};
+    const live = (e.facts || []).filter((f) => !f.retired), retired = (e.facts || []).filter((f) => f.retired);
+    const back = opts.art !== false && S.codexBack && S.codexBack !== e.id ? S.canon.get(S.codexBack) : null;
+    const where = mapEntry(e), plated = !where && S.plates.has(PL.plateId.entity(e.id));
+    const page = h('article', { class: 'entry card' + (opts.compact ? ' compact' : ''), 'aria-label': e.name });
+    if (back) page.append(h('button', { class: 'linklike entry-back', type: 'button', onclick: () => openEntry(back.id) }, '← ' + back.name));
+    if (opts.head !== false) {
+      const art = opts.art === false ? null : where ? mapInset(e, where) : plated ? h('div', { class: 'entry-plate' }, plateFigure(S.plates.get(PL.plateId.entity(e.id)).spec, PL.plateId.entity(e.id), { small: true })) : entrySeal(e);
+      page.append(h('header', { class: 'entry-head' + (where && art ? ' wide' : art ? '' : ' bare') },
+        art,
+        h('div', { class: 'entry-title' },
+          h('p', { class: 'eyebrow' }, entryKicker(e)),
+          h('input', { class: 'entry-name', type: 'text', id: 'ent-name-' + e.id, value: e.name, 'data-keep': '', 'aria-label': 'Name', disabled: S.readOnly, onchange: (ev) => { const v = ev.target.value.trim(); if (v && v !== e.name) put('canon', e.id, Object.assign({}, e, { name: v })); } }))));
+    }
+    const body = h('div', { class: 'entry-facts' });
+    for (const f of live) body.append(factRow(e, f));
+    if (!live.length) body.append(h('p', { class: 'faint' }, 'Nothing is known about it yet.'));
+    page.append(body);
+    if (!S.readOnly) page.append(h('form', { class: 'inline-form entry-add', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. Where does it lead?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
+      h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: `Something new about ${e.name}…`, 'aria-label': `New fact about ${e.name}` }),
+      h('button', { class: 'btn small', type: 'submit' }, 'Add')));
     if (e.kind === 'place' || e.kind === 'character') {
       const target = { kind: e.kind, id: PL.plateId.entity(e.id), eid: e.id };
-      if (S.plates.has(target.id) || S.busy['plate:' + target.id] || aiOn()) card.append(plateSection(target));
+      if (S.plates.has(target.id) || S.busy['plate:' + target.id] || aiOn()) page.append(plateSection(target, { figure: !plated || opts.art === false || opts.head === false }));
     }
-    for (const f of live) card.append(factRow(e, f));
-    if (retired.length) card.append(h('details', null, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
-    if (!S.readOnly) {
-      card.append(h('form', { class: 'inline-form', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. Where does it lead?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
-        h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: 'Add a fact', 'aria-label': `New fact about ${e.name}` }),
-        h('button', { class: 'btn small', type: 'submit' }, 'Add')));
+    if (retired.length) page.append(h('details', { class: 'entry-retired' }, h('summary', { class: 'faint' }, `Retired facts (${retired.length})`), retired.map((f) => h('p', { class: 'retired' }, f.history && f.history.length ? f.history[f.history.length - 1].text : f.text))));
+    const links = entryLinks(e, opts);
+    if (links) page.append(links);
+    if (!S.readOnly && opts.tools !== false) page.append(h('div', { class: 'entry-tools' },
+      h('label', null, 'Kind ', h('select', { 'aria-label': 'Kind', onchange: (ev) => put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })) }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k === 'rule' ? 'world rule' : k)))),
+      h('button', { class: 'btn ghost small danger', type: 'button', 'aria-label': `Delete ${e.name}`, onclick: () => deleteEntity(e.id) }, 'Delete')));
+    return page;
+  }
+  const KIND_ONE = { character: 'Character', place: 'Place', faction: 'Faction', thing: 'Thing or creature', rule: 'Rule of the world' };
+  // what it is, and where: "Capital in The Old Coast", "Region", "Character"
+  function entryKicker(e) {
+    const doc = atlasDoc(), s = doc && doc.spec;
+    if (s) {
+      if (s.regions.some((g) => g.entity === e.id)) return 'Region';
+      const p = s.places.concat(s.features || []).find((x) => x.entity === e.id);
+      const g = p && s.regions.find((x) => x.id === p.region), ge = g && g.entity && S.canon.get(g.entity);
+      if (p) return (KIND_NAME[p.kind] || 'Place') + (g ? ' in ' + ((ge && ge.name) || g.name) : '');
     }
-    return card;
+    return KIND_ONE[e.kind] || 'Entry';
+  }
+  // an ink seal with the entry's first letter, for whatever has no picture yet
+  function entrySeal(e) {
+    const letter = (e.name.replace(/^(the|a|an)\s+/i, '').trim()[0] || '·').toUpperCase();
+    return h('div', { class: 'entry-seal k-' + e.kind, 'aria-hidden': 'true' }, letter);
+  }
+  // what this entry names, and what names it: the web of the world
+  function entryLinks(e, opts) {
+    const mine = (e.facts || []).filter((f) => !f.retired).map((f) => f.text);
+    const out = entities().filter((x) => x.id !== e.id && (mine.some((t) => C.mentions(t, x.name)) || (x.facts || []).some((f) => !f.retired && C.mentions(f.text, e.name))));
+    if (!out.length) return null;
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return h('section', { class: 'entry-links', 'aria-label': `Connected to ${e.name}` },
+      h('h2', null, 'Connected'),
+      h('div', { class: 'link-row' }, out.slice(0, 30).map((x) => h('button', { class: 'chip', type: 'button', onclick: () => (opts && opts.onLink ? opts.onLink(x) : openEntry(x.id)) }, x.name))));
+  }
+
+  // ---------------------------------------------------------------- where an entry lies on the map
+
+  // where an entry is drawn: a place, or a region (a feature, named on the land, shows its region)
+  function mapEntry(e) {
+    const doc = atlasDoc(), s = doc && doc.spec;
+    if (!s || !e) return null;
+    const p = s.places.find((x) => x.entity === e.id);
+    if (p) return { type: 'place', id: p.id };
+    const g = s.regions.find((x) => x.entity === e.id);
+    if (g) return { type: 'region', id: g.id };
+    const f = (s.features || []).find((x) => x.entity === e.id);
+    return f && f.region && s.regions.some((x) => x.id === f.region) ? { type: 'region', id: f.region } : null;
+  }
+  // The painted map is kept as markup, shared with the atlas, so a page shows where its entry lies
+  // without painting the world again. Painting takes a moment, so it happens after a render.
+  const mapArt = { key: null, html: null, at: null, painting: null, insets: new Map() };
+  function mapKey() { const doc = atlasDoc(); return doc && doc.spec ? S.wid + '|' + JSON.stringify(liveSpec(doc.spec)) : null; }
+  function paintedMap() {
+    const key = mapKey();
+    if (!key) return null;
+    if (mapArt.key === key) return mapArt;
+    if (mapArt.painting !== key) {
+      mapArt.painting = key;
+      setTimeout(() => { if (mapArt.painting !== key || mapKey() !== key) return; keepMap(key, AT.paint(liveSpec(atlasDoc().spec), { id: S.wid, zoom: 1 })); render(); }, 30);
+    }
+    return null;
+  }
+  // the markup, and where each place and region lies in it
+  function keepMap(key, html) {
+    const at = { places: new Map(), regions: new Map() };
+    for (const m of html.matchAll(/<g class="atlas-place" data-id="([^"]*)"(?: data-entity="[^"]*")? transform="translate\(([-\d.]+) ([-\d.]+)\)/g)) at.places.set(m[1], { x: +m[2], y: +m[3] });
+    for (const m of html.matchAll(/<path class="atlas-region" data-id="([^"]*)"(?: data-entity="[^"]*")? d="([^"]*)"/g)) {
+      const n = (m[2].match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i + 1 < n.length; i += 2) { x0 = Math.min(x0, n[i]); x1 = Math.max(x1, n[i]); y0 = Math.min(y0, n[i + 1]); y1 = Math.max(y1, n[i + 1]); }
+      if (x1 > x0 && y1 > y0) at.regions.set(m[1], { x0, y0, x1, y1, d: m[2] });
+    }
+    Object.assign(mapArt, { key, html, at, painting: null });
+    mapArt.insets.clear();
+  }
+  const BANNER = 2.4; // the strip of map at the head of a page: its width over its height
+  function mapInset(e, where) {
+    const art = paintedMap();
+    if (!art) return h('div', { class: 'entry-map wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), 'Finding it on the map…');
+    const key = where.type + ':' + where.id;
+    if (!art.insets.has(key)) {
+      const el = buildInset(art, where);
+      if (!el) return entrySeal(e);
+      if (art.insets.size >= 6) art.insets.delete(art.insets.keys().next().value);
+      art.insets.set(key, el);
+    }
+    const el = art.insets.get(key);
+    el.setAttribute('aria-label', `${e.name} on the map. Open the atlas there.`);
+    return el;
+  }
+  function buildInset(art, where) {
+    let box;
+    if (where.type === 'place') {
+      const p = art.at.places.get(where.id);
+      if (!p) return null;
+      const w = AT.W / 3.4;
+      box = frame(p.x - w / 2, p.y - w / BANNER / 2, w, w / BANNER);
+    } else {
+      const g = art.at.regions.get(where.id);
+      if (!g) return null;
+      let w = (g.x1 - g.x0) * 1.3, hh = (g.y1 - g.y0) * 1.3;
+      if (w / hh < BANNER) w = hh * BANNER; else hh = w / BANNER;
+      box = frame((g.x0 + g.x1) / 2 - w / 2, (g.y0 + g.y1) / 2 - hh / 2, w, hh);
+    }
+    const el = h('button', { class: 'entry-map', type: 'button', onclick: () => showOnMap(where, box) });
+    el.innerHTML = art.html;
+    const svg = el.querySelector('svg');
+    svg.setAttribute('viewBox', `${box.x.toFixed(1)} ${box.y.toFixed(1)} ${box.w.toFixed(1)} ${box.h.toFixed(1)}`);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.removeAttribute('role');
+    svg.dataset.z = box.w < AT.W / 2.8 ? '3' : box.w < AT.W / 1.6 ? '2' : '1';
+    // where it is: ink rings spreading from a place, or its region washed in
+    const NS = 'http://www.w3.org/2000/svg', mark = document.createElementNS(NS, 'g');
+    mark.setAttribute('class', 'entry-mark');
+    if (where.type === 'place') {
+      const p = art.at.places.get(where.id);
+      [0.02, 0.045, 0.072].forEach((k, i) => {
+        const c = document.createElementNS(NS, 'circle');
+        c.setAttribute('cx', p.x); c.setAttribute('cy', p.y); c.setAttribute('r', (box.w * k).toFixed(1));
+        c.setAttribute('class', 'ring r' + i);
+        mark.append(c);
+      });
+    } else {
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', art.at.regions.get(where.id).d);
+      path.setAttribute('class', 'wash');
+      mark.append(path);
+    }
+    svg.append(mark);
+    return el;
+  }
+  // a window on the map, kept inside it
+  function frame(x, y, w, hh) {
+    if (w > AT.W) { hh *= AT.W / w; w = AT.W; }
+    if (hh > AT.H) { w *= AT.H / hh; hh = AT.H; }
+    return { x: Math.min(AT.W - w, Math.max(0, x)), y: Math.min(AT.H - hh, Math.max(0, y)), w, h: hh };
+  }
+  // the atlas, centred on what the page showed, with it chosen
+  function showOnMap(where, box) {
+    const hh = (box.w * AT.H) / AT.W, view = { x: box.x, y: box.y + box.h / 2 - hh / 2, w: box.w };
+    if (S.wid) local.set('atlasView.' + S.wid, view);
+    stage.view = view;
+    S.atlasSel = { type: where.type, id: where.id };
+    go('atlas');
+    if (stage.el && stage.el.dataset.wid === S.wid) setView(view);
   }
   function factRow(e, f) {
     const uses = C.dependents(S.passages, f.id).sort((a, b) => chapterOrder().indexOf(a.chapter) - chapterOrder().indexOf(b.chapter) || a.scene - b.scene);
     const order = chapterOrder();
     const ta = h('textarea', {
-      id: 'fact-' + f.id, rows: 2, 'data-keep': '', 'aria-label': `Fact about ${e.name}`, disabled: S.readOnly,
-      onchange: (ev) => reviseFactUI(e.id, f.id, ev.target.value),
+      id: 'fact-' + f.id, class: 'prose', rows: 1, 'data-keep': '', 'aria-label': `Fact about ${e.name}`, disabled: S.readOnly,
+      onchange: (ev) => reviseFactUI(e.id, f.id, ev.target.value), oninput: (ev) => fitProse(ev.target),
     });
-    ta.value = f.text;
+    ta.defaultValue = f.text;
+    // Ripples first; then whose it is, whether it's secret, and where it's used. The version and the
+    // tools that change it wait until you reach for the fact.
+    const secret = h('label', null, h('input', { type: 'checkbox', checked: !!f.secret, disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { secret: ev.target.checked }) }), 'secret');
     const meta = h('div', { class: 'fact-meta' },
-      h('span', { class: 'badge', title: (f.history || []).map((x) => `v${x.v}: ${x.text}`).join('\n') || 'No earlier wording' }, `v${f.v}`),
-      f.origin === 'accepted' ? h('span', { class: 'badge kept', title: 'Suggested by AI, kept by you' }, 'kept from a suggestion') : null,
-      h('label', null, h('input', { type: 'checkbox', checked: !!f.secret, disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { secret: ev.target.checked }) }), 'secret'),
+      aiOn() ? h('button', { class: 'btn ghost small ripple-btn', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What this fact breaks, and where it leads: your own idea first, or one of Claude’s to start from', onclick: () => rippleFact(e.id, f.id) },
+        S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples') : null,
+      f.origin === 'accepted' ? h('span', { class: 'badge kept', title: 'Suggested by Claude, kept by you' }, 'kept from a suggestion') : null,
+      f.secret ? secret : null,
       f.secret ? h('select', { 'aria-label': 'Revealed in', disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { reveal: ev.target.value || null }) },
         h('option', { value: '' }, 'not revealed yet'),
         order.map((cid, i) => h('option', { value: cid, selected: f.reveal === cid }, `revealed in chapter ${i + 1}`))) : null,
-      uses.length ? h('span', { class: 'uses' }, 'Used in ', uses.map((p, i) => [i ? ', ' : '', h('button', { type: 'button', onclick: () => { S.cid = p.chapter; S.k = p.scene; savePos(); go('score'); } }, `ch. ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`)])) : h('span', null, 'Not used by any scene yet'),
-      S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire'),
-      aiOn() ? h('button', { class: 'btn ghost small', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What this fact breaks, and where it leads: your own idea first, or one of Claude’s to start from', onclick: () => rippleFact(e.id, f.id) },
-        S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples') : null);
+      uses.length ? h('span', { class: 'uses' }, 'Used in ', uses.map((p, i) => [i ? ', ' : '', h('button', { type: 'button', onclick: () => { S.cid = p.chapter; S.k = p.scene; savePos(); go('score'); } }, `ch. ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`)])) : null,
+      h('span', { class: 'meta-more' },
+        h('span', { class: 'badge', title: (f.history || []).map((x) => `v${x.v}: ${x.text}`).join('\n') || 'No earlier wording' }, `v${f.v}`),
+        f.secret ? null : secret,
+        uses.length ? null : h('span', null, 'Not used by any scene yet'),
+        S.readOnly ? null : h('button', { class: 'btn ghost small', type: 'button', onclick: () => retireFactUI(e.id, f.id) }, 'Retire')));
     return h('div', { class: 'fact' }, ta, meta, f.ripples ? ripplesPanel(e, f) : null);
   }
   function reviseFactUI(eid, fid, text) {
@@ -2441,7 +2647,7 @@
     }
     const t = S.canon.get(b.eid), tf = t && (t.facts || []).find((x) => x.id === b.target && !x.retired);
     if (!tf) return h('span', { class: 'faint' }, 'That fact has since been retired.');
-    return h('button', { class: 'btn ghost small', type: 'button', title: tf.text, onclick: () => { const el = document.getElementById('fact-' + tf.id); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } } },
+    return h('button', { class: 'btn ghost small', type: 'button', title: tf.text, onclick: () => { const el = document.getElementById('fact-' + tf.id); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } else openEntry(t.id, { focus: 'fact-' + tf.id }); } },
       `${t.kind === 'rule' ? 'World rule' : t.name}: ${tf.text.length > 70 ? tf.text.slice(0, 67) + '…' : tf.text}` + (tf.v !== b.v ? ' (since reworded)' : ''));
   }
   // not ready to decide: the question waits in the dream inbox
@@ -2506,7 +2712,8 @@
       setTimeout(() => {
         if (stage.painting !== key) return;
         const el = h('div', { class: 'atlas-stage', tabindex: '0', id: 'atlas-stage', 'aria-label': 'The map. Drag to move, scroll or press + and − to zoom, and choose a region or a place to read about it.' });
-        el.innerHTML = AT.paint(live, { id: S.wid, zoom: 1 });
+        if (mapArt.key !== key) keepMap(key, AT.paint(live, { id: S.wid, zoom: 1 }));
+        el.innerHTML = mapArt.html;
         el.dataset.wid = S.wid;
         wireStage(el);
         if (!stage.el || stage.el.dataset.wid !== S.wid) stage.view = local.get('atlasView.' + S.wid, null);
@@ -2599,7 +2806,8 @@
     const regionOf = (id) => live.regions.find((g) => g.id === id);
     const placeList = (list) => h('ul', { class: 'atlas-list' }, list.map((p) => h('li', null, h('button', { class: 'linklike', type: 'button', onclick: () => chooseOnMap('place', p.id) }, p.name), h('span', { class: 'faint' }, ' ' + (KIND_NAME[p.kind] || '').toLowerCase()))));
     const factsOf = (e) => { const fs = liveFacts(e); return fs.length ? h('ul', { class: 'atlas-facts' }, fs.map((f) => h('li', null, f))) : h('p', { class: 'faint' }, 'Nothing is known about it yet.'); };
-    const plateFor = (eid) => (eid && S.canon.has(eid) ? plateSection({ kind: 'place', id: PL.plateId.entity(eid), eid }) : null);
+    // an entry beside the map: no picture or title of its own (the map and the panel give those), and what it's connected to opens on the map where it can
+    const beside = { art: false, head: false, tools: false, compact: true, onLink: (x) => { const w = mapEntry(x); if (w) chooseOnMap(w.type, w.id); else openEntry(x.id); } };
     const back = h('button', { class: 'btn ghost small', type: 'button', onclick: () => chooseOnMap(null, null) }, '← The whole world');
     const pl = sel && sel.type === 'place' ? live.places.concat(live.features || []).find((x) => x.id === sel.id) : null;
     const rg = sel && sel.type === 'region' ? regionOf(sel.id) : null;
@@ -2609,7 +2817,7 @@
         h('p', { class: 'eyebrow' }, KIND_NAME[pl.kind] || 'Place'),
         h('h2', null, pl.name),
         g ? h('p', { class: 'muted' }, 'In ', h('button', { class: 'linklike', type: 'button', onclick: () => chooseOnMap('region', g.id) }, g.name)) : null,
-        factsOf(e), plateFor(pl.entity));
+        e ? entryPage(e, beside) : factsOf(e));
       return panel;
     }
     if (rg) {
@@ -2618,13 +2826,12 @@
       add(back,
         h('p', { class: 'eyebrow' }, 'Region'),
         h('h2', null, rg.name),
-        factsOf(e),
+        e ? entryPage(e, beside) : factsOf(e),
         busy
           ? h('div', { class: 'plate-wait' }, h('span', { class: 'drop', 'aria-hidden': 'true' }), `Exploring ${rg.name}…`, h('button', { class: 'btn ghost small', type: 'button', onclick: () => busy.ctl.abort() }, 'Stop'))
           : aiOn() ? h('div', { class: 'btn-row' }, h('button', { class: 'btn primary small', type: 'button', onclick: () => exploreDeeper(rg.id) }, 'Explore deeper')) : null,
         h('h3', null, `Places (${here.length})`), here.length ? placeList(here) : h('p', { class: 'faint' }, 'None mapped yet.'),
-        feats.length ? h('h3', null, 'Features') : null, feats.length ? placeList(feats) : null,
-        plateFor(rg.entity));
+        feats.length ? h('h3', null, 'Features') : null, feats.length ? placeList(feats) : null);
       return panel;
     }
     const factsCount = entities().reduce((s, x) => s + (x.facts || []).filter((f) => !f.retired).length, 0);

@@ -37,7 +37,7 @@ The canon also records the geography ("Harrowgate is a capital in The Old Coast.
 - **Water:** rivers that gather rain and run to the sea, lakes in the hollows they can't drain, and dry pans in deserts.
 - **Settlement:** borders that wander, roads between places, every place with its icon and name.
 
-The map is grown from the world's spec with seeded noise, so the same world always draws the same map. You can drag it, zoom it and choose any region or place to read its canon and paint its plate. Names of lesser places come in as you zoom closer.
+The map is grown from the world's spec with seeded noise, so the same world always draws the same map. You can drag it, zoom it and choose any region or place to open its page beside the map: edit its facts, ripple them and paint its plate. Names of lesser places come in as you zoom closer.
 
 - **Explore deeper:** asks Claude for the places nobody has mapped yet in a region. They join the canon and the map, and nothing already placed moves.
 - **Draw the atlas:** for a world that already has a canon, draws a map around it. Every place you have stays as it was; only what the map adds becomes new canon.
@@ -79,10 +79,15 @@ Text keeps its origin when it moves. Cut and paste it back, drag it, undo a dele
 - Claude composes the picture as a small JSON description of what's in it and roughly where: time and weather, mountain ranges, water, buildings, a train, people, and voids (clean holes cut out of the world).
 - Inkwash paints it as SVG with its own brushes. The same composition always paints the same picture. "Paint it again" asks for a new one.
 
-Plates show in the scene sheet, the book, the canon cards, the reader view and its lore, and the EPUB and HTML exports. Backups carry them, and the provenance report counts them as composed by a model.
+Plates show in the scene sheet, the book, the canon's pages, the reader view and its lore, and the EPUB and HTML exports. Backups carry them, and the provenance report counts them as composed by a model.
 
 **Canon, Dreams, Book.**
-- **Canon:** versioned facts, each showing which scenes use it.
+- **Canon:** the world's codex. An index of everything in the world, and one entry at a time as an illustrated page:
+  - a place or region shows where it lies on a strip of the map, with ink rings rippling out from it (click it to open the atlas there);
+  - anyone else shows their plate, or an ink seal with their first letter until they have one;
+  - facts read as prose and are edited where they stand. Each is versioned and shows which scenes use it; its version, secret switch and Retire appear when you reach for it;
+  - **Connected** lists what the entry names and what names it, so you can walk the web of the world.
+- **Beside the map:** choosing a place or region in the atlas opens the same page next to the map, where its facts can be edited and rippled.
 - **Dreams:** an inbox where Claude suggests seeds from a fragment, and nothing joins the canon until you keep it.
 - **Book:** shows the whole book. From here you can:
   - publish a chapter (blocked while any scene is wet, stale, a draft, missing a pin, or contradicting the canon);
@@ -111,7 +116,7 @@ They never see the studio, because the access rules make `studio/` readable by t
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene, a scene ready to ink, and seven plates. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
 | `test/core.test.mjs` | 45 unit tests |
-| `test/e2e.mjs` | 28 browser steps against a fake claude.ai runtime |
+| `test/e2e.mjs` | 29 browser steps against a fake claude.ai runtime |
 
 ## Build, test, publish
 

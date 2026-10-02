@@ -492,3 +492,114 @@ details.brief pre {
 .ripple-options { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .ripple-options .btn { justify-content: flex-start; text-align: left; white-space: normal; overflow-wrap: anywhere; font-family: var(--font-book); font-size: var(--step-0); padding: 6px 10px; }
 .ripple.decided { color: var(--ink-soft); }
+
+/* ---------------------------------------------------------------- the codex: the canon as the world's own book */
+.codex { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: 2.25rem; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; align-items: start; }
+.codex-index { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; display: grid; gap: 0.6rem; padding: 0 0.4rem 1rem 0; min-width: 0; }
+.codex-index .eyebrow { margin: 0; }
+.codex-world { margin: 0 0 0.2rem; font-family: var(--font-book); font-size: var(--step-2); line-height: 1.15; }
+.codex-index input[type="search"] { width: 100%; }
+.codex-jump { display: none; }
+.codex-group h2 { margin: 0.5rem 0 0.15rem; font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+.codex-group ul { list-style: none; margin: 0; padding: 0; }
+.codex-link { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 3px; padding: 0.2rem 0.55rem; font-family: var(--font-book); font-size: var(--step-0); line-height: 1.35; color: var(--ink-soft); cursor: pointer; }
+.codex-link:hover { color: var(--ink); background: var(--paper-deep); }
+.codex-link[aria-current="page"] { color: var(--ink); background: var(--sheet); box-shadow: inset 3px 0 0 var(--indigo); }
+.codex-add { margin-top: 0.6rem; padding-top: 0.7rem; border-top: 1px solid var(--rule); }
+.codex-add > summary { cursor: pointer; font-size: var(--step--1); color: var(--indigo); }
+.codex-add .add-entity { display: grid; gap: 6px; margin-top: 0.5rem; }
+.codex-add .inline-form input { min-width: 0; }
+.codex-page { min-width: 0; }
+.codex-empty { padding: 1rem 0; }
+
+/* one entry, as a page */
+.entry.card { display: block; max-width: 48rem; padding: 0 0 2rem; border: 0; border-radius: 4px; background: var(--sheet); box-shadow: 0 1px 2px var(--shadow), 0 18px 40px -26px var(--shadow); }
+.entry-back { margin: 1rem 2.5rem 0; font-size: var(--step--1); }
+.entry-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1.25rem; align-items: center; padding: 2rem 2.5rem 0.5rem; }
+.entry-head.wide, .entry-head.bare { grid-template-columns: minmax(0, 1fr); }
+.entry-head.wide { padding: 0 0 0.5rem; gap: 0; }
+.entry-head.wide .entry-title { padding: 1.4rem 2.5rem 0; }
+.entry-back + .entry-head.wide { padding-top: 0.8rem; }
+.entry-title { min-width: 0; }
+.entry-title .eyebrow { margin: 0 0 0.25rem; }
+.entry .entry-name { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; font-family: var(--font-book); font-size: clamp(1.75rem, 1.2rem + 1.5vw, 2.5rem); line-height: 1.1; color: var(--ink); }
+.entry .entry-name:hover:not(:disabled) { box-shadow: 0 1px 0 var(--rule); }
+.entry .entry-name:focus { outline: none; box-shadow: 0 2px 0 var(--indigo); }
+.entry .entry-name:disabled { color: var(--ink); }
+
+/* where it lies: a strip of the world's map, rippling where the entry is */
+.entry-map { display: block; width: 100%; aspect-ratio: 2.4 / 1; margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--rule); border-radius: 4px 4px 0 0; overflow: hidden; background: #ece3cf; cursor: zoom-in; }
+.entry-map svg { display: block; width: 100%; height: 100%; }
+.entry-map.wait { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ink-faint); font-size: var(--step--1); cursor: default; }
+.entry-map:focus-visible { outline: 2px solid var(--indigo); outline-offset: -4px; }
+.entry-mark .ring { fill: none; stroke: var(--seal); stroke-width: 2; vector-effect: non-scaling-stroke; transform-box: fill-box; transform-origin: center; }
+.entry-mark .ring.r1 { stroke-opacity: 0.55; }
+.entry-mark .ring.r2 { stroke-opacity: 0.28; }
+.entry-mark .wash { fill: var(--indigo); fill-opacity: 0.09; stroke: var(--indigo); stroke-width: 1.6; stroke-opacity: 0.75; vector-effect: non-scaling-stroke; }
+@media (prefers-reduced-motion: no-preference) {
+  .entry-mark .ring { animation: entry-ripple 4.2s ease-out infinite; }
+  .entry-mark .ring.r1 { animation-delay: 1.4s; }
+  .entry-mark .ring.r2 { animation-delay: 2.8s; }
+}
+@keyframes entry-ripple { 0% { transform: scale(0.35); opacity: 0; } 15% { opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+
+/* no picture yet: an ink seal with its first letter */
+.entry-seal { --k: var(--indigo); width: 5.25rem; height: 5.25rem; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-book); font-size: 2.9rem; line-height: 1; color: var(--sheet); background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--k) 62%, var(--sheet)) 0%, var(--k) 52%, color-mix(in srgb, var(--k) 72%, #000) 100%); box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--sheet) 22%, transparent), 0 1px 3px var(--shadow); }
+.entry-seal.k-place { --k: var(--ok); }
+.entry-seal.k-faction { --k: var(--seal); }
+.entry-seal.k-thing { --k: var(--stale); }
+.entry-seal.k-rule { --k: var(--wet); }
+.entry-plate { width: 8.5rem; }
+.entry-plate .plate { margin: 0; }
+
+/* its facts, as prose: edited where they stand, their tools quiet until reached for */
+.entry-facts { display: grid; gap: 0.9rem; padding: 0.9rem 2.5rem 0; }
+.entry .fact { gap: 2px; padding: 0; border: 0; }
+.entry textarea.prose { display: block; width: 100%; min-height: 0; margin: 0 -0.45rem; width: calc(100% + 0.9rem); padding: 0.1rem 0.45rem; border: 0; border-radius: 3px; background: none; resize: none; overflow: hidden; font-family: var(--font-book); font-size: 1.15rem; line-height: 1.55; color: var(--ink); }
+.entry textarea.prose:hover:not(:disabled) { background: color-mix(in srgb, var(--paper-deep) 55%, transparent); }
+.entry textarea.prose:focus { outline: none; background: color-mix(in srgb, var(--indigo) 7%, transparent); }
+.entry textarea.prose:disabled { color: var(--ink); }
+.entry .fact-meta { gap: 2px 12px; transition: opacity 0.15s; }
+.entry .badge { border: 0; padding: 0; color: var(--ink-faint); }
+.meta-more { display: inline-flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; transition: opacity 0.15s; }
+.entry .ripple-btn { padding-left: 0; color: var(--wet); }
+@media (hover: hover) {
+  .entry .meta-more { opacity: 0; }
+  .entry .fact:hover .meta-more, .entry .fact:focus-within .meta-more { opacity: 1; }
+}
+.entry .ripples { margin: 0.35rem 0 0.2rem; background: color-mix(in srgb, var(--paper-deep) 60%, var(--sheet)); }
+.entry-add { padding: 1rem 2.5rem 0; }
+.entry-add input[type="text"] { border: 0; border-bottom: 1px dashed var(--rule); border-radius: 0; background: none; padding: 0.35rem 0; font-family: var(--font-book); font-size: 1.05rem; }
+.entry-add input[type="text"]:focus { outline: none; border-bottom-color: var(--indigo); }
+.entry .plate-section { padding: 1rem 2.5rem 0; }
+.entry-retired { padding: 0.8rem 2.5rem 0; }
+
+/* the web of the world: what it names, and what names it */
+.entry-links { padding: 1.4rem 2.5rem 0; }
+.entry-links h2 { margin: 0 0 0.5rem; font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+.link-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--rule); border-radius: 99px; background: var(--paper); padding: 0.15rem 0.7rem; font-family: var(--font-book); font-size: var(--step-0); color: var(--ink-soft); cursor: pointer; }
+.chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+.entry-tools { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: flex-end; padding: 1.6rem 2.5rem 0; font-size: var(--step--1); color: var(--ink-faint); }
+.entry-tools label { display: inline-flex; gap: 6px; align-items: center; }
+.entry-tools select { padding: 2px 4px; font-size: var(--step--1); }
+
+/* beside the map, the same page without its own head */
+.entry.card.compact { max-width: none; padding: 0; background: none; box-shadow: none; }
+.entry.compact .entry-facts, .entry.compact .entry-add, .entry.compact .plate-section, .entry.compact .entry-links, .entry.compact .entry-retired { padding-left: 0; padding-right: 0; }
+.entry.compact .entry-facts { padding-top: 0.2rem; gap: 0.6rem; }
+.entry.compact textarea.prose { font-size: var(--step-0); line-height: 1.5; }
+.entry.compact .meta-more { display: none; } /* beside the map: think it through here, change its standing in the canon */
+
+@media (max-width: 760px) {
+  .codex { grid-template-columns: minmax(0, 1fr); gap: 0.9rem; padding: 0.75rem 1rem 3rem; }
+  .codex-index { position: static; max-height: none; overflow: visible; padding: 0; }
+  .codex-index .codex-group, .codex-index input[type="search"] { display: none; }
+  .codex-jump { display: block; width: 100%; }
+  .entry-back { margin: 0.8rem 1.1rem 0; }
+  .entry-head { padding: 1.3rem 1.1rem 0.4rem; gap: 0.9rem; }
+  .entry-head.wide .entry-title { padding: 1rem 1.1rem 0; }
+  .entry-facts, .entry-add, .entry-links, .entry-tools, .entry-retired, .entry .plate-section { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .entry-seal { width: 3.75rem; height: 3.75rem; font-size: 2rem; }
+  .entry-plate { width: 6rem; }
+}

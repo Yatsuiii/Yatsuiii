@@ -309,7 +309,8 @@ await step('setting with the seal dries the ink and records premises', async () 
 await step('rewording a fact flags exactly the scenes that used it, and still-true clears it', async () => {
   const used = await st(page, () => window.__inkwash.state.passages.get('c_door__s1').premises.map((x) => x.f));
   await page.click('.tab >> text=Canon');
-  await page.waitForSelector('.cards');
+  await page.waitForSelector('.codex');
+  await page.click('.codex-link:text-is("Kael")');
   const fid = used.find((f) => f.startsWith('f_kael'));
   await page.fill('#fact-' + fid, 'Kael counts lamps when he is afraid, never stairs.');
   await page.keyboard.press('Tab');
@@ -379,12 +380,15 @@ await step('painting a plate for a scene and for a character', async () => {
   assert.equal(await page.textContent('.sheet .plate figcaption'), 'The door in the moon');
   // The example world comes with a portrait of Kael. Paint it again.
   await page.click('.tab >> text=Canon');
-  await page.waitForSelector('.card[aria-label="Kael"] .plate svg');
+  await page.click('.codex-link:text-is("Kael")');
+  await page.waitForSelector('.card[aria-label="Kael"] .entry-head .plate svg');
+  assert.equal(await page.locator('.card[aria-label="Kael"] .plate svg').count(), 1, 'a portrait heads the page, and isn\'t shown twice');
   assert.equal(await st(page, () => window.__inkwash.state.plates.get('ent__e_kael').spec.time), 'dusk');
   await page.click('.card[aria-label="Kael"] button:has-text("Paint it again")');
   await page.waitForFunction(() => window.__inkwash.state.plates.get('ent__e_kael').spec.time === 'night', null, { timeout: 6000 });
   assert.match((await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop())).input, /^You are composing a portrait of a character/);
   // The Hollow Queen's secret (she is Kael’s mother) never goes into her plate's brief.
+  await page.click('.codex-link:text-is("The Hollow Queen")');
   await page.click('.card[aria-label="The Hollow Queen"] button:has-text("Paint it again")');
   await page.waitForFunction(() => window.__inkwash.state.plates.get('ent__e_queen').spec.sitter.head === 'cap', null, { timeout: 6000 });
   const queenBrief = await st(page, () => window.__mock.calls.filter((c) => c.kind === 'json').pop().input);
@@ -487,6 +491,7 @@ await step('dream inbox: catch a fragment, find seeds, keep one', async () => {
 
 await step("ripples: the author's own idea comes first, then Claude's ways; an answer is the author's own first, Claude's to start from", async () => {
   await page.click('.tab >> text=Canon');
+  await page.click('.codex-link:text-is("Moonlight")');
   const card = '.card[aria-label="Moonlight"]';
   await page.waitForSelector(card);
   await page.click(`${card} .fact:has(#fact-f_moon_forget) button:has-text("Ripples")`);
@@ -503,9 +508,13 @@ await step("ripples: the author's own idea comes first, then Claude's ways; an a
   assert.deepEqual(await page.locator(`${panel} .ripple-ways .btn`).allTextContents(), ['My own idea', 'The lamplighters', 'Through glass', 'The records', 'Children'], 'the author\'s own idea comes first');
   assert.equal(await page.locator(`${panel} .way-open`).count(), 0, 'nothing is open until the author picks');
   assert.doesNotMatch(await page.textContent(panel), /not a key/, 'a reference to nothing is dropped');
-  // the contradiction leads to the fact it breaks
+  // the contradiction leads to the fact it breaks, on its own page, and back
   await page.click(`${panel} .ripple.break button:has-text("Mira:")`);
+  await page.waitForSelector('.card[aria-label="Mira"]');
+  await frame();
   assert.equal(await st(page, () => document.activeElement.id), 'fact-f_mira_smell');
+  await page.click('.entry-back:text-is("← Moonlight")');
+  await page.waitForSelector(panel);
 
   // the author's own idea: written by them, filed where they say
   await page.click(`${panel} .ripple-ways .btn:has-text("My own idea")`);
@@ -710,6 +719,47 @@ await step('the map moves and zooms, and lesser names come in closer', async () 
   assert.equal((await vb())[2], 1600);
 });
 
+await step("the canon is the world's codex: a place shows where it lies, entries link to each other, the search finds a fact, and beside the map a page can be edited", async () => {
+  const frame = () => page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+  // beside the map, a place's page: its facts can be edited and rippled there
+  await page.click('.atlas-panel button.linklike:text-is("The Old Coast")');
+  await page.waitForSelector('.atlas-panel h2 >> text=The Old Coast');
+  await page.click('.atlas-panel button.linklike:text-is("Harrowgate")');
+  await page.waitForSelector('.atlas-panel h2 >> text=Harrowgate');
+  assert.equal(await page.locator('.atlas-panel .entry.compact textarea.prose').count(), 3, 'its facts can be edited beside the map');
+  assert.equal(await page.locator('.atlas-panel .entry.compact button:has-text("Ripples")').count(), 3);
+  // what it's connected to opens on the map, when it's on the map
+  await page.click('.atlas-panel .chip:text-is("The Old Coast")');
+  await page.waitForSelector('.atlas-panel h2 >> text=The Old Coast');
+  // in the codex, a place's page shows where it lies, rippling
+  await page.click('.tab >> text=Canon');
+  await page.click('.codex-link:text-is("Harrowgate")');
+  const harrow = '.card[aria-label="Harrowgate"]';
+  await page.waitForSelector(`${harrow} .entry-map svg`, { timeout: 15000 });
+  assert.equal(await page.locator(`${harrow} .entry-mark .ring`).count(), 3);
+  const vb = (await page.getAttribute(`${harrow} .entry-map svg`, 'viewBox')).split(' ').map(Number);
+  assert.ok(vb[2] < 600 && vb[2] / vb[3] > 2.3, `a strip of map, zoomed in on the place (${vb.join(' ')})`);
+  assert.match(await page.textContent(`${harrow} .entry-head .eyebrow`), /^Capital in The Old Coast$/);
+  // what it names and what names it link to each other, and back
+  await page.click(`${harrow} .chip:text-is("The Harbour Lords")`);
+  await page.waitForSelector('.card[aria-label="The Harbour Lords"] .entry-seal');
+  assert.equal(await page.textContent('.card[aria-label="The Harbour Lords"] .entry-seal'), 'H', 'no picture yet: an ink seal');
+  await page.click('.entry-back:text-is("← Harrowgate")');
+  await page.waitForSelector(`${harrow} .entry-map svg`);
+  // the strip opens the atlas there
+  await page.click(`${harrow} .entry-map`);
+  await page.waitForSelector('.atlas-panel h2 >> text=Harrowgate');
+  // the index finds a fact
+  await page.click('.tab >> text=Canon');
+  await page.fill('#codex-find', 'pigeons');
+  await frame();
+  assert.deepEqual(await page.locator('.codex-link').allTextContents(), ['Gullhallow']);
+  await page.fill('#codex-find', '');
+  await frame();
+  assert.ok((await page.locator('.codex-link').count()) > 40);
+  await page.click('.tab >> text=Atlas');
+});
+
 await step('a world with a canon gets an atlas drawn around it', async () => {
   await page.selectOption('#world-select', WID);
   await page.click('.tab >> text=Atlas');
@@ -724,6 +774,7 @@ await step('a world with a canon gets an atlas drawn around it', async () => {
   assert.equal(spec.places.find((p) => p.name === 'Vesk').entity, JSON.parse(vesk).id);
   // deleting a place from the canon takes it off the map
   await page.click('.tab >> text=Canon');
+  await page.click('.codex-link:text-is("Gullwick")');
   await page.click('.card[aria-label="Gullwick"] button[aria-label="Delete Gullwick"]');
   await page.click('.modal button.seal');
   await settle(page);
