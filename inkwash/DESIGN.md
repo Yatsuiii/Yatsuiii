@@ -5,6 +5,11 @@
 > **Status: v0 is built** (`v0/`, live at https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK).
 > It covers section 12, plus a minimal publish and reader view so stage 0 can happen. Where it
 > differs from this design is listed in `v0/README.md`.
+>
+> **October 2026:** the next release adds bringing notes in, History with undo, saving that
+> survives a closed tab, a "where you left off" card and an offline copy for a creator trial. It's
+> built and tested but not yet republished. What it changes and why, and what's still unproven:
+> `NEXT_DIRECTION.md`. The trial: `CREATOR_TRIAL.md`.
 
 **In one line:** world creation for people who overthink. You pour in every detail, Inkwash keeps
 it straight and thinks it through with you, and when you paint the shape of a story, the AI inks it
@@ -52,20 +57,22 @@ A chat assistant is a genie: you wish, it grants, it forgets. Inkwash is a works
 | Where your world lives | In the chat history | In the canon: every character, place, rule and secret, stored as facts |
 | How you steer | You type requests | You paint the shape, mood and threads, and pin your own lines |
 | Fixing one part | Regenerate it, or argue | Repaint that region; nothing else changes |
-| Changing a fact | Later scenes silently contradict it | Every scene that relied on it lights up |
+| Changing a fact | Later scenes silently contradict it | Scenes recorded as relying on it light up (the record is a judgment; section 6) |
 | Who wrote what | Unknown | Recorded for every passage |
 | Showing it to people | Share a chat log | A world page, a book and a map |
 | Getting paid for it | No way to | License it (section 9) |
 
-**Why the big labs won't build this.** They build one assistant for a billion people. This is a
-tool with strong opinions for people who live inside worlds, plus a library of readers and a
-rights market. That's a whole business, and it isn't theirs. Apple could have built Instagram;
-phones already had cameras. The value was in the feel and the feed. The model is ink, and anyone
-can buy ink.
+**A bet, not a fact: why a big lab might not build this.** They build one assistant for a
+billion people; this is a tool with strong opinions for people who live inside worlds, and later
+a library and a rights market. That may not be a business they want. But nothing here proves it.
+Assistants already keep projects, files and memory, and any of them could add versioned facts
+and scene checks. So plan as if the editor can be copied, and treat "they won't build it" as a
+hypothesis that a single launch could end. The model is ink, and anyone can buy ink, including
+them.
 
-**Seedance and Higgsfield aren't competitors.** They make video clips that don't know your world.
-Later they become more ink (the canon tells them what a character looks like, every time), and
-more buyers.
+**Seedance and Higgsfield don't overlap with the canon today.** They make video clips that don't
+know your world. Later they could become more ink (the canon tells them what a character looks
+like, every time), and more buyers.
 
 **Other tools nearby, and the gap:**
 - AI writing tools (Sudowrite, NovelCrafter, NovelAI) help novelists write prose, using story
@@ -75,9 +82,13 @@ more buyers.
 - Reading platforms (Wattpad, Webtoon, Royal Road) host stories and already feed publishing and
   adaptation deals.
 
-Here's the gap, as far as we know: none of these let you paint a story's shape, flag the scenes
-a canon change breaks, or carry a record of authorship into a rights market. Check this before
-saying it publicly.
+The overlap is real. Story bibles and codexes (NovelCrafter's codex, Sudowrite's story bible,
+NovelAI's lorebook) already keep a world's facts beside the prose, and World Anvil and Campfire
+already hold whole worlds in one place; people pay for them. Bringing notes in, an organized
+canon and undo are table stakes, not a difference. What we haven't seen, without having checked
+thoroughly: facts with versions that the scenes relying on them are tied to, ripples led by the
+author, a painted score, and a record of authorship carried into a rights market. Check this
+before saying it publicly, and don't claim it as a moat.
 
 **The one risk that matters is slop.** If anything reads like generic AI prose, we lose. Every
 design rule below exists to keep your hand visible.
@@ -180,7 +191,11 @@ The ledger is stalefence's premise ledger, pointed at a story instead of a repo:
 | Reservations and claims, swapped atomically | Canon claims in shared worlds (section 8) |
 
 When a fact changes, every set passage whose premises include the old version turns stale and
-glows, on the canvas and in the book. A fact changes when you edit the canon, or when a repaint
+glows, on the canvas and in the book. Which facts a passage relies on is a judgment, by three
+witnesses (the model's list, the passage's words, the continuity check), so a passage that leans
+on a fact without naming it can be missed. The ledger errs toward flagging, and the copy must
+never promise it finds every dependency. Undoing a change puts the old words back as a new
+version, so a passage set against the undone words goes stale too; nothing is passed quietly. A fact changes when you edit the canon, or when a repaint
 changes what happened. You then either ink the stale passage again, or read it and mark it still
 true, which records the new version.
 
@@ -216,7 +231,9 @@ For every passage, Inkwash records:
 - which spans were pasted in from outside the studio. Their origin is unknown, so they never count
   as yours. Text moved inside the studio (cut and pasted, dragged, undone) keeps its origin;
 - the direction you gave it: strokes, notes and pins;
-- for every canon fact, whether you wrote it or accepted it from a suggestion;
+- for every canon fact, whether you wrote it in the studio, accepted it from a suggestion, or
+  brought it in from your notes. Notes keep their whole text. Their origin is unknown to Inkwash,
+  so if you say they're your own writing, that's recorded as your statement, never as proof;
 - when each of these happened.
 
 For a world, that becomes a **provenance report**:
@@ -308,7 +325,10 @@ and they leave.
   them.
 - **Market:** a commission on licenses.
 
-The first version has none of this: it's free, and it runs on your own Claude account.
+The first version has none of this: it's free, and it runs on your own Claude account. No price
+is set, and none should be until there's evidence. A trial records actual payment, stated
+willingness to pay and hypothetical interest separately (`CREATOR_TRIAL.md`), and no price rests
+on an assumed margin: the cost of inking per creator hasn't been measured.
 
 ## 11. Architecture
 
@@ -441,7 +461,7 @@ up, we fix that stage first.
 | Stage | What happens | Signal to move on |
 | --- | --- | --- |
 | 0. Your world | You build your first world in v0, the one you've wanted to show people for years, and show it to ten fantasy readers | They ask how you made it, or ask for the next chapter |
-| 1. Twenty creators | Invite people who have worlds in their heads, from fantasy and web-novel communities | They come back on their own and finish chapters |
+| 1. Twenty creators | Invite people who have worlds in their heads, from fantasy and web-novel communities. The first ten through `CREATOR_TRIAL.md` | They come back on their own, on a later day, and keep building the same world |
 | 2. The library | World pages, following and reading stats | Readers finish chapters of worlds they found by themselves |
 | 3. The market | Fan and indie licenses first, studio options later | The first paid indie license |
 
@@ -454,7 +474,7 @@ up, we fix that stage first.
 | Rights | The authorship record exists from day one, and a lawyer reviews the market before it opens. |
 | An empty market | Build the tool, then the library, then the market, starting with your own worlds. |
 | Cost | v0 runs on your Claude account. Later, the paid tier covers inking. |
-| A big platform copies the editor | The moat is the library, the reader data, the rights records and the creators, not the editor. |
+| A big platform copies the editor | Assume it can. A library, reader data, rights records and a community of creators would be harder to copy, but none of them exists yet, so none is a moat today. Compete on how it feels to use, and measure whether creators come back. |
 
 ## 15. Open questions
 

@@ -6,6 +6,22 @@ Draw a place from a dream, and see it real:
 
 It runs as a small server on your own computer, because a page on claude.ai can't hold API keys or reach these models. The server keeps your keys away from the browser and keeps every scene in a folder on your disk. There is nothing to install beyond Node 18 or later.
 
+**What has been run for real, as of October 2026:**
+
+| Step | Live status |
+| --- | --- |
+| Stepping inside on your device (open depth model, no key) | Runs in the browser; tested end to end |
+| A World Labs world (draft) | Run live once: built and read back (230 credits) |
+| Gemini pictures and panoramas | **Not yet run live.** Built from Google's SDK sources and tested with stand-ins |
+| Veo video | **Not yet run live.** Same |
+
+The page says "not yet run live" beside Google's pictures and video too. The first live check
+needed is one picture, one panorama and one 4-second Lite video on a key with billing on: about
+5¢ + 5¢ + 20¢. It hasn't been run because no budget for it has been authorized.
+
+Dream Canvas is separate from the Inkwash studio and isn't needed to try Inkwash. A creator trial
+uses the studio alone (see `../CREATOR_TRIAL.md`).
+
 ## What it does
 
 - **Draw.**

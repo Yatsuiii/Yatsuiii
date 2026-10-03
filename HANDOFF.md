@@ -35,6 +35,18 @@ reliability, evals and protocols.
 > business tools that sell relief from a pain, and Raghav pushed back on kill-testing this one
 > before it exists. The design has its own stages and signals (its section 13).
 
+> **Update (2026-10-03): Inkwash's next direction.** A release adds:
+> - bringing notes in;
+> - History with undo;
+> - saving that survives a closed tab;
+> - a "where you left off" card;
+> - an offline copy of the studio for a ten-person creator trial.
+>
+> It's built and tested (60 unit tests, 43 browser steps) but **not yet republished**: the live
+> artifact holds Raghav's private world, so republishing waits for his go-ahead. Start with
+> `inkwash/NEXT_DIRECTION.md`, then `inkwash/CREATOR_TRIAL.md`. The test counts in the table
+> below are from before this release.
+
 ---
 
 ## 1. Get the code (PowerShell)
