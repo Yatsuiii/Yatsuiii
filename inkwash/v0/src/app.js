@@ -93,19 +93,26 @@
   // ---------------------------------------------------------------- storage
   // One write at a time per document, coalesced: the db capability asks for exactly this.
 
+  // A trial copy (dist/inkwash-trial.html) gives everyone who can save a studio of their own, and
+  // publishes nothing. With store 'self' (the default), a person's worlds live under their own
+  // data/users/<id>/ in the store, which the platform keeps from everyone else, the page's owner
+  // included. With store 'shared', they live in the copy's studio, for a copy made for one person.
+  const TRIAL = window.INKWASH_TRIAL || null;
+  // Where the studio lives in the store: the top, or a trial visitor's own subtree.
+  let ROOT = '';
   const P = {
-    world: (w) => `studio/${w}`,
-    canon: (w, id) => `studio/${w}/canon/${id}`,
-    chapters: (w, id) => `studio/${w}/chapters/${id}`,
-    passages: (w, id) => `studio/${w}/passages/${id}`,
-    seeds: (w, id) => `studio/${w}/seeds/${id}`,
-    plates: (w, id) => `studio/${w}/plates/${id}`,
-    atlas: (w, id) => `studio/${w}/atlas/${id}`,
-    history: (w, id) => `studio/${w}/history/${id}`,
-    sources: (w, id) => `studio/${w}/sources/${id}`,
-    meta: (w, id) => `studio/${w}/meta/${id}`,
-    pubWorld: (w) => `published/${w}`,
-    pubChapter: (w, id) => `published/${w}/chapters/${id}`,
+    world: (w) => `${ROOT}studio/${w}`,
+    canon: (w, id) => `${ROOT}studio/${w}/canon/${id}`,
+    chapters: (w, id) => `${ROOT}studio/${w}/chapters/${id}`,
+    passages: (w, id) => `${ROOT}studio/${w}/passages/${id}`,
+    seeds: (w, id) => `${ROOT}studio/${w}/seeds/${id}`,
+    plates: (w, id) => `${ROOT}studio/${w}/plates/${id}`,
+    atlas: (w, id) => `${ROOT}studio/${w}/atlas/${id}`,
+    history: (w, id) => `${ROOT}studio/${w}/history/${id}`,
+    sources: (w, id) => `${ROOT}studio/${w}/sources/${id}`,
+    meta: (w, id) => `${ROOT}studio/${w}/meta/${id}`,
+    pubWorld: (w) => `${ROOT}published/${w}`,
+    pubChapter: (w, id) => `${ROOT}published/${w}/chapters/${id}`,
   };
   const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, atlas: () => S.atlas, pub: () => S.pub, history: () => S.history, sources: () => S.sources, meta: () => S.meta };
   const WORLD_KINDS = ['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub', 'history', 'sources', 'meta'];
@@ -181,6 +188,7 @@
   // closes; this makes sure the work isn't lost with it. Sketchbook mode writes this browser's
   // copy at once instead.
   const PENDING = 'inkwash.pending';
+  const pendingKey = () => PENDING + (ROOT ? ':' + ROOT : '');
   let pendingNoted = null;
   function notePending() {
     if (S.persist !== 'db' || S.readOnly) return;
@@ -190,24 +198,24 @@
       if (e) list[path] = { data: e.data, del: !!e.del, seq: e.seq, at: now() };
     }
     pendingNoted = Object.keys(list).length ? list : null;
-    try { if (pendingNoted) localStorage.setItem(PENDING, JSON.stringify(pendingNoted)); else localStorage.removeItem(PENDING); } catch (e) { /* storage blocked: nothing to keep */ }
+    try { if (pendingNoted) localStorage.setItem(pendingKey(), JSON.stringify(pendingNoted)); else localStorage.removeItem(pendingKey()); } catch (e) { /* storage blocked: nothing to keep */ }
   }
   function unpend(path, seq) {
     if (!pendingNoted || !pendingNoted[path] || pendingNoted[path].seq > seq) return;
     delete pendingNoted[path];
     if (!Object.keys(pendingNoted).length) pendingNoted = null;
-    try { if (pendingNoted) localStorage.setItem(PENDING, JSON.stringify(pendingNoted)); else localStorage.removeItem(PENDING); } catch (e) { /* ignore */ }
+    try { if (pendingNoted) localStorage.setItem(pendingKey(), JSON.stringify(pendingNoted)); else localStorage.removeItem(pendingKey()); } catch (e) { /* ignore */ }
   }
   // Writes noted when the page last closed: any the store doesn't have yet (it holds an older copy,
   // or none, of a document written then) are written now.
   async function recoverPending() {
     let list = null;
-    try { list = JSON.parse(localStorage.getItem(PENDING) || 'null'); } catch (e) { list = null; }
+    try { list = JSON.parse(localStorage.getItem(pendingKey()) || 'null'); } catch (e) { list = null; }
     if (!list || typeof list !== 'object' || S.persist !== 'db' || S.readOnly) return;
-    try { localStorage.removeItem(PENDING); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem(pendingKey()); } catch (e) { /* ignore */ }
     let done = 0;
     for (const [path, e] of Object.entries(list)) {
-      if (!/^(studio|published)\//.test(path) || !e) continue;
+      if (!path.startsWith(ROOT) || !/^(studio|published)\//.test(path.slice(ROOT.length)) || !e) continue;
       try {
         const snap = await S.db.doc(path).get();
         const have = snap.exists ? (snap.data() || {}) : null;
@@ -339,7 +347,7 @@
 
   function startStudio(hot) {
     S.mode = 'loading';
-    S.db.collection('studio').onSnapshot((snap) => {
+    S.db.collection(ROOT + 'studio').onSnapshot((snap) => {
       const changed = applyChanges(snap, S.worlds, (id) => P.world(id));
       const first = !S.worldsReady;
       S.worldsReady = true;
@@ -349,7 +357,7 @@
       if (S.mode === 'loading' || (S.mode === 'studio' && !S.worlds.has(S.wid))) chooseWorld(hot);
       render();
     }, onDbError);
-    S.db.collection('published').onSnapshot((snap) => {
+    if (!TRIAL) S.db.collection('published').onSnapshot((snap) => {
       if (applyChanges(snap, S.pubWorlds, (id) => P.pubWorld(id))) render();
     }, onDbError);
   }
@@ -386,17 +394,18 @@
       if (changed || first) { bump(); render(); }
     }, onDbError);
     S.unsub = [
-      sub(`studio/${wid}/canon`, 'canon'),
-      sub(`studio/${wid}/chapters`, 'chapters'),
-      sub(`studio/${wid}/passages`, 'passages'),
-      sub(`studio/${wid}/seeds`, 'seeds'),
-      sub(`studio/${wid}/plates`, 'plates'),
-      sub(`studio/${wid}/atlas`, 'atlas'),
-      sub(`published/${wid}/chapters`, 'pub'),
-      sub(`studio/${wid}/history`, 'history'),
-      sub(`studio/${wid}/sources`, 'sources'),
-      sub(`studio/${wid}/meta`, 'meta'),
-    ];
+      sub(`${ROOT}studio/${wid}/canon`, 'canon'),
+      sub(`${ROOT}studio/${wid}/chapters`, 'chapters'),
+      sub(`${ROOT}studio/${wid}/passages`, 'passages'),
+      sub(`${ROOT}studio/${wid}/seeds`, 'seeds'),
+      sub(`${ROOT}studio/${wid}/plates`, 'plates'),
+      sub(`${ROOT}studio/${wid}/atlas`, 'atlas'),
+      TRIAL ? null : sub(`published/${wid}/chapters`, 'pub'),
+      sub(`${ROOT}studio/${wid}/history`, 'history'),
+      sub(`${ROOT}studio/${wid}/sources`, 'sources'),
+      sub(`${ROOT}studio/${wid}/meta`, 'meta'),
+    ].filter(Boolean);
+    if (TRIAL) S.loaded.add('pub');
     S.mode = 'studio';
     S.form = null;
     render();
@@ -477,6 +486,7 @@
     const main = $('#main');
     clear(main);
     if (S.mode === 'loading') main.append(openingView());
+    else if (S.mode === 'blocked') main.append(blockedView());
     else if (S.mode === 'welcome') main.append(welcomeView());
     else if (S.mode === 'form') main.append(worldFormView());
     else if (S.mode === 'reader') main.append(readerView(S.pubWorlds.get(S.reader.wid), S.reader.chapters, false));
@@ -527,7 +537,7 @@
     const slot = $('#topbar-slot');
     clear(slot);
     if (S.mode === 'reader') { slot.append(h('span', { class: 'muted' }, 'Reading')); return; }
-    if (S.mode === 'loading') return;
+    if (S.mode === 'loading' || S.mode === 'blocked') return;
     const worlds = [...S.worlds.values()].sort((a, b) => (a.example ? 1 : 0) - (b.example ? 1 : 0) || String(a.title).localeCompare(String(b.title)));
     const pick = h('select', {
       id: 'world-select', 'aria-label': 'World',
@@ -581,7 +591,14 @@
         window.claude ? "Inkwash can't save to claude.ai in this view, so your work is kept in this browser only. Back up each world to a file from the Book view."
           : 'This copy of Inkwash keeps your work in this browser only, and sends none of it anywhere. Clearing the browser’s data deletes it, so back up each world to a file from the Book view.'));
     }
-    if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), "This view can't save changes."));
+    if (TRIAL && S.persist === 'db' && S.mode !== 'blocked') {
+      root.append(h('div', { class: 'banner' },
+        h('strong', null, 'Trial copy.'),
+        TRIAL.store === 'shared'
+          ? 'Your worlds are kept in this copy of Inkwash, which only you and the person who shared it with you can open. Claude’s suggestions use your own Claude usage, and claude.ai asks you before the first one.'
+          : 'Your worlds here are private to your claude.ai account: under the rules this page is published with, nobody else can read them, not even the person who shared it. Claude’s suggestions use your own Claude usage, and claude.ai asks you before the first one.'));
+    }
+    if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), TRIAL ? 'You can look around, but this page can’t save your changes. Ask the person who shared it to invite you as an Editor.' : "This view can't save changes."));
     if (S.aiOff && S.mode === 'studio') root.append(h('div', { class: 'banner' }, h('strong', null, 'Inking is off.'), S.aiOff));
     if (w && w.example) {
       root.append(h('div', { class: 'banner' },
@@ -591,6 +608,13 @@
     }
   }
 
+  function blockedView() {
+    return h('section', { class: 'opening' },
+      h('p', { class: 'eyebrow' }, 'Inkwash trial'),
+      h('h1', null, 'This page can’t give you a private studio yet.'),
+      h('p', { class: 'muted' }, 'This trial copy keeps each person’s worlds in a private place tied to their claude.ai account, and this visit didn’t come with one. Nothing has been saved. Sign in to claude.ai and open the link from your invitation again.'),
+      h('p', { class: 'muted' }, 'If you still see this, tell the person who shared the page with you: they can switch your copy to a studio of its own.'));
+  }
   function openingView(title) {
     return h('section', { class: 'opening' },
       h('p', { class: 'eyebrow' }, title || 'Opening your studio'),
@@ -621,7 +645,10 @@
         h('div', { class: 'choice' },
           h('h2', null, 'Explore an example'),
           h('p', { class: 'muted' }, 'The Drained Sea, a world dreamed from three sentences. Or The Hollow Moon, a book in progress: a set scene, a wet one, a scene that went stale when a fact changed, and a scene ready to ink.'),
-          h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onclick: loadDreamExample }, 'The Drained Sea'), h('button', { class: 'btn', type: 'button', onclick: loadExample }, 'The Hollow Moon')))));
+          h('div', { class: 'btn-row' }, h('button', { class: 'btn', type: 'button', onclick: loadDreamExample }, 'The Drained Sea'), h('button', { class: 'btn', type: 'button', onclick: loadExample }, 'The Hollow Moon')))),
+      // a world backed up anywhere (the preview, another copy) comes in whole
+      h('p', { class: 'faint welcome-restore' }, 'Have a backup of a world from Inkwash? ',
+        h('label', { class: 'linklike' }, 'Restore it', h('input', { type: 'file', accept: '.json,application/json', class: 'sr-only', id: 'welcome-restore', onchange: (e) => restoreFrom(e.target) })), '.'));
   }
 
   // ---------------------------------------------------------------- world form
@@ -2075,7 +2102,7 @@
       h('p', { class: 'eyebrow' }, 'Contents'),
       h('ol', { class: 'toc-list' }, order.map((cid, i) => h('li', null, h('a', { href: '#ch-' + cid, onclick: (e) => { e.preventDefault(); const el = document.getElementById('ch-' + cid); if (el) el.scrollIntoView({ behavior: 'smooth' }); } }, `${i + 1}. ${S.chapters.get(cid).title}`)))),
       h('label', { class: 'check-row' }, h('input', { type: 'checkbox', id: 'book-hand', checked: S.showHand, onchange: (e) => { S.showHand = e.target.checked; local.set('showHand', S.showHand); render(); } }), 'Underline my hand'),
-      h('div', null, h('button', { class: 'btn small', type: 'button', onclick: () => { S.preview = true; render(); window.scrollTo(0, 0); } }, 'Read it as a reader')),
+      TRIAL ? null : h('div', null, h('button', { class: 'btn small', type: 'button', onclick: () => { S.preview = true; render(); window.scrollTo(0, 0); } }, 'Read it as a reader')),
       exportsPanel());
     const page = h('article', { class: 'book-page' + (S.showHand ? ' show-hand' : '') },
       h('h1', { class: 'title' }, w.title),
@@ -2094,8 +2121,8 @@
     sec.append(h('div', { class: 'chapter-head' },
       h('h2', null, `Chapter ${i + 1}: ${ch.title}`),
       pubc ? h('span', { class: 'pill', 'data-state': changed ? 'stale' : 'set' }, changed ? 'Changed since published' : `Published ${when(pubc.publishedAt)}`) : null,
-      S.readOnly ? null : h('button', { class: 'btn small', type: 'button', onclick: () => publishChapter(cid) }, pubc ? 'Publish again' : 'Publish chapter'),
-      pubc && !S.readOnly ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => unpublishChapter(cid) }, 'Unpublish') : null));
+      S.readOnly || TRIAL ? null : h('button', { class: 'btn small', type: 'button', onclick: () => publishChapter(cid) }, pubc ? 'Publish again' : 'Publish chapter'),
+      pubc && !S.readOnly && !TRIAL ? h('button', { class: 'btn ghost small', type: 'button', onclick: () => unpublishChapter(cid) }, 'Unpublish') : null));
     if (S.publishTried[cid]) {
       const r = C.chapterProblems({ chapter: ch, chapterId: cid, passages: S.passages, idx: idx(), strict: !!world().strict, entities: S.canon });
       const blocking = r.problems.filter((x) => x.block);
@@ -2124,6 +2151,7 @@
   }
 
   function publishChapter(cid) {
+    if (TRIAL) return;
     const ch = S.chapters.get(cid);
     const r = C.chapterProblems({ chapter: ch, chapterId: cid, passages: S.passages, idx: idx(), strict: !!world().strict, entities: S.canon });
     if (!r.ok) {
@@ -3590,7 +3618,15 @@
     S.user = user; S.sample = sample; S.downloads = downloads;
     let owner = null;
     if (user) { try { owner = await user.isOwner(); } catch (e) { owner = null; } }
-    if (user && owner === false) { S.db = db; startReader(); return; }
+    if (TRIAL && db && TRIAL.store !== 'shared') {
+      // the platform keeps data/users/<id>/ to its person; without an id there is no private
+      // place, and nothing is saved anywhere else instead
+      let id = null;
+      try { id = await user.id(); } catch (e) { id = null; }
+      if (!id) { S.mode = 'blocked'; render(); return; }
+      ROOT = `data/users/${id}/home/`;
+    }
+    if (user && owner === false && !TRIAL) { S.db = db; startReader(); return; }
     if (db) { S.db = db; S.persist = 'db'; }
     else { S.db = makeLocalDb(); S.persist = 'local'; }
     if (!sample) S.aiOff = window.claude ? 'Claude isn’t available in this view, so inking is off. You can still paint, write scenes yourself and set them.' : 'This copy of the page is running outside claude.ai, so inking is off. You can still paint, write scenes yourself and set them.';

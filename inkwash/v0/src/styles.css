@@ -670,3 +670,6 @@ textarea.import-fact:disabled { color: inherit; }
 .left-off-list li { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px solid var(--rule); }
 .left-off-list li > span { flex: 1 1 18rem; min-width: 0; }
 @media (max-width: 760px) { .left-off { margin: 12px 16px 0; } }
+
+.welcome-restore { margin-top: 4px; }
+.welcome-restore label.linklike:focus-within { outline: 2px solid var(--indigo); outline-offset: 2px; }

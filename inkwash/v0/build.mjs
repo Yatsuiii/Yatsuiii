@@ -3,6 +3,10 @@
 // writes dist/inkwash-offline.html: the same studio as a whole document that opens from a file, with
 // the examples inside it (a page opened from a file can't fetch them). The offline copy has no
 // Claude and keeps everything in the browser it is opened in.
+// And the trial pages, to publish as artifacts of their own (see ../TRIAL_SETUP.md):
+// dist/inkwash-trial.html keeps each person's worlds in their own private part of the store;
+// dist/inkwash-trial-shared.html keeps them in the copy's studio, for a copy made for one person.
+// Both carry the examples inside and publish nothing.
 // Run: node inkwash/v0/build.mjs
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -41,3 +45,11 @@ const offline = '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8
   + '</html>\n';
 writeFileSync(here('./dist/inkwash-offline.html'), offline);
 console.log(`dist/inkwash-offline.html ${(offline.length / 1024).toFixed(1)} KB`);
+
+for (const [file, store] of [['inkwash-trial.html', 'self'], ['inkwash-trial-shared.html', 'shared']]) {
+  if (!page.startsWith('<title>Inkwash</title>')) throw new Error('the trial pages rename the page by its title');
+  const trial = page.replace('<title>Inkwash</title>', '<title>Inkwash trial</title>')
+    .replace('<script>', () => inside + `<script>window.INKWASH_TRIAL = ${JSON.stringify({ store })};</script>\n<script>`);
+  writeFileSync(here('./dist/' + file), trial);
+  console.log(`dist/${file} ${(trial.length / 1024).toFixed(1)} KB`);
+}
