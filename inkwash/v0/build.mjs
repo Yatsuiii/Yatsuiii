@@ -4,8 +4,9 @@
 // the examples inside it (a page opened from a file can't fetch them). The offline copy has no
 // Claude and keeps everything in the browser it is opened in.
 // And the trial pages, to publish as artifacts of their own (see ../TRIAL_SETUP.md):
-// dist/inkwash-trial.html keeps each person's worlds in their own private part of the store;
-// dist/inkwash-trial-shared.html keeps them in the copy's studio, for a copy made for one person.
+// dist/inkwash-trial.html keeps each person's worlds in their own space in the store, which the
+// copy's published rules keep from everyone else; dist/inkwash-trial-shared.html keeps them in
+// the copy's studio, which its owner can read, for a copy made for one person.
 // Both carry the examples inside and publish nothing.
 // Run: node inkwash/v0/build.mjs
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync } from 'node:fs';

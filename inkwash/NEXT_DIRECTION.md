@@ -20,8 +20,9 @@ It adds two ways for creators to try Inkwash:
   else, you included. A new version of the copy could change that, so it's not a guarantee
   against you. Claude runs on their own usage.
 
-It's built and tested here. It is **not yet republished** to the live artifact, and no trial copy
-has been published, because those are your calls.
+It's built and tested here. It is **not yet republished** to the live artifact, because that's
+your call. One test copy of the trial page is published, private to you, for the check with a
+second account of yours (`TRIAL_SETUP.md`).
 
 Before any republish, the live store was backed up and the backups were verified to restore. The
 exposure of private content was checked rather than assumed (see "Before republishing" below).
@@ -138,7 +139,7 @@ See the runtime audit below, and `CREATOR_TRIAL.md`.
 | Studio artifact, as owner | You | Everything, Claude on your own usage | None | Studio data to claude.ai, readable by you alone (`studio` rules: owner only). Prompts to Claude when you ask | Live. This release isn't published there yet |
 | Studio artifact, as anyone else | Signed-in people it's shared with | The reader view: published chapters and spoiler-safe lore | None | Nothing; they can't write | Live |
 | Offline file | Anyone with the file and a browser | Notes, canon, own ripples, scenes by hand, the score, History, return card, backups, both examples | None | A request for the typefaces | Tested in Chromium only |
-| Trial copy, one per creator (`TRIAL_SETUP.md`) | The creator, invited by email as an Editor of their copy | The full studio and loop, no publishing | None | Their worlds to their own space in that copy's store, kept from everyone else by its published rules; prompts to Claude on their own usage | Built and tested against a fake store; not published |
+| Trial copy, one per creator (`TRIAL_SETUP.md`) | The creator, invited by email as an Editor of their copy | The full studio and loop, no publishing | None | Their worlds to their own space in that copy's store, kept from everyone else by its published rules; prompts to Claude on their own usage | One test copy published, private to you, with its rules checked on the real store. Not yet tried from a second account |
 | Dream Canvas, local server | Someone who runs Node with keys | Sketch, picture, panorama, video, worlds, stepping inside | Server environment only; never in the page or exports | Sketches, pictures and world facts to Google; a panorama to World Labs | Stand-ins tested end to end. World Labs draft run live once. Google pictures and video **not run live** |
 
 No key appears in either built page; checked by searching both for key patterns.
@@ -314,11 +315,13 @@ These are open questions, not facts, and the trial is the first test of the firs
    - capabilities omitted, so the stored rules stay as they are.
 
    Backups are in hand, and the checks above passed.
-3. **Start the full trial on yourself.** Say the word and I'll publish one private trial copy for
-   you to run the loop in, then you check it with a second account of yours (`TRIAL_SETUP.md`,
-   steps 1–2). Nobody else is invited until that works.
-4. **Then 3–5 creators, one copy each,** invited by you as Editors of their own copy, with the
-   Track F drafts in `CREATOR_TRIAL.md`.
+3. **Run the full loop on the test copy, then from a second account of yours.** The copy is
+   published, private to you: https://claude.ai/artifact/76GitMowRjowobZd1vvXtn. The steps are
+   in `TRIAL_SETUP.md`, "Testing with a second account". If that account gets no id, stop:
+   the only fallback lets you read a creator's worlds. Nobody else is invited until the whole
+   loop works there.
+4. **Then 3–5 creators, one copy each,** invited by you as Editors of their own copy. The Track
+   F drafts in `CREATOR_TRIAL.md` are finished with what the second account's run showed.
 5. **The preview** can go to anyone else at any time (Track P). Nothing has been sent.
 6. **Later, as you said:** a first live check of Dream Canvas's Google pictures and video. About
    30¢; not authorized, not run.

@@ -78,7 +78,7 @@
     confirmReink: null, selection: null, flash: null,
     publishTried: {}, preview: false,
     ripple: { open: {}, idea: {}, pick: {}, draft: {} }, // per fact: the open way and the author's own idea; per way: the answer picked and drafted
-    reader: { wid: null, chapters: new Map(), pos: 0, unsub: null },
+    reader: { wid: null, chapters: new Map(), listed: false, ready: false, pos: 0, unsub: null }, // listed: the books have arrived; ready: the open book's chapters have
     editBase: {}, editTimers: {}, removed: [],
     unsub: [], ver: 0,
     dbError: null,
@@ -491,7 +491,7 @@
     else if (S.mode === 'blocked') main.append(blockedView());
     else if (S.mode === 'welcome') main.append(welcomeView());
     else if (S.mode === 'form') main.append(worldFormView());
-    else if (S.mode === 'reader') main.append(readerView(S.pubWorlds.get(S.reader.wid), S.reader.chapters, false));
+    else if (S.mode === 'reader') main.append(S.db && (!S.reader.listed || (S.reader.wid && !S.reader.ready)) ? readerOpening(S.pubWorlds.get(S.reader.wid)) : readerView(S.pubWorlds.get(S.reader.wid), S.reader.chapters, false));
     else if (S.mode === 'studio') {
       if (!world() || !ready()) main.append(openingView(world() ? `Opening ${world().title}` : null));
       else if (S.preview) main.append(readerView(S.pubWorlds.get(S.wid), S.pub, true));
@@ -2317,6 +2317,15 @@
     return wrap;
   }
 
+  // Until the books, then the open book's chapters, arrive, the reader says it's opening, never
+  // that nothing is published.
+  function readerOpening(pubWorld) {
+    return h('section', { class: 'opening' },
+      h('p', { class: 'eyebrow' }, pubWorld ? 'Opening the book' : 'Opening'),
+      h('h1', null, (pubWorld && pubWorld.title) || 'Inkwash'),
+      h('p', { class: 'muted' }, pubWorld ? 'Its chapters appear here in a moment.' : 'One moment.'));
+  }
+
   function startReader() {
     S.mode = 'reader';
     if (!S.db) { render(); return; }
@@ -2326,12 +2335,14 @@
         if (ch.type === 'removed') S.pubWorlds.delete(ch.doc.id);
         else S.pubWorlds.set(ch.doc.id, Object.assign(C.clone(ch.doc.data()), { id: ch.doc.id }));
       }
+      S.reader.listed = true;
       const ids = [...S.pubWorlds.keys()];
       const want = S.pubWorlds.has(hash) ? hash : ids.sort((a, b) => (S.pubWorlds.get(b).publishedAt || 0) - (S.pubWorlds.get(a).publishedAt || 0))[0] || null;
       if (want !== S.reader.wid) {
         if (S.reader.unsub) S.reader.unsub();
         S.reader.wid = want;
         S.reader.chapters = new Map();
+        S.reader.ready = false;
         S.reader.pos = 0;
         if (want) {
           S.reader.unsub = S.db.collection(`published/${want}/chapters`).onSnapshot((cs) => {
@@ -2339,12 +2350,13 @@
               if (c.type === 'removed') S.reader.chapters.delete(c.doc.id);
               else S.reader.chapters.set(c.doc.id, Object.assign(C.clone(c.doc.data()), { id: c.doc.id }));
             }
+            S.reader.ready = true;
             render();
-          }, onDbError);
+          }, (e) => { S.reader.ready = true; onDbError(e); });
         }
       }
       render();
-    }, onDbError);
+    }, (e) => { S.reader.listed = true; onDbError(e); });
     render();
   }
 

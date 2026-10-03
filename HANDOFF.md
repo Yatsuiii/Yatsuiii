@@ -44,8 +44,11 @@ reliability, evals and protocols.
 >
 > It's built and tested (60 unit tests, 50 browser steps) but **not yet republished**: the live
 > artifact holds Raghav's private world, so republishing waits for his go-ahead. Start with
-> `inkwash/NEXT_DIRECTION.md`, then `inkwash/TRIAL_SETUP.md` (one private trial copy per creator,
-> and why never to invite anyone as an Editor on the live studio) and `inkwash/CREATOR_TRIAL.md`.
+> `inkwash/NEXT_DIRECTION.md`, then `inkwash/TRIAL_SETUP.md` (one trial copy per creator, what
+> its storage rules protect and what they don't, and why never to invite anyone as an Editor on
+> the live studio) and `inkwash/CREATOR_TRIAL.md`. One test copy is published, private to
+> Raghav, with made-up examples only: https://claude.ai/artifact/76GitMowRjowobZd1vvXtn. It
+> waits for his check from a second account.
 > The live store was backed up on 2026-10-03; the backups went to Raghav and are not in this repo.
 > The test counts in the table below are from before this release.
 

@@ -1,7 +1,7 @@
 # Giving 3–5 creators their own worlds, with Ripples working
 
-*October 2026. Built and tested here against a fake runtime. Nothing has been published, and
-nobody has been invited.*
+*October 2026. Built and tested here against a fake runtime. One test copy is published, private
+to you, with made-up examples only ("The test copy" below). Nobody has been invited.*
 
 ## In short
 
@@ -169,25 +169,180 @@ creators are told says exactly that:
 - you own the copy, and could change those rules or the page;
 - you'll tell them before you publish a new version of it.
 
-## Runbook (when you decide to go ahead)
+## The test copy (published 2026-10-03)
 
-1. **Test it on yourself first.** I publish one copy, private, as a new artifact. You open it and
-   bring in a page of notes. You run Ripples on a fact, keep one of Claude's answers, ink a scene
-   and set it.
-2. **Check a guest's view with a second account of your own.** Invite your other email to that
-   copy as an Editor. Confirm three things:
-   - the Share menu offers Editor for an outside email;
-   - the copy opens a studio for that account, not the "can't give you a private studio" page;
-   - Ripples asks for consent, then works on that account's usage.
+**https://claude.ai/artifact/76GitMowRjowobZd1vvXtn**, "Inkwash trial", Version 1. Private: only
+you can open it, and nobody is invited.
 
-   If the "can't give you a private studio" page appears, stop there. The fallback copy would let
-   you read and change a creator's worlds at any time, so it's only for a creator who agrees to
-   that, once told.
-3. **Per creator:** I publish a copy, and you invite them by email as an Editor, with link sharing
-   off. Send them the link and the guide in `CREATOR_TRIAL.md`.
+- **The page:** `dist/inkwash-trial.html` as built at commit f112569. What's published is that
+  file, byte for byte, inside the platform's standard wrapper. The commit after it fixes the main
+  studio's reader view, which a trial copy never runs, so the test copy wasn't republished for it.
+- **Content:** made-up examples only (The Hollow Moon, The Drained Sea). Its store was empty
+  when published.
+- **Runtime:** contract 0.2.67, the default for a new artifact. The page was tested against
+  0.2.66. The parts it uses (db, user, sample, downloads) are identical in both; only
+  `permissions` gained a call, which the page doesn't use.
+- **Stored rules, as the artifact service holds them:** exactly the set above. Root: read owner,
+  write owner. `data/users/{self}`: read interact, write interact. Plus user, sample and
+  downloads.
+
+**The rules, tested on the real store** with Claude's data tools acting at lower levels:
+
+| Probe | Acting as | Expected | Got |
+| --- | --- | --- | --- |
+| Write a document in your own `data/users/<id>/` | Contributor | allowed | allowed |
+| Read it back | Contributor, Editor | found | found |
+| Read it | Viewer | hidden | not found |
+| Write in your own space | Viewer | refused | the tool won't send a write at that level, so the server's answer wasn't tested |
+| Write a shared document | Editor, Contributor | refused | refused by the server |
+| Write a shared document | owner | allowed | allowed |
+| Read that shared document | Editor | hidden | not found |
+| List its collection | Contributor | empty | empty |
+| Write in someone else's `data/users/<id>/` (a made-up id) | owner, full access | refused | refused |
+| The shared `studio/` and `published/` | owner | empty | empty |
+
+Both probe documents were deleted afterwards. The store is empty again.
+
+**What this couldn't check:**
+
+- **Reading another real person's space as the owner.** There was none to read. Even once your
+  second account saves worlds, nobody can point a read at their space: their id isn't shown
+  anywhere. What you can check is that nothing of theirs lands anywhere you can read (step 9
+  below).
+- **Anything that needs a second account:**
+  - whether the Share menu offers Editor for an outside email;
+  - whether that account gets an id;
+  - how Claude's consent and usage behave for it.
+
+**Your original studio is unchanged:** still Version 1790928792-0a4b, on contract 0.2.66, with
+the same three rules and files.
+
+## Testing with a second account
+
+Use made-up content only. Once your second account is an Editor of the test copy, it could reach
+anything you save there. The notes to paste are in `v0/test/fixtures/the-glass-orchard.md`, a
+made-up world; the browser tests use the same file.
+
+**Before you start:**
+
+- A second claude.ai account of yours, with a different email. Note its plan (Free, Pro, Max…).
+- A separate browser profile signed in to it, so your own account isn't signed in there. A
+  private window works too.
+- A laptop or desktop, in Chrome or Edge.
+
+Write down what you see at each *Note*.
+
+**1. Access**
+
+1. As the second account, open the link before you invite it. You should be refused, because
+   the copy is private. *Note what you see.*
+2. As yourself, open the copy and click **Share**. Check that link sharing (general access) is
+   off.
+3. Invite the second email as **Editor**. Viewer and Commenter can't save anything. *Note
+   whether the menu offers Editor for that email.*
+4. As the second account, open the link from the invitation email.
+
+**2. Identity**
+
+You should see the welcome page under a **Trial copy.** banner that begins "Your worlds are saved
+in your own space in this copy's storage."
+
+- **"This page can't give you a private studio yet."** The platform gave this account no id.
+  **Stop here and tell me.** Don't switch to the fallback copy. See "If the second account gets
+  no id" below.
+- **The banner begins "You own this copy."** That browser is signed in as you, not the second
+  account.
+- **A "Read-only." banner after your first change.** The account holds view access only: link
+  sharing is on, or it was invited at a lower level. Stop and tell me.
+
+**3. Bring in the notes**
+
+1. Click **Bring in notes**, paste the notes and click **Read my notes**.
+2. You should see everything it found, line by line, under seven entries, including Odile Marr,
+   Quillhaven and The Chime Wardens.
+3. Click **Add 11 facts to a new world**. The canon opens.
+
+**4. Ripples**
+
+In **Canon**, open **Odile Marr** and click **Ripples** under "She lost two fingers to a cracking
+pear."
+
+- The first time, claude.ai should ask the second account to let this page use Claude. Allow it.
+  *Note whether it asked.*
+- You should then see **What it breaks**, then **Where does it lead?**, with **My own idea** first
+  and Claude's ways after it. This usually takes under a minute.
+- If an error appears instead, *note its exact words.*
+
+**5. Keep one of Claude's answers**
+
+1. Click one of Claude's ways, then one of its answers. Edit it if you like.
+2. Click **Add to …**. The fact appears in that entry, and History lists the step.
+
+**6. Ink a scene**
+
+1. Open **Score**. On the first scene of Chapter one, click **Ink this scene**.
+2. The prose streams in. Then "Checking this scene against the canon…" runs.
+3. If it lists a contradiction, click **Keep it as written**, or change the words.
+4. Click **Set with your seal**. The seal appears.
+
+*Note roughly how long the inking and the check took.*
+
+**7. Close and come back**
+
+1. Close the tab and wait at least 20 minutes.
+2. Open the link again as the second account.
+
+The world should open as you left it, with the answer you kept and the scene you set. A **Where
+you left off** card should welcome you back. Come back sooner and there's no card; that's by
+design.
+
+**8. Back up**
+
+Open **Book** and click **Back up this world**. claude.ai should ask before saving the file. Allow
+it. `the-glass-orchard-backup.json` should download. *Note whether it did.*
+
+**9. Check from your side**
+
+1. As yourself, open the test copy. You should see only your own worlds, none of the second
+   account's.
+2. Tell me, and I'll check the store: the shared paths should still be empty, and your own space
+   should hold none of its worlds.
+
+**What to send me:** the second account's plan, and your notes from steps 1, 2, 4, 6, 7 and 8.
+
+## If the second account gets no id
+
+**Then this runtime can't give that person a space of their own in a copy.** Nothing is lost:
+for such a visit, the page saves nothing anywhere.
+
+**The only way around it on this runtime is the fallback copy** (`dist/inkwash-trial-shared.html`).
+It is weaker:
+
+- Their worlds go in the copy's shared storage. You can read and change them at any time,
+  through the page or Claude's data tools, with no new version needed.
+- So can anyone else you make an Editor of that copy, so it can only ever hold one creator.
+- Its banner says so. Each creator would have to agree to it before you set one up.
+
+**I won't publish one until you decide.** The alternatives:
+
+- the preview only, for that person, without Claude;
+- the standalone version below, at your cost.
+
+## Runbook
+
+1. **On yourself: the test copy.** It's published, above. Open it and run the loop with the
+   made-up notes: bring them in, run Ripples, keep an answer, ink a scene and set it.
+2. **With your second account:** the steps above. If it gets no id, stop.
+3. **Per creator, only once step 2 has run the whole loop:**
+   - I publish a copy for them.
+   - You invite them by email as an Editor, with link sharing off.
+   - You send them the invitation and guide from `CREATOR_TRIAL.md`, finished with what step 2
+     showed.
 4. **Updates:** I republish each copy from the same file, without passing capabilities, so its
    rules stay exactly as they are. Tell the creator before each one. Their worlds stay in the
    copy's store.
+5. **When the test is done:** remove the second account from the test copy's Share menu, or keep
+   it for later checks.
 
 ## Not yet checked (needs a real second account)
 

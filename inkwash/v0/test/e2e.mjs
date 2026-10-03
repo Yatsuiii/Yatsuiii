@@ -20,7 +20,11 @@ const WID = 'w_hollow_moon';
 function mockClaude(cfg) {
   const docs = new Map(Object.entries(cfg.seed || {}).map(([p, b]) => [p, JSON.stringify(b)]));
   const listeners = new Set();
-  const M = (window.__mock = { docs, saves: [], calls: [], writes: 0, touched: new Set() });
+  const M = (window.__mock = { docs, saves: [], calls: [], writes: 0, touched: new Set(), said: new Set() });
+  // cfg.slow: {path suffix: ms} delays a collection's first snapshot, as a slow network would;
+  // with it, everything the page shows on the way is recorded in M.said
+  if (cfg.slow) setInterval(() => { if (document.body) M.said.add(document.body.innerText.replace(/\s+/g, ' ')); }, 10);
+  const slowFor = (path) => Object.entries(cfg.slow || {}).reduce((ms, [end, d]) => (path.endsWith(end) ? d : ms), 5);
   // cfg.selfRules: a trial copy's rules; cfg.viewOnly: this person can't save at all
   const allowed = (path) => {
     if (!cfg.selfRules) return true;
@@ -72,7 +76,7 @@ function mockClaude(cfg) {
           M.touched.add(path);
           if (cfg.owner === false && !cfg.selfRules && !cfg.editor && path.startsWith('studio')) { setTimeout(() => fn({ docs: [], size: 0, empty: true, docChanges: () => [], metadata: {} }), 5); return () => {}; }
           const l = { coll: path, fn, prev: new Map(), started: false };
-          listeners.add(l); setTimeout(() => deliver(l), 5);
+          listeners.add(l); setTimeout(() => deliver(l), slowFor(path));
           return () => listeners.delete(l);
         },
       };
@@ -816,9 +820,12 @@ assert.deepEqual(errors, []);
 await ctx.close();
 
 // ---------------------------------------------------------------- a reader who isn't the owner
-await step('a reader sees published chapters and spoiler-safe lore, never the studio', async () => {
-  const r = await open({ owner: false, seed: studioDocs });
+await step('a reader sees published chapters and spoiler-safe lore, never the studio, and while they load it never says nothing is published', async () => {
+  const r = await open({ owner: false, seed: studioDocs, slow: { published: 150, '/chapters': 300 } });
   await r.page.waitForSelector('.reader');
+  const said = await r.page.evaluate(() => [...window.__mock.said]);
+  assert.ok(said.some((t) => /opening the book/i.test(t)), 'it says the book is opening'); // innerText follows the label's uppercase
+  assert.deepEqual(said.filter((t) => /nothing has been published|no chapters are published/i.test(t)), [], 'and never that nothing is published');
   const text = await r.page.textContent('.reader');
   assert.match(text, /The Door in the Moon/);
   assert.match(text, /What you know so far/);
@@ -881,33 +888,8 @@ await step('the dreamed example opens anywhere, without Claude, and its map can 
 // ---------------------------------------------------------------- a creator's own notes
 // The Glass Orchard is a world made up for these tests. Bringing notes in, what is already there,
 // undo, coming back later, backups, and the copy of the studio that opens from a file.
-const ORCHARD = `# The Glass Orchard
-
-In the valley of Selt, the old trees grow glass instead of fruit.
-
-## Places
-
-### Quillhaven
-A hill town of glassblowers above the orchard.
-- The bells of Quillhaven are cast from green glass.
-- Nobody in Quillhaven may sell orchard glass.
-
-### The Long Rows
-Every autumn the trees ring like wind chimes.
-
-## Characters
-- Tamsin Hale: Odile's apprentice, who says she can hear the trees.
-
-### Odile Marr
-Odile is the orchard's last pruner. She is sixty-one.
-- She lost two fingers to a cracking pear.
-
-## Rules
-Glass picked before the first frost shatters by spring.
-
-## The Chime Wardens
-They tune the orchard every autumn and answer to no town.
-`;
+// made-up notes, also the ones to paste when trying a trial copy by hand (see ../../TRIAL_SETUP.md)
+const ORCHARD = readFileSync(fileURLToPath(new URL('./fixtures/the-glass-orchard.md', import.meta.url)), 'utf8');
 const MORE_NOTES = `## Odile Marr
 - She keeps a ledger of every tree she has cut.
 
