@@ -67,6 +67,8 @@
     worlds: new Map(), worldsReady: false, pubWorlds: new Map(),
     wid: null, loaded: new Set(),
     canon: new Map(), chapters: new Map(), passages: new Map(), seeds: new Map(), plates: new Map(), atlas: new Map(), pub: new Map(),
+    history: new Map(), sources: new Map(), meta: new Map(), // undoable steps, notes brought in, the activity counts
+    recording: null, editBefore: {}, importDraft: null, leftOff: null,
     atlasSel: null, dreamDraft: null,
     codexSel: null, codexBack: null, codexFind: '', // the canon's open entry, the one before it, and what the index is filtered by
     view: 'score', cid: null, k: 0,
@@ -99,20 +101,25 @@
     seeds: (w, id) => `studio/${w}/seeds/${id}`,
     plates: (w, id) => `studio/${w}/plates/${id}`,
     atlas: (w, id) => `studio/${w}/atlas/${id}`,
+    history: (w, id) => `studio/${w}/history/${id}`,
+    sources: (w, id) => `studio/${w}/sources/${id}`,
+    meta: (w, id) => `studio/${w}/meta/${id}`,
     pubWorld: (w) => `published/${w}`,
     pubChapter: (w, id) => `published/${w}/chapters/${id}`,
   };
-  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, atlas: () => S.atlas, pub: () => S.pub };
+  const MAP = { canon: () => S.canon, chapters: () => S.chapters, passages: () => S.passages, seeds: () => S.seeds, plates: () => S.plates, atlas: () => S.atlas, pub: () => S.pub, history: () => S.history, sources: () => S.sources, meta: () => S.meta };
+  const WORLD_KINDS = ['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub', 'history', 'sources', 'meta'];
   const W = new Map();
   const dirty = new Set();
+  const DOC_MAX = 250000; // bytes; the store refuses a document over 256 KiB, and this view would then stop saving
 
   function queueWrite(path, data, delay) {
     if (S.readOnly) return;
-    const size = JSON.stringify(data).length;
-    if (size > 250000) { toast("This can't be saved: it's over the 256 KB a single document can hold. Split the scene or trim its edit history.", 'error'); return; }
+    const size = C.utf8Bytes(JSON.stringify(data));
+    if (size > DOC_MAX) { toast("This can't be saved: it's over the 256 KB a single document can hold. Split the scene or trim its edit history.", 'error'); return; }
     let w = W.get(path);
-    if (!w) { w = { timer: null, data: null, del: false, running: false }; W.set(path, w); }
-    w.data = data; w.del = false;
+    if (!w) { w = { timer: null, data: null, del: false, running: false, seq: 0, inflight: null }; W.set(path, w); }
+    w.data = data; w.del = false; w.seq++;
     dirty.add(path);
     clearTimeout(w.timer);
     w.timer = setTimeout(() => flushPath(path), delay == null ? 500 : delay);
@@ -121,8 +128,8 @@
   function queueDelete(path) {
     if (S.readOnly) return;
     let w = W.get(path);
-    if (!w) { w = { timer: null, data: null, del: false, running: false }; W.set(path, w); }
-    w.data = null; w.del = true;
+    if (!w) { w = { timer: null, data: null, del: false, running: false, seq: 0, inflight: null }; W.set(path, w); }
+    w.data = null; w.del = true; w.seq++;
     dirty.add(path);
     clearTimeout(w.timer);
     w.timer = setTimeout(() => flushPath(path), 0);
@@ -137,9 +144,12 @@
     w.data = null; w.del = false;
     if (!isDel && data == null) { W.delete(path); dirty.delete(path); renderSaveState(); return; }
     w.running = true;
+    w.inflight = { data, del: isDel, seq: w.seq };
+    let saved = false;
     const ref = S.db.doc(path);
     (isDel ? ref.delete() : ref.set(data)).then(() => {
       S.saveError = null;
+      saved = true;
     }, (e) => {
       const code = e && e.code;
       if (code === 'unavailable' && !retried) {
@@ -157,6 +167,8 @@
       }
     }).finally(() => {
       w.running = false;
+      if (saved) unpend(path, w.inflight.seq);
+      w.inflight = null;
       if (w.data != null || w.del) { if (!w.timer) flushPath(path); }
       else { W.delete(path); dirty.delete(path); }
       renderSaveState();
@@ -164,9 +176,59 @@
   }
   function flushAll() { for (const path of [...W.keys()]) flushPath(path); }
 
+  // When the page is hidden or closed, writes still on their way are noted in this browser, and the
+  // next visit finishes any that never arrived. A store can't promise a write fired as a page
+  // closes; this makes sure the work isn't lost with it. Sketchbook mode writes this browser's
+  // copy at once instead.
+  const PENDING = 'inkwash.pending';
+  let pendingNoted = null;
+  function notePending() {
+    if (S.persist !== 'db' || S.readOnly) return;
+    const list = {};
+    for (const [path, w] of W) {
+      const e = (w.data != null || w.del) ? { data: w.data, del: w.del, seq: w.seq } : w.inflight;
+      if (e) list[path] = { data: e.data, del: !!e.del, seq: e.seq, at: now() };
+    }
+    pendingNoted = Object.keys(list).length ? list : null;
+    try { if (pendingNoted) localStorage.setItem(PENDING, JSON.stringify(pendingNoted)); else localStorage.removeItem(PENDING); } catch (e) { /* storage blocked: nothing to keep */ }
+  }
+  function unpend(path, seq) {
+    if (!pendingNoted || !pendingNoted[path] || pendingNoted[path].seq > seq) return;
+    delete pendingNoted[path];
+    if (!Object.keys(pendingNoted).length) pendingNoted = null;
+    try { if (pendingNoted) localStorage.setItem(PENDING, JSON.stringify(pendingNoted)); else localStorage.removeItem(PENDING); } catch (e) { /* ignore */ }
+  }
+  // Writes noted when the page last closed: any the store doesn't have yet (it holds an older copy,
+  // or none, of a document written then) are written now.
+  async function recoverPending() {
+    let list = null;
+    try { list = JSON.parse(localStorage.getItem(PENDING) || 'null'); } catch (e) { list = null; }
+    if (!list || typeof list !== 'object' || S.persist !== 'db' || S.readOnly) return;
+    try { localStorage.removeItem(PENDING); } catch (e) { /* ignore */ }
+    let done = 0;
+    for (const [path, e] of Object.entries(list)) {
+      if (!/^(studio|published)\//.test(path) || !e) continue;
+      try {
+        const snap = await S.db.doc(path).get();
+        const have = snap.exists ? (snap.data() || {}) : null;
+        if (e.del) { if (have && (have.updatedAt || 0) <= e.at) { queueDelete(path); done++; } }
+        else if (e.data && (!have || (have.updatedAt || 0) < (e.data.updatedAt || 0))) { queueWrite(path, e.data, 0); done++; }
+      } catch (err) { /* the store is unreachable: leave it */ }
+    }
+    if (done) toast(`Finished saving ${plural(done, 'change')} that hadn't arrived when the page last closed.`);
+  }
+  function flushLocal() { if (S.db && S.db.local && typeof S.db.flush === 'function') S.db.flush(); }
+  function onHide() {
+    for (const key of Object.keys(S.editBase)) commitEditLog(key);
+    flushAll();
+    notePending();
+    flushLocal();
+  }
+
   // Put a document into local state and queue its write. `quiet` skips the re-render (typing).
   function put(kind, id, data, opts) {
     opts = opts || {};
+    if (kind !== 'world') noteBefore(kind, id);
     const doc = Object.assign({}, data, { id });
     if (!opts.keepTime) doc.updatedAt = now();
     if (kind === 'world') { S.worlds.set(id, doc); queueWrite(P.world(id), doc); }
@@ -176,6 +238,7 @@
     return doc;
   }
   function removeDoc(kind, id) {
+    if (kind !== 'world') noteBefore(kind, id);
     if (kind === 'world') { S.worlds.delete(id); queueDelete(P.world(id)); }
     else { MAP[kind]().delete(id); queueDelete(P[kind === 'pub' ? 'pubChapter' : kind](S.wid, id)); }
     bump();
@@ -211,9 +274,15 @@
       if (!first && !changes.length) return;
       l.fn({ docs: paths.map((p) => snap(p, docs[p])), size: paths.length, empty: !paths.length, docChanges: () => changes, metadata: { fromCache: false, hasPendingWrites: false } });
     };
-    const notify = () => setTimeout(() => { for (const l of listeners) deliver(l); }, 0);
+    // one delivery for a burst of writes: bringing in notes can write a thousand documents at once
+    let notifying = false;
+    const notify = () => { if (notifying) return; notifying = true; setTimeout(() => { notifying = false; for (const l of listeners) deliver(l); }, 0); };
     const api = {
       local: true,
+      flush() {
+        clearTimeout(timer);
+        try { localStorage.setItem('inkwash.sketchbook', JSON.stringify(docs)); } catch (e) { /* full or blocked: the toast above already said */ }
+      },
       doc(path) {
         return {
           id: path.split('/').pop(), path,
@@ -274,6 +343,7 @@
       const changed = applyChanges(snap, S.worlds, (id) => P.world(id));
       const first = !S.worldsReady;
       S.worldsReady = true;
+      if (first) recoverPending();
       if (!changed && !first) return;
       bump();
       if (S.mode === 'loading' || (S.mode === 'studio' && !S.worlds.has(S.wid))) chooseWorld(hot);
@@ -300,7 +370,9 @@
     S.wid = wid;
     local.set('lastWorld', wid);
     S.canon = new Map(); S.chapters = new Map(); S.passages = new Map(); S.seeds = new Map(); S.plates = new Map(); S.atlas = new Map(); S.pub = new Map();
+    S.history = new Map(); S.sources = new Map(); S.meta = new Map();
     S.loaded = new Set();
+    S.leftOff = { wid, shown: false, dismissed: false };
     S.atlasSel = null;
     S.codexSel = local.get('codex.' + wid, null); S.codexBack = null; S.codexFind = '';
     S.selection = null; S.confirmReink = null; S.publishTried = {}; S.preview = false;
@@ -321,6 +393,9 @@
       sub(`studio/${wid}/plates`, 'plates'),
       sub(`studio/${wid}/atlas`, 'atlas'),
       sub(`published/${wid}/chapters`, 'pub'),
+      sub(`studio/${wid}/history`, 'history'),
+      sub(`studio/${wid}/sources`, 'sources'),
+      sub(`studio/${wid}/meta`, 'meta'),
     ];
     S.mode = 'studio';
     S.form = null;
@@ -413,15 +488,24 @@
       else if (S.view === 'dreams') main.append(dreamsView());
       else if (S.view === 'atlas') main.append(atlasView());
       else main.append(scoreView());
+      if (world() && ready() && !S.preview && leftOffDue()) main.prepend(leftOffCard());
     }
     restoreFocus(keep);
-    for (const ta of document.querySelectorAll('textarea.prose')) fitProse(ta);
+    fitAll(document.querySelectorAll('textarea.prose, textarea.import-fact'));
     if (S.mode === 'studio' && S.view === 'score' && !S.preview) Score.draw();
     renderSaveState();
   }
 
   // a field that reads as prose grows with its words
   function fitProse(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+  // many at once, measured together: one layout instead of one per field (a review of brought-in
+  // notes can hold thousands)
+  function fitAll(list) {
+    const tas = [...list];
+    for (const ta of tas) ta.style.height = 'auto';
+    const hs = tas.map((ta) => ta.scrollHeight);
+    tas.forEach((ta, i) => { ta.style.height = hs[i] + 'px'; });
+  }
 
   function renderSaveState() {
     const el = $('#save-state');
@@ -450,6 +534,7 @@
       onchange: (e) => {
         const v = e.target.value;
         if (v === '__new') openForm('new');
+        else if (v === '__import') openImport(S.wid && S.worlds.has(S.wid) ? S.wid : 'new');
         else if (v === '__dream') openForm('dream');
         else if (v === '__example') loadExample();
         else if (v && v !== S.wid) openWorld(v);
@@ -460,6 +545,7 @@
     for (const w of worlds) pick.append(h('option', { value: w.id, selected: w.id === S.wid && S.mode === 'studio' }, w.title + (w.example ? ' (example)' : '')));
     pick.append(h('option', { value: '__dream', selected: S.mode === 'form' && S.form && S.form.mode === 'dream' }, 'Dream a world…'));
     pick.append(h('option', { value: '__new', selected: S.mode === 'form' && S.form && S.form.mode === 'new' }, 'New world…'));
+    pick.append(h('option', { value: '__import', selected: S.mode === 'form' && S.form && S.form.mode === 'import' }, 'Bring in notes…'));
     if (!worlds.some((w) => w.example)) pick.append(h('option', { value: '__example' }, 'Open the example world'));
     slot.append(h('div', { class: 'world-pick' }, pick));
     if (S.mode === 'studio' && world()) {
@@ -473,6 +559,7 @@
     const stats = S.mode === 'studio' && ready() ? worldStats() : null;
     if (stats && stats.total) end.append(meter(stats.hand, 'your hand'));
     end.append(h('span', { class: 'save-state', id: 'save-state' }));
+    if (S.mode === 'studio' && world() && !S.readOnly) end.append(h('button', { class: 'btn ghost small', type: 'button', id: 'open-history', onclick: openHistory }, 'History'));
     if (S.mode === 'studio' && world()) end.append(h('button', { class: 'btn ghost small', type: 'button', onclick: () => openForm('settings') }, 'World settings'));
     slot.append(end);
   }
@@ -491,7 +578,8 @@
     if (S.persist === 'local' && S.mode !== 'reader') {
       root.append(h('div', { class: 'banner' },
         h('strong', null, 'Sketchbook mode.'),
-        "Inkwash can't save to claude.ai in this view, so your work is kept in this browser only. Back up each world to a file from the Book view."));
+        window.claude ? "Inkwash can't save to claude.ai in this view, so your work is kept in this browser only. Back up each world to a file from the Book view."
+          : 'This copy of Inkwash keeps your work in this browser only, and sends none of it anywhere. Clearing the browser’s data deletes it, so back up each world to a file from the Book view.'));
     }
     if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), "This view can't save changes."));
     if (S.aiOff && S.mode === 'studio') root.append(h('div', { class: 'banner' }, h('strong', null, 'Inking is off.'), S.aiOff));
@@ -514,16 +602,22 @@
     return h('section', { class: 'welcome' },
       h('p', { class: 'eyebrow' }, 'Inkwash'),
       h('h1', null, 'Overthink it. Inkwash keeps it straight.'),
-      h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Pour in every detail, and Inkwash keeps it all in one canon. Add a fact, and Inkwash shows what it breaks and asks where it leads. Write your own idea first, or start from one of Claude’s and make it yours. Nothing from a ripple joins your canon unless you add it. Tell it a dream, and Claude grows a whole world around it, on a map you can explore. Paint each scene’s tension and mood, and Claude inks the prose inside your strokes. When your world changes, Inkwash shows you exactly which scenes it breaks.'),
+      aiOn()
+        ? h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Bring in the notes you already have, and Inkwash keeps it all in one canon, in your own words. Add a fact, and Inkwash shows what it breaks and asks where it leads: your own idea first, or one of Claude’s to start from. Paint a scene’s tension and mood, and Claude inks the prose inside your strokes. Nothing joins your canon unless you add it, and any change can be undone. Come back any day and it shows you where you left off.')
+        : h('p', { class: 'muted' }, 'For the world you can’t stop thinking about. Bring in the notes you already have, and Inkwash keeps it all in one canon, in your own words. Change a fact, and it shows which of your scenes relied on it; write where it leads, your own way. Nothing joins your canon unless you add it, and any change can be undone. Come back any day and it shows you where you left off. This copy has no Claude in it: dreaming a world, inking scenes and Claude’s suggestions are in the claude.ai version.'),
       h('div', { class: 'choices' },
+        h('div', { class: 'choice lead' },
+          h('h2', null, 'Bring your notes'),
+          h('p', { class: 'muted' }, 'Paste notes about your world, or open a text or Markdown file. You see everything Inkwash found, word for word, before any of it is added.'),
+          h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: () => openImport('new') }, 'Bring in notes'))),
         h('div', { class: 'choice' },
-          h('h2', null, 'Dream a world'),
-          h('p', { class: 'muted' }, 'Tell it a dream. Claude grows it into a whole world, its lands, peoples and places drawn on a map you can explore, and keeps it all in your canon.'),
-          h('div', null, h('button', { class: 'btn primary', type: 'button', onclick: () => openForm('dream') }, 'Dream a world'))),
-        h('div', { class: 'choice' },
-          h('h2', null, 'Start your world'),
-          h('p', { class: 'muted' }, 'Name it, give it a premise, and paste a few paragraphs of your own writing so the ink sounds like you.'),
+          h('h2', null, 'Start from nothing'),
+          h('p', { class: 'muted' }, 'Name your world and give it a premise, then add its people, places and rules one by one.'),
           h('div', null, h('button', { class: 'btn', type: 'button', onclick: () => openForm('new') }, 'Start a world'))),
+        aiOn() ? h('div', { class: 'choice' },
+          h('h2', null, 'Dream a world'),
+          h('p', { class: 'muted' }, 'Tell it a dream. Claude grows it into a whole world, its lands, peoples and places drawn on a map, and keeps it all in your canon marked as suggested.'),
+          h('div', null, h('button', { class: 'btn', type: 'button', onclick: () => openForm('dream') }, 'Dream a world'))) : null,
         h('div', { class: 'choice' },
           h('h2', null, 'Explore an example'),
           h('p', { class: 'muted' }, 'The Drained Sea, a world dreamed from three sentences. Or The Hollow Moon, a book in progress: a set scene, a wet one, a scene that went stale when a fact changed, and a scene ready to ink.'),
@@ -547,6 +641,7 @@
   }
   function worldFormView() {
     if (S.form && S.form.mode === 'dream') return dreamFormView();
+    if (S.form && S.form.mode === 'import') return importView();
     const editing = S.form && S.form.mode === 'settings' ? world() : null;
     const w = editing || { title: '', premise: '', byline: '', voice: '', sceneWords: 450, pigments: DEFAULT_PIGMENTS, strict: false };
     const field = (label, input, note) => h('label', { class: 'field' }, h('span', null, label), input, note ? h('small', null, note) : null);
@@ -597,15 +692,20 @@
       render();
       return;
     }
+    makeWorld(fields);
+    toast('World created. Start with its canon: who lives here and what is true.');
+    render();
+  }
+  function makeWorld(fields) {
     const wid = C.uid('w');
     const cid = C.uid('c');
     openWorld(wid);
-    put('world', wid, Object.assign(fields, { example: false, strict: false, chapterOrder: [cid], createdAt: now() }), { quiet: true });
+    put('world', wid, Object.assign({ title: 'Untitled world', premise: '', byline: '', voice: '', sceneWords: 450, pigments: DEFAULT_PIGMENTS }, fields, { example: false, strict: false, chapterOrder: [cid], createdAt: now() }), { quiet: true });
     put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
+    S.loaded = new Set(WORLD_KINDS);
     S.cid = cid; S.k = 0; S.view = 'canon';
-    toast('World created. Start with its canon: who lives here and what is true.');
-    render();
+    S.leftOff.due = false;
+    return wid;
   }
   async function deleteWorld(wid) {
     const w = S.worlds.get(wid);
@@ -613,7 +713,7 @@
     const ok = await ask({ title: `Delete ${w.title}?`, body: 'Its canon, chapters, scenes, dreams and published chapters are deleted for good.', confirm: 'Delete this world', danger: true });
     if (!ok) return;
     if (S.wid !== wid) openWorld(wid);
-    for (const kind of ['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']) for (const id of [...MAP[kind]().keys()]) removeDoc(kind, id);
+    for (const kind of WORLD_KINDS) for (const id of [...MAP[kind]().keys()]) removeDoc(kind, id);
     if (S.pubWorlds.has(wid)) { S.pubWorlds.delete(wid); queueDelete(P.pubWorld(wid)); }
     removeDoc('world', wid);
     closeWorld();
@@ -626,11 +726,18 @@
 
   // ---------------------------------------------------------------- importing worlds
 
+  // The offline copy carries the examples inside it (a page opened from a file can't fetch them).
+  async function exampleData(file) {
+    const inside = window.INKWASH_EXAMPLES && window.INKWASH_EXAMPLES[file];
+    if (inside) return C.clone(inside);
+    const res = await fetch(file);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
   async function loadExample() {
     try {
-      const res = await fetch('example-world.json');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      importWorld(await res.json(), true);
+      importWorld(await exampleData('example-world.json'), true);
     } catch (e) {
       toast(`Couldn't open the example world (${e.message}).`, 'error');
     }
@@ -647,8 +754,10 @@
     for (const p of parsed.passages) put('passages', p.id, p, o);
     for (const s of parsed.seeds) put('seeds', s.id, s, o);
     for (const pl of parsed.plates) put('plates', pl.id, pl, o);
+    for (const src of parsed.sources) put('sources', src.id, src, o);
+    S.leftOff.due = false;
     if (parsed.atlas && parsed.atlas.spec) put('atlas', 'main', parsed.atlas, o);
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
+    S.loaded = new Set(WORLD_KINDS);
     S.cid = (parsed.world.chapterOrder || [])[0] || null;
     S.k = 0;
     S.view = 'score';
@@ -1428,7 +1537,7 @@
     const p = S.passages.get(key);
     if (!p) return;
     const ch = S.chapters.get(p.chapter);
-    if (S.editBase[key] == null) S.editBase[key] = p.text;
+    if (S.editBase[key] == null) { S.editBase[key] = p.text; S.editBefore[key] = C.clone(p); }
     const d = C.diffRange(p.text, ta.value);
     const how = HOW[inputType] || 'type';
     let next = C.editPassage(p, ta.value, pinsOf(ch, p.scene), now(), { how, sources: how === 'type' ? null : traceSources(key) });
@@ -1465,14 +1574,17 @@
       return [];
     });
   }
+  // an editing session ends after a pause or on leaving the scene: one step to undo
   function commitEditLog(key) {
     clearTimeout(S.editTimers[key]);
-    const base = S.editBase[key];
-    delete S.editBase[key];
+    const base = S.editBase[key], before = S.editBefore[key];
+    delete S.editBase[key]; delete S.editBefore[key];
     const p = S.passages.get(key);
     if (base == null || !p || base === p.text) return;
     put('passages', key, C.recordEdit(p, base, p.text, now()), { quiet: true });
+    if (before) commitStep(`Edited ${sceneName(p.chapter, p.scene)}`, 'scene', [{ coll: 'passages', id: key, before, after: S.passages.get(key) }], { sceneEdits: 1 });
   }
+  function sceneName(cid, k) { const i = chapterOrder().indexOf(cid); return i >= 0 ? `chapter ${i + 1}, scene ${k + 1}` : `scene ${k + 1}`; }
   function refreshSheetBits(key) {
     const p = S.passages.get(key);
     const ch = S.chapters.get(S.cid);
@@ -1778,7 +1890,9 @@
     const listed = out.ledger ? out.used : C.guessUsed(out.prose, brief.factMap, S.canon);
     const used = C.mergePremises(C.relies(out.prose, C.briefItems(brief.factMap, idx())), listed);
     const passage = C.inkedPassage({ chapterId: cid, k, prose: out.prose, used, fresh: partial ? [] : out.fresh, pins: brief.pins, now: now(), prev });
+    const rec = record(`Inked ${sceneName(cid, k)}`, 'scene', { inked: 1 });
     put('passages', passage.id, passage);
+    rec.done();
     if (!partial) runContinuity(passage.id);
     return true;
   }
@@ -1842,8 +1956,9 @@
         const used = C.mergePremises(C.relies(out.prose, C.briefItems(factMap, idx())), listed);
         const next = C.repaintPassage(cur, s, e, out.prose, used, out.fresh, pinsOf(ch, cur.scene), now());
         S.selection = null;
+        const rec = record(`Repainted part of ${sceneName(cur.chapter, cur.scene)}`, 'scene');
         put('passages', key, next);
-        toast('Repainted. The new words are wet until you set the scene.');
+        toast('Repainted. The new words are wet until you set the scene.', null, undoAction(rec.done()));
       }
     } catch (err) { aiError(err, 'repainting'); }
     finally { delete S.busy['repaint:' + key]; render(); }
@@ -1879,33 +1994,43 @@
       return;
     }
     S.flash = key;
+    const rec = record(`Set ${sceneName(p.chapter, p.scene)}`, 'scene', { scenesSet: 1 });
     put('passages', key, r.passage);
+    const step = rec.done();
     setTimeout(() => { S.flash = null; }, 700);
-    toast(`Set. The ledger recorded ${plural(r.passage.premises.length, 'fact')} this scene relies on.`);
+    toast(`Set. The ledger recorded ${plural(r.passage.premises.length, 'fact')} this scene relies on.`, null, undoAction(step));
   }
   function keepConflict(key, ref, keep) {
     const p = S.passages.get(key);
     if (!p) return;
+    const rec = record(keep ? `Kept a contradiction in ${sceneName(p.chapter, p.scene)}` : `Took back a kept contradiction in ${sceneName(p.chapter, p.scene)}`, 'scene');
     put('passages', key, C.keepConflict(p, ref, now(), keep));
+    rec.done();
   }
   function markStillTrue(key) {
     const p = S.passages.get(key);
     if (!p) return;
+    const rec = record(`Marked ${sceneName(p.chapter, p.scene)} still true`, 'scene');
     put('passages', key, C.stillTrue(p, idx(), now()));
-    toast('Marked still true. The ledger now records the current wording.');
+    toast('Marked still true. The ledger now records the current wording.', null, undoAction(rec.done()));
   }
   async function clearScene(key) {
-    const ok = await ask({ title: 'Clear this scene?', body: 'Its text is deleted. The painting, pinned lines and notes stay.', confirm: 'Clear scene', danger: true });
+    const ok = await ask({ title: 'Clear this scene?', body: 'Its text is deleted. The painting, pinned lines and notes stay. You can undo it from History.', confirm: 'Clear scene', danger: true });
     if (!ok) return;
+    const p = S.passages.get(key);
+    const rec = record(p ? `Cleared ${sceneName(p.chapter, p.scene)}` : 'Cleared a scene', 'scene');
     removeDoc('passages', key);
+    toast('Scene cleared.', null, undoAction(rec.done()));
     render();
   }
   function keepProposal(key, propId, kind) {
     const p = S.passages.get(key);
     const pr = p && (p.proposals || []).find((x) => x.id === propId);
     if (!pr) return;
-    addFactTo(pr.about || 'The world', pr.text, kind);
+    const rec = record(`Kept a suggested fact about ${pr.about || 'the world'}`, 'keep', { kept: 1 });
+    const r = addFactTo(pr.about || 'The world', pr.text, kind);
     put('passages', key, Object.assign({}, p, { proposals: p.proposals.map((x) => (x.id === propId ? Object.assign({}, x, { status: 'kept' }) : x)) }));
+    keptToast(r, rec.done());
   }
   function dismissProposal(key, propId) {
     const p = S.passages.get(key);
@@ -1917,8 +2042,9 @@
     const e = found ? C.clone(found) : C.newEntity(kind, name, now());
     e.facts.push(C.newFact(text, 'accepted', now()));
     put('canon', e.id, e);
-    toast(found ? `Kept: added to ${e.name}.` : `Kept: ${e.name} is new in your canon.`);
+    return { name: e.name, found: !!found };
   }
+  function keptToast(r, step) { toast(r.found ? `Kept: added to ${r.name}.` : `Kept: ${r.name} is new in your canon.`, null, undoAction(step)); }
 
   // ---------------------------------------------------------------- book view
 
@@ -2033,7 +2159,7 @@
     if (!can) { panel.append(h('p', { class: 'faint' }, 'Downloads aren’t available in this view.')); return panel; }
     const w = world();
     const base = slug(w.title);
-    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds, plates: S.plates, atlas: atlasDoc() });
+    const all = () => ({ world: w, entities: S.canon, chapters: S.chapters, passages: S.passages, seeds: S.seeds, plates: S.plates, atlas: atlasDoc(), sources: S.sources });
     const book = (filename, make) => async () => {
       const model = C.bookModel({ world: w, chapters: S.chapters, passages: S.passages, entities: S.canon, plates: S.plates });
       if (model.problems.length) {
@@ -2140,7 +2266,7 @@
       article.append(sec);
     } else article.append(h('p', { class: 'muted', style: { marginTop: '2rem' } }, 'No chapters are published yet.'));
     article.append(h('p', { class: 'made' }, pubWorld.words
-      ? `How this book was made: the author painted the shape of every scene in Inkwash and wrote ${pct(pubWorld.hand)} of the words by hand. Claude inked the rest from the author’s design, and the author kept or edited every line before setting it.`
+      ? `How this book was made: in Inkwash, the author wrote ${pct(pubWorld.hand)} of the words by hand. The rest was inked by Claude from the author’s design, or pasted in from elsewhere, and the author kept or edited every line before setting it.`
       : 'Made with Inkwash.'));
     const lore = C.visibleLore(pubWorld, cur ? cur.order : 0);
     const aside = h('aside', { class: 'lore', 'aria-label': 'What you know so far' },
@@ -2186,6 +2312,330 @@
 
   // ---------------------------------------------------------------- canon view
 
+  // ---------------------------------------------------------------- bringing notes in
+
+  // Paste notes or open a text file; Inkwash reads it (C.planImport) and shows everything it found
+  // before anything is added. Nothing is sent to Claude and nothing is reworded. What the creator
+  // keeps is added as one step, which can be undone; the notes themselves are kept as written.
+  function openImport(target) {
+    S.importDraft = { text: '', name: '', target: target && S.worlds.has(target) ? target : 'new', whole: false, plan: null, title: '', declared: false };
+    openForm('import');
+  }
+  function closeImport() {
+    S.importDraft = null; S.form = null;
+    S.mode = S.wid ? 'studio' : (S.worlds.size ? 'studio' : 'welcome');
+    if (!S.wid && S.worlds.size) chooseWorld();
+    render();
+  }
+  function readNotes() {
+    const d = S.importDraft;
+    const into = d.target !== 'new' && d.target === S.wid;
+    const plan = C.planImport(d.text, { entities: into ? S.canon : null, sources: into ? S.sources : null, split: !d.whole });
+    if (plan.empty) { toast('Paste some notes or open a file first.', 'warn'); return; }
+    if (plan.tooBig) { toast(`That's more than ${Math.round(plan.max / 1000)} KB of notes. Bring them in a part at a time.`, 'warn'); return; }
+    d.plan = plan;
+    d.title = d.title || plan.title || (d.name ? d.name.replace(/\.(md|markdown|txt|text)$/i, '') : '');
+    render();
+    window.scrollTo(0, 0);
+  }
+  async function openNotesFile(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > C.IMPORT_MAX * 2) { toast(`That file is more than ${Math.round(C.IMPORT_MAX / 1000)} KB. Bring your notes in a part at a time.`, 'warn'); return; }
+    const text = await file.text();
+    if (/\u0000/.test(text)) { toast('That file isn’t plain text. Save your notes as .txt or .md and open that.', 'warn'); return; }
+    Object.assign(S.importDraft, { text, name: file.name, plan: null });
+    render();
+  }
+  function importView() {
+    const d = S.importDraft || (S.importDraft = { text: '', name: '', target: S.wid || 'new', whole: false, plan: null, title: '', declared: false });
+    if (d.plan) return importReview(d);
+    const into = d.target !== 'new' && S.worlds.get(d.target);
+    const srcs = into && d.target === S.wid ? [...S.sources.values()].sort((a, b) => (b.at || 0) - (a.at || 0)) : [];
+    return h('section', { class: 'page-pad import-page' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Bring in notes'),
+        h('h1', null, into ? `Notes for ${into.title}` : 'Bring in your notes'),
+        h('p', { class: 'muted' }, 'Paste notes about your world, or open a text or Markdown file. Inkwash reads their headings and lines and shows you what it found before anything is added. Nothing is sent to Claude, and nothing is reworded.')),
+      h('details', { class: 'import-how' },
+        h('summary', null, 'How notes are read'),
+        h('ul', null,
+          h('li', null, 'A heading (', h('code', null, '## Harrowgate'), ') starts an entry. The lines under it become its facts, a sentence or a bullet at a time.'),
+          h('li', null, 'A heading such as Characters, Places, Factions, Creatures or Magic says what the entries under it are. Anything else gets its kind guessed, and the guess is marked.'),
+          h('li', null, h('code', null, 'Name: what it is'), ' on a line of its own, or as a bullet, works too.'),
+          h('li', null, 'Text under no heading is kept as Unsorted notes, for you to rename or leave out.'))),
+      h('form', { class: 'form-grid import-form', onsubmit: (ev) => { ev.preventDefault(); readNotes(); } },
+        h('label', { class: 'field' }, h('span', null, d.name ? `Your notes, from ${d.name}` : 'Your notes'),
+          h('textarea', { id: 'import-text', rows: 14, 'data-keep': '', value: d.text, placeholder: '## Harrowgate\nA cliff city of lamplit terraces.\n- Seat of the Harbour Lords.\n\n## Characters\n### Ilse Varr\nShe keeps the lamp at Tidewatch lit.', oninput: (ev) => { d.text = ev.target.value; d.plan = null; } })),
+        h('div', { class: 'import-row' },
+          h('label', { class: 'btn small' }, 'Open a .txt or .md file', h('input', { type: 'file', accept: '.txt,.md,.markdown,.text,text/plain,text/markdown', class: 'sr-only', onchange: (ev) => openNotesFile(ev.target) })),
+          h('label', { class: 'check-row' }, h('input', { type: 'checkbox', checked: d.whole, onchange: (ev) => { d.whole = ev.target.checked; } }), 'Keep each paragraph as one fact')),
+        h('label', { class: 'field' }, h('span', null, 'Bring them into'),
+          h('select', { id: 'import-target', onchange: (ev) => { d.target = ev.target.value; d.plan = null; render(); } },
+            S.wid && S.worlds.has(S.wid) ? h('option', { value: S.wid, selected: d.target === S.wid }, world().title) : null,
+            h('option', { value: 'new', selected: d.target === 'new' }, 'A new world'))),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn primary', type: 'submit' }, 'Read my notes'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: closeImport }, 'Cancel'))),
+      srcs.length ? h('section', { class: 'section import-past' },
+        h('h3', null, 'Notes you brought in before'),
+        srcs.map((x) => h('details', null,
+          h('summary', null, `${x.name}, ${when(x.at)}: ${plural(x.facts || 0, 'fact')} in ${plural(x.entries || 0, 'entry', 'entries')}` + (x.declared ? ', declared your own writing' : '')),
+          h('pre', { class: 'import-source' }, x.text)))) : null);
+  }
+  function importReview(d) {
+    const plan = d.plan, into = d.target !== 'new' && S.worlds.get(d.target);
+    const kept = plan.entries.filter((e) => e.keep);
+    const facts = kept.reduce((n, e) => n + e.facts.filter((f) => f.keep).length, 0);
+    const kindSel = (e) => h('select', { 'aria-label': `What ${e.name} is`, disabled: !!e.match, onchange: (ev) => { e.kind = ev.target.value; e.certain = true; e.from = 'you'; render(); } },
+      C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k === 'rule' ? 'world rule' : k)));
+    const kindNote = (e) => (e.match ? h('span', { class: 'import-tag' }, `already in your canon as a ${e.match.kind === 'rule' ? 'world rule' : e.match.kind}: these facts are added to it`)
+      : e.unsorted ? h('span', { class: 'import-tag guess' }, 'not under any heading: rename it, or leave it out')
+        : !e.certain ? h('span', { class: 'import-tag guess' }, e.why ? `a guess from ${e.why}: check it` : 'nothing said what this is: choose') : null);
+    return h('section', { class: 'page-pad import-page' },
+      h('div', { class: 'page-head' },
+        h('p', { class: 'eyebrow' }, 'Bring in notes'),
+        h('h1', null, 'Here’s what Inkwash found'),
+        h('p', { class: 'muted' }, `${plural(plan.counts.entries, 'entry', 'entries')} and ${plural(plan.counts.facts, 'fact')} in ${d.name || 'your notes'}. Untick anything you don’t want, fix a name or a kind, and rewrite any line. Only what is ticked is added.`
+          + (plan.counts.dupFacts ? ` ${plural(plan.counts.dupFacts, 'line is', 'lines are')} already in your canon and left out.` : '')
+          + (plan.counts.guessed ? ` ${plural(plan.counts.guessed, 'kind is a guess', 'kinds are guesses')}: check ${plan.counts.guessed === 1 ? 'it' : 'them'}.` : ''))),
+      plan.seenBefore ? h('div', { class: 'banner warn' }, h('strong', null, 'You brought these notes in before.'), `On ${when(plan.seenBefore.at)}, as ${plan.seenBefore.name}. Anything still in your canon is left out below.`) : null,
+      into ? null : h('label', { class: 'field import-title' }, h('span', null, 'Name of the new world'),
+        h('input', { type: 'text', id: 'import-title', 'data-keep': '', value: d.title, placeholder: 'The world’s name', oninput: (ev) => { d.title = ev.target.value; } })),
+      h('div', { class: 'import-entries' }, plan.entries.map((e, i) => h('section', { class: 'import-entry' + (e.keep ? '' : ' off'), 'aria-label': e.name },
+        h('div', { class: 'import-entry-head' },
+          h('input', { type: 'checkbox', checked: e.keep, 'aria-label': `Bring in ${e.name}`, onchange: (ev) => { e.keep = ev.target.checked; render(); } }),
+          h('input', { type: 'text', class: 'import-name', id: 'import-name-' + i, 'data-keep': '', value: e.name, disabled: !!e.match, 'aria-label': 'Name', oninput: (ev) => { e.name = ev.target.value; } }),
+          kindSel(e)),
+        kindNote(e),
+        e.facts.length ? h('ol', { class: 'import-facts' }, e.facts.map((f, j) => h('li', { class: f.dup ? 'dup' : f.keep ? '' : 'off' },
+          h('input', { type: 'checkbox', checked: f.keep, disabled: f.dup || !e.keep, 'aria-label': `Bring in this line about ${e.name}`, onchange: (ev) => { f.keep = ev.target.checked; render(); } }),
+          f.dup ? h('span', { class: 'import-fact' }, f.text) : h('textarea', { class: 'import-fact', id: `import-fact-${i}-${j}`, rows: 1, 'data-keep': '', value: f.text, disabled: !e.keep, 'aria-label': `Line ${f.line} about ${e.name}`, oninput: (ev) => { if (f.original == null) f.original = f.text; f.text = ev.target.value; f.edited = f.text !== f.original; fitProse(ev.target); } }),
+          h('span', { class: 'import-line' }, f.dup ? 'already there' : `line ${f.line}`)))) : h('p', { class: 'faint' }, 'Just the name, for now.')))),
+      h('label', { class: 'check-row import-declare' },
+        h('input', { type: 'checkbox', id: 'import-declared', checked: d.declared, onchange: (ev) => { d.declared = ev.target.checked; } }),
+        h('span', null, 'These notes are my own writing.', h('small', null, 'Inkwash keeps this as your statement. It can’t check it, and the record isn’t proof of copyright. Left unticked, the facts are marked as brought in from outside the studio.'))),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn primary', type: 'button', disabled: !kept.length, onclick: acceptImport }, kept.length ? `Add ${plural(facts, 'fact')} to ${into ? into.title : 'a new world'}` : 'Nothing is ticked'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { d.plan = null; render(); } }, 'Back to my notes'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: closeImport }, 'Cancel')));
+  }
+  function acceptImport() {
+    const d = S.importDraft, plan = d && d.plan;
+    if (!plan) return;
+    const kept = plan.entries.filter((e) => e.keep && (e.facts.some((f) => f.keep) || !e.match));
+    if (!kept.length) { toast('Nothing is ticked.', 'warn'); return; }
+    if (d.target !== 'new' && d.target !== S.wid) { toast('Open that world first, then bring the notes in again.', 'warn'); return; }
+    const sourceId = C.uid('src'), name = d.name || 'Pasted notes', at = now();
+    // everything it would save is checked before anything changes: a document over the store's
+    // limit would be refused, and a refused write stops this view saving
+    const out = C.applyImport(plan, { entities: d.target === 'new' ? new Map() : S.canon, now: at, sourceId, sourceName: name, text: d.text, declared: d.declared });
+    const big = out.entities.find((e) => C.utf8Bytes(JSON.stringify(e)) > DOC_MAX - 2000) || (C.utf8Bytes(JSON.stringify(out.source)) > DOC_MAX - 2000 ? out.source : null);
+    if (big) { toast(big === out.source ? 'These notes are too big to keep in one piece. Bring them in a part at a time.' : `${big.name} would be too big to save in one piece. Leave some of its lines out, or bring them in a part at a time.`, 'warn'); return; }
+    const newN = out.entities.filter((e) => d.target === 'new' || !S.canon.has(e.id)).length;
+    if (d.target === 'new') makeWorld({ title: (d.title || '').trim() || 'Untitled world' });
+    const rec = record(`Brought in ${name}`, 'import', { imported: out.source.facts, entries: newN });
+    for (const e of out.entities) put('canon', e.id, e, { quiet: true });
+    put('sources', sourceId, out.source, { quiet: true });
+    const step = rec.done();
+    const first = out.entities.find((e) => !e.name.startsWith('Unsorted')) || out.entities[0];
+    S.importDraft = null; S.form = null; S.mode = 'studio';
+    S.view = 'canon'; local.set('view', 'canon');
+    if (first) { S.codexSel = first.id; S.codexBack = null; local.set('codex.' + S.wid, first.id); }
+    toast(`Brought in ${plural(out.source.facts, 'fact')} in ${plural(out.entities.length, 'entry', 'entries')}, in your own words.`, null, undoAction(step));
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  // ---------------------------------------------------------------- history: what can be undone
+
+  // The changes a creator is likely to regret are kept as steps: how each document they touched
+  // looked before. A step is undone fact by fact and document by document (C.undoStep), leaving
+  // alone whatever changed since. Facts come back as new versions, so the ledger never mistakes a
+  // scene set against undone words for a current one. Up to 40 steps per world.
+  const JOURNALED = new Set(['canon', 'passages', 'seeds', 'sources', 'atlas', 'chapters', 'plates']);
+  const HISTORY_KEEP = 40;
+  function record(label, kind, counts) {
+    if (S.readOnly || !S.wid) return { done: () => null };
+    const rec = { label, kind, counts: counts || {}, before: new Map(), wid: S.wid, prev: S.recording };
+    S.recording = rec;
+    return {
+      done(more) {
+        if (S.recording === rec) S.recording = rec.prev;
+        if (S.wid !== rec.wid) return null;
+        const docs = [...rec.before].map(([key, before]) => { const [coll, id] = key.split('\u0000'); return { coll, id, before, after: MAP[coll]().get(id) || null }; });
+        return commitStep((more && more.label) || rec.label, rec.kind, docs, Object.assign({}, rec.counts, more && more.counts));
+      },
+    };
+  }
+  // called by put() and removeDoc() before they change a document
+  function noteBefore(kind, id) {
+    const rec = S.recording;
+    if (!rec || rec.wid !== S.wid || !JOURNALED.has(kind)) return;
+    const key = kind + '\u0000' + id;
+    if (!rec.before.has(key)) rec.before.set(key, C.clone(MAP[kind]().get(id) || null));
+  }
+  function commitStep(label, kind, docs, counts) {
+    if (counts) bumpDay(counts);
+    docs = docs.filter((d) => C.stableJson(d.before) !== C.stableJson(d.after));
+    if (!docs.length || S.readOnly) return null;
+    let step = C.historyStep({ id: C.uid('h'), label, kind, at: now(), docs });
+    if (C.utf8Bytes(JSON.stringify(step)) > 200000) step = Object.assign(C.historyStep({ id: step.id, label, kind, at: step.at, docs: [] }), { tooBig: true });
+    put('history', step.id, step, { quiet: true });
+    try { local.set('lastActive.' + S.wid, now()); } catch (e) { /* fine */ }
+    const old = [...S.history.values()].sort((a, b) => (b.at || 0) - (a.at || 0)).slice(HISTORY_KEEP);
+    for (const x of old) removeDoc('history', x.id);
+    return step;
+  }
+  const undoAction = (step) => (step ? { label: 'Undo', run: () => undoStepUI(step.id) } : null);
+  function undoStepUI(id) {
+    const step = S.history.get(id);
+    if (!step || step.undone) return;
+    if (step.tooBig) { toast('That change was too big to keep a way back from. Restore a backup to go back.', 'warn'); return; }
+    for (const key of Object.keys(S.editBase)) commitEditLog(key);
+    const staleBefore = staleScenes();
+    const r = C.undoStep(step, { canon: S.canon, passages: S.passages, seeds: S.seeds, sources: S.sources, atlas: S.atlas, chapters: S.chapters, plates: S.plates }, now());
+    if (!r.writes.length) {
+      toast(`Nothing left to undo from “${step.label}”: what it changed has changed again since.` + (r.kept[0] ? ` (${r.kept[0]}.)` : ''), 'warn');
+      return;
+    }
+    for (const w of r.writes) { if (w.doc) put(w.coll, w.id, w.doc, { quiet: true }); else removeDoc(w.coll, w.id); }
+    put('history', id, Object.assign({}, step, { undone: true, undoneAt: now() }), { quiet: true });
+    bumpDay({ undos: 1 });
+    const kept = r.kept.length ? ` ${r.kept.length === 1 ? 'One thing' : r.kept.length + ' things'} changed since, so ${r.kept.length === 1 ? 'it stays' : 'they stay'} as ${r.kept.length === 1 ? 'it is' : 'they are'}: ${r.kept[0]}.` : '';
+    // a fact put back is a new version: scenes set against the words just undone are flagged, and said so
+    const flagged = [...staleScenes()].filter((pid) => !staleBefore.has(pid)).map((pid) => S.passages.get(pid));
+    if (flagged.length) {
+      const order = chapterOrder(), first = flagged[0];
+      toast(`Undone: ${step.label}.${kept} ${plural(flagged.length, 'scene')} written against the undone words ${flagged.length === 1 ? 'is' : 'are'} now flagged: ${flagged.map((p) => `chapter ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`).join('; ')}.`, 'warn',
+        { label: 'Show me', run: () => { S.cid = first.chapter; S.k = first.scene; savePos(); go('score'); } });
+    } else toast(`Undone: ${step.label}.` + kept, r.kept.length ? 'warn' : null);
+    render();
+  }
+  function staleScenes() {
+    return new Set([...S.passages.values()].filter((p) => S.chapters.has(p.chapter) && sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
+  }
+
+  // What a creator did, day by day, in numbers only (C.ACTIVITY). They can read it in the studio
+  // and choose to share it; nothing is sent anywhere.
+  function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  function bumpDay(counts) {
+    if (S.readOnly || !S.wid || !S.worlds.has(S.wid)) return;
+    const next = C.bumpActivity(S.meta.get('activity'), today(), counts);
+    if (next) put('meta', 'activity', next, { quiet: true });
+  }
+
+  // ---------------------------------------------------------------- the History panel, and activity
+
+  function modal(build) {
+    const root = $('#modal-root');
+    const prev = document.activeElement;
+    const close = () => { clear(root); document.removeEventListener('keydown', onKey); if (prev && prev.focus && document.contains(prev)) prev.focus(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const draw = () => {
+      clear(root);
+      root.append(h('div', { class: 'modal-backdrop', onclick: (e) => { if (e.target === e.currentTarget) close(); } }, build(close, draw)));
+    };
+    document.addEventListener('keydown', onKey);
+    draw();
+    const first = root.querySelector('button, [href], input, textarea');
+    if (first) first.focus();
+  }
+  function openHistory() {
+    modal((close, draw) => {
+      const steps = [...S.history.values()].sort((a, b) => (b.at || 0) - (a.at || 0));
+      return h('div', { class: 'modal wide history', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'history-title' },
+        h('h2', { id: 'history-title' }, 'History'),
+        h('p', { class: 'muted' }, `The last ${HISTORY_KEEP} changes to ${world().title}. Undo puts back what a change did, and leaves alone anything that has changed since. A fact put back is a new version, so any scene written against the undone words is flagged.`),
+        steps.length ? h('ol', { class: 'history-list' }, steps.map((st) => h('li', { class: st.undone ? 'undone' : '' },
+          h('span', { class: 'history-when' }, when(st.at)),
+          h('span', { class: 'history-label' }, st.label),
+          st.undone ? h('span', { class: 'faint' }, 'undone') : st.tooBig ? h('span', { class: 'faint' }, 'too big to undo') : h('button', { class: 'btn small', type: 'button', onclick: () => { undoStepUI(st.id); draw(); } }, 'Undo'))))
+          : h('p', { class: 'faint' }, 'Nothing yet. The changes you make from now on show up here.'),
+        h('div', { class: 'btn-row' },
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => { close(); openActivity(); } }, 'My activity, in numbers'),
+          h('button', { class: 'btn', type: 'button', onclick: close }, 'Close')));
+    });
+  }
+  // Counts only, across every world: what a creator can read and choose to share in a trial.
+  async function openActivity() {
+    const rows = [];
+    for (const w of S.worlds.values()) {
+      let days = null;
+      if (w.id === S.wid) days = (S.meta.get('activity') || {}).days;
+      else { try { const snap = await S.db.doc(P.meta(w.id, 'activity')).get(); days = snap.exists ? (snap.data() || {}).days : null; } catch (e) { days = null; } }
+      rows.push({ example: !!w.example, days: days || {} });
+    }
+    const sum = C.activitySummary(rows, today());
+    modal((close) => h('div', { class: 'modal wide', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'activity-title' },
+      h('h2', { id: 'activity-title' }, 'My activity'),
+      h('p', { class: 'muted' }, 'Counts only: none of your world’s words, and no names. It stays in this studio unless you copy it or save it.'),
+      h('textarea', { class: 'activity-text', rows: 10, readonly: true, value: sum.md, 'aria-label': 'Your activity, as text' }),
+      h('div', { class: 'btn-row' },
+        h('button', { class: 'btn', type: 'button', onclick: async () => { try { await navigator.clipboard.writeText(sum.md); toast('Copied.'); } catch (e) { toast('Your browser wouldn’t copy it. Select the text and copy it yourself.', 'warn'); } } }, 'Copy'),
+        h('button', { class: 'btn', type: 'button', onclick: () => saveFile(`inkwash-activity-${today()}.md`, sum.md) }, 'Save as a file'),
+        h('button', { class: 'btn ghost', type: 'button', onclick: close }, 'Close'))));
+  }
+
+  // ---------------------------------------------------------------- where you left off
+
+  // Back after a while, a creator sees where this world was left: the last change, ripples with
+  // ways not decided, questions saved for later, a scene gone stale or with ink not set. All from
+  // what is stored; nothing is asked of Claude. It shows once per opening, until dismissed.
+  const RETURN_AFTER = 20 * 60 * 1000;
+  function lastTouched() {
+    let t = Number(local.get('lastActive.' + S.wid, 0)) || 0;
+    for (const x of S.history.values()) t = Math.max(t, x.at || 0);
+    for (const e of S.canon.values()) t = Math.max(t, e.updatedAt || 0);
+    for (const p of S.passages.values()) t = Math.max(t, p.updatedAt || 0);
+    return t;
+  }
+  function leftOffDue() {
+    const lo = S.leftOff, w = world();
+    if (!lo || lo.wid !== S.wid || lo.dismissed || S.readOnly || !w || w.example) return false;
+    if (lo.due == null) {
+      if (!S.loaded.has('history')) return false;
+      const t = lastTouched();
+      lo.since = t;
+      lo.due = !!t && now() - t > RETURN_AFTER;
+    }
+    return !!lo.due;
+  }
+  function leftOffItems() {
+    const items = [], order = chapterOrder();
+    const open = [];
+    for (const e of S.canon.values()) for (const f of e.facts || []) {
+      if (f.retired || !f.ripples) continue;
+      const n = C.rippleWays(f.ripples).filter((w) => w.status === 'new').length;
+      if (n) open.push({ e, f, n, at: f.ripples.at || 0 });
+    }
+    open.sort((a, b) => b.at - a.at);
+    if (open[0]) items.push({ text: `Ripples on ${open[0].e.name}: ${plural(open[0].n, 'way')} you haven’t decided yet, from “${C.head(open[0].f.text, 70)}”`, label: 'Open', run: () => openEntry(open[0].e.id) });
+    const later = [...S.seeds.values()].filter((d) => d.from || /\(from [^:]+: /.test(d.text || ''));
+    if (later.length) items.push({ text: `${plural(later.length, 'question')} you saved for later, in the dream inbox`, label: 'Dream inbox', run: () => go('dreams') });
+    const scenes = (state) => order.flatMap((cid) => { const ch = S.chapters.get(cid); return Array.from({ length: ch.scenes }, (_, k) => ({ cid, k })).filter((x) => sceneInfo(x.cid, x.k).state === state); });
+    const show = (x) => () => { S.cid = x.cid; S.k = x.k; savePos(); go('score'); };
+    const stale = scenes('stale');
+    if (stale.length) items.push({ text: `${sceneName(stale[0].cid, stale[0].k)} needs a look: a fact it relied on changed` + (stale.length > 1 ? `, and ${plural(stale.length - 1, 'other scene')} too` : ''), label: 'Show me', run: show(stale[0]) });
+    const wet = scenes('wet');
+    if (wet.length) items.push({ text: `${sceneName(wet[0].cid, wet[0].k)} has ink you haven’t set` + (wet.length > 1 ? `, and ${plural(wet.length - 1, 'other scene')} too` : ''), label: 'Open it', run: show(wet[0]) });
+    return items.slice(0, 3);
+  }
+  function leftOffCard() {
+    const w = world(), lo = S.leftOff;
+    const last = [...S.history.values()].filter((x) => !x.undone).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+    const items = leftOffItems();
+    const entry = S.codexSel && S.canon.get(S.codexSel);
+    const go_ = (fn) => () => { lo.dismissed = true; fn(); };
+    return h('section', { class: 'left-off', 'aria-label': 'Where you left off' },
+      h('button', { class: 'btn ghost small left-off-close', type: 'button', 'aria-label': 'Dismiss', onclick: () => { lo.dismissed = true; render(); } }, '×'),
+      h('p', { class: 'eyebrow' }, 'Where you left off'),
+      h('h2', null, `Welcome back to ${w.title}`),
+      h('p', { class: 'muted' }, last ? `Your last change, ${when(last.at)}: ${last.label}.` : `You last worked here ${when(lo.since)}.`),
+      items.length ? h('ul', { class: 'left-off-list' }, items.map((it) => h('li', null, h('span', null, it.text), h('button', { class: 'btn small', type: 'button', onclick: go_(it.run) }, it.label)))) : null,
+      entry ? h('div', { class: 'btn-row' }, h('button', { class: 'btn primary small', type: 'button', onclick: go_(() => openEntry(entry.id)) }, `Continue with ${entry.name}`)) : null);
+  }
+
   // ---------------------------------------------------------------- the canon, as the world's codex
 
   // The canon reads like the world's own book: an index of everything in it, and one entry at a
@@ -2202,7 +2652,8 @@
       h('div', { class: 'page-head' },
         h('p', { class: 'eyebrow' }, 'Canon'),
         h('h1', null, 'What is true in ' + world().title),
-        h('p', { class: 'muted' }, 'Nothing in the canon yet. Name the first character, place or rule of this world, or catch a dream and keep its seeds.')));
+        h('p', { class: 'muted' }, 'Nothing in the canon yet. Bring in the notes you already have, or name the first character, place or rule of this world.'),
+        S.readOnly ? null : h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', type: 'button', onclick: () => openImport(S.wid) }, 'Bring in notes'))));
   }
   function codexIndex(list, sel) {
     const q = (S.codexFind || '').trim().toLowerCase();
@@ -2225,7 +2676,8 @@
       const kindSel = h('select', { id: 'new-kind', 'aria-label': 'Kind' }, C.KINDS.map((k) => h('option', { value: k }, k === 'rule' ? 'world rule' : k)));
       nav.append(h('details', { class: 'codex-add', open: !list.length },
         h('summary', null, 'Something new in this world'),
-        h('form', { class: 'add-entity', onsubmit: (ev) => { ev.preventDefault(); const name = ev.target.querySelector('#new-entity-name').value.trim(); if (!name) return; const ent = C.newEntity(kindSel.value, name, now()); put('canon', ent.id, ent); openEntry(ent.id, { focus: 'new-fact-' + ent.id }); } },
+        h('button', { class: 'linklike codex-import', type: 'button', onclick: () => openImport(S.wid) }, 'Bring in notes'),
+        h('form', { class: 'add-entity', onsubmit: (ev) => { ev.preventDefault(); const name = ev.target.querySelector('#new-entity-name').value.trim(); if (!name) return; const ent = C.newEntity(kindSel.value, name, now()); const rec = record(`Added ${name} to the canon`, 'add', { entries: 1 }); put('canon', ent.id, ent); rec.done(); openEntry(ent.id, { focus: 'new-fact-' + ent.id }); } },
           h('div', { class: 'inline-form' }, kindSel, h('input', { type: 'text', id: 'new-entity-name', placeholder: 'Its name', 'aria-label': 'Name' })),
           h('button', { class: 'btn primary small', type: 'submit' }, 'Add to canon'))));
     }
@@ -2262,13 +2714,13 @@
         art,
         h('div', { class: 'entry-title' },
           h('p', { class: 'eyebrow' }, entryKicker(e)),
-          h('input', { class: 'entry-name', type: 'text', id: 'ent-name-' + e.id, value: e.name, 'data-keep': '', 'aria-label': 'Name', disabled: S.readOnly, onchange: (ev) => { const v = ev.target.value.trim(); if (v && v !== e.name) put('canon', e.id, Object.assign({}, e, { name: v })); } }))));
+          h('input', { class: 'entry-name', type: 'text', id: 'ent-name-' + e.id, value: e.name, 'data-keep': '', 'aria-label': 'Name', disabled: S.readOnly, onchange: (ev) => { const v = ev.target.value.trim(); if (v && v !== e.name) { const rec = record(`Renamed ${e.name} to ${v}`, 'edit'); put('canon', e.id, Object.assign({}, e, { name: v })); rec.done(); } } }))));
     }
     const body = h('div', { class: 'entry-facts' });
     for (const f of live) body.append(factRow(e, f));
     if (!live.length) body.append(h('p', { class: 'faint' }, 'Nothing is known about it yet.'));
     page.append(body);
-    if (!S.readOnly) page.append(h('form', { class: 'inline-form entry-add', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); put('canon', e.id, ent); if (aiOn()) toast(`Added to ${e.name}. Where does it lead?`, null, { label: 'Ripples', run: () => rippleFact(e.id, nf.id) }); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
+    if (!S.readOnly) page.append(h('form', { class: 'inline-form entry-add', onsubmit: (ev) => { ev.preventDefault(); const inp = ev.target.querySelector('input'); const v = inp.value.trim(); if (!v) return; const ent = C.clone(e); const nf = C.newFact(v, 'human', now()); ent.facts.push(nf); const rec = record(`Added a fact to ${e.name}`, 'add', { own: 1 }); put('canon', e.id, ent); const step = rec.done(); toast(`Added to ${e.name}. Where does it lead?`, null, [{ label: 'Ripples', run: () => rippleFact(e.id, nf.id) }, undoAction(step)]); requestAnimationFrame(() => { const el = document.getElementById('new-fact-' + e.id); if (el) { el.value = ''; el.focus(); } }); } },
       h('input', { type: 'text', id: 'new-fact-' + e.id, placeholder: `Something new about ${e.name}…`, 'aria-label': `New fact about ${e.name}` }),
       h('button', { class: 'btn small', type: 'submit' }, 'Add')));
     if (e.kind === 'place' || e.kind === 'character') {
@@ -2279,7 +2731,7 @@
     const links = entryLinks(e, opts);
     if (links) page.append(links);
     if (!S.readOnly && opts.tools !== false) page.append(h('div', { class: 'entry-tools' },
-      h('label', null, 'Kind ', h('select', { 'aria-label': 'Kind', onchange: (ev) => put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })) }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k === 'rule' ? 'world rule' : k)))),
+      h('label', null, 'Kind ', h('select', { 'aria-label': 'Kind', onchange: (ev) => { const rec = record(`Changed what ${e.name} is`, 'edit'); put('canon', e.id, Object.assign({}, e, { kind: ev.target.value })); rec.done(); } }, C.KINDS.map((k) => h('option', { value: k, selected: k === e.kind }, k === 'rule' ? 'world rule' : k)))),
       h('button', { class: 'btn ghost small danger', type: 'button', 'aria-label': `Delete ${e.name}`, onclick: () => deleteEntity(e.id) }, 'Delete')));
     return page;
   }
@@ -2436,8 +2888,10 @@
     const secret = h('label', null, h('input', { type: 'checkbox', checked: !!f.secret, disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { secret: ev.target.checked }) }), 'secret');
     const meta = h('div', { class: 'fact-meta' },
       aiOn() ? h('button', { class: 'btn ghost small ripple-btn', type: 'button', disabled: !!S.busy['ripple:' + f.id], title: 'What this fact breaks, and where it leads: your own idea first, or one of Claude’s to start from', onclick: () => rippleFact(e.id, f.id) },
-        S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples') : null,
+        S.busy['ripple:' + f.id] ? 'Following the ripples…' : f.ripples ? 'Ripple again' : 'Ripples')
+        : S.readOnly ? null : h('button', { class: 'btn ghost small ripple-btn', type: 'button', title: 'Where does this lead? Write your own idea. Claude’s ways need the claude.ai version.', onclick: () => rippleFact(e.id, f.id) }, 'Ripples'),
       f.origin === 'accepted' ? h('span', { class: 'badge kept', title: 'Suggested by Claude, kept by you' }, 'kept from a suggestion') : null,
+      f.origin === 'imported' ? h('span', { class: 'badge imported', title: f.declared ? 'From notes you brought in and declared your own writing (your statement; not checked)' : 'From notes you brought in; where they came from isn’t checked' }, 'from your notes') : null,
       f.secret ? secret : null,
       f.secret ? h('select', { 'aria-label': 'Revealed in', disabled: S.readOnly, onchange: (ev) => updateFact(e.id, f.id, { reveal: ev.target.value || null }) },
         h('option', { value: '' }, 'not revealed yet'),
@@ -2456,8 +2910,10 @@
     if (!f) return;
     const before = new Set([...S.passages.values()].filter((p) => sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
     if (!C.reviseFact(f, text, now())) return;
+    const rec = record(`Reworded a fact about ${e.name}`, 'edit', { edits: 1 });
     put('canon', eid, e, { quiet: true });
-    reportNewlyStale(before, `${e.name} changed.`, aiOn() ? { label: 'Ripples', run: () => rippleFact(eid, fid) } : null);
+    const step = rec.done();
+    reportNewlyStale(before, `${e.name} changed.`, { label: 'Ripples', run: () => rippleFact(eid, fid) }, step);
     render();
   }
   function retireFactUI(eid, fid) {
@@ -2466,17 +2922,19 @@
     if (!f) return;
     const before = new Set([...S.passages.values()].filter((p) => sceneInfo(p.chapter, p.scene).state === 'stale').map((p) => p.id));
     C.retireFact(f, now());
+    const rec = record(`Retired a fact about ${e.name}`, 'edit', { edits: 1 });
     put('canon', eid, e, { quiet: true });
-    reportNewlyStale(before, 'Fact retired.');
+    const step = rec.done();
+    reportNewlyStale(before, 'Fact retired.', null, step);
     render();
   }
-  function reportNewlyStale(before, lead, ripple) {
+  function reportNewlyStale(before, lead, ripple, step) {
     const now_ = [...S.passages.values()].filter((p) => !before.has(p.id) && S.chapters.has(p.chapter) && sceneInfo(p.chapter, p.scene).state === 'stale');
-    if (!now_.length) { toast(`${lead} No written scene relied on the old wording.` + (ripple ? ' See what else it moves?' : ''), null, ripple || undefined); return; }
+    if (!now_.length) { toast(`${lead} No written scene relied on the old wording.` + (ripple ? ' See what else it moves?' : ''), null, [ripple, undoAction(step)]); return; }
     const order = chapterOrder();
     const first = now_[0];
     toast(`${lead} ${plural(now_.length, 'scene')} relied on the old wording and ${now_.length === 1 ? 'is' : 'are'} now flagged: ${now_.map((p) => `chapter ${order.indexOf(p.chapter) + 1}, scene ${p.scene + 1}`).join('; ')}.`, 'warn',
-      { label: 'Show me', run: () => { S.cid = first.chapter; S.k = first.scene; savePos(); go('score'); } });
+      [{ label: 'Show me', run: () => { S.cid = first.chapter; S.k = first.scene; savePos(); go('score'); } }, undoAction(step)]);
   }
   // ---------------------------------------------------------------- ripples
 
@@ -2486,6 +2944,15 @@
   // answer, rewrites it or writes their own. Only what they add joins the canon.
   async function rippleFact(eid, fid) {
     const key = 'ripple:' + fid, e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
+    if (f && !aiOn() && !S.readOnly) {
+      // without Claude, a ripple is the author's own idea: no call, nothing suggested
+      if (!f.ripples) put('canon', eid, C.withRipples(e, fid, { breaks: [], ways: [], offline: true }, now()), { quiet: true });
+      if (S.view !== 'canon' && S.view !== 'atlas') openEntry(eid); else if (S.view === 'canon' && S.codexSel !== eid) openEntry(eid);
+      S.ripple.open[fid] = 'mine';
+      render();
+      requestAnimationFrame(() => { const el = document.getElementById('ripple-idea-' + fid); if (el) el.focus(); });
+      return;
+    }
     if (!f || !aiOn() || S.busy[key]) return;
     const busy = { ctl: new AbortController() };
     S.busy[key] = busy;
@@ -2539,7 +3006,8 @@
           wayBtn('mine', 'My own idea', ' mine'),
           fresh.length ? h('span', { class: 'ripple-or' }, 'or one of Claude’s:') : null,
           fresh.map((w) => wayBtn(w.id, w.label))),
-        openId === 'mine' ? ideaView(e, f) : open ? wayView(e, f, open) : null),
+        openId === 'mine' ? ideaView(e, f) : open ? wayView(e, f, open) : null,
+        aiOn() ? null : h('p', { class: 'faint' }, 'Claude’s ways, and what this fact breaks, need the claude.ai version of Inkwash.')),
       group('Decided', decided.map((w) => h('p', { class: 'ripple decided' }, h('strong', null, w.label + ': '), w.answer.text))),
       ro && !breaks.length && !decided.length ? h('p', { class: 'faint' }, 'Nothing decided here yet.') : null);
   }
@@ -2587,10 +3055,12 @@
     } else target = C.clone(S.canon.get(idea.into) || src);
     const isNew = !S.canon.has(target.id), nf = C.newFact(text, 'human', now());
     target.facts.push(nf);
+    const rec = record(`Added your idea to ${target.name}`, 'ripple', Object.assign({ own: 1, rippleOwn: 1 }, isNew ? { entries: 1 } : {}));
     put('canon', target.id, target);
     put('canon', eid, C.addRippleWay(S.canon.get(eid), fid, { id: C.uid('rp'), label: 'My own idea', about: target.name, kind: target.kind, question: '', options: [], status: 'answered', own: true, mine: true, answer: { eid: target.id, fid: nf.id, text: nf.text } }));
+    const step = rec.done();
     delete S.ripple.idea[fid]; delete S.ripple.open[fid];
-    toast(isNew ? `${target.name} is new in your canon. Where does that lead?` : `Added to ${target.name}. Where does that lead?`, null, aiOn() ? { label: 'Ripples', run: () => rippleFact(target.id, nf.id) } : undefined);
+    toast(isNew ? `${target.name} is new in your canon. Where does that lead?` : `Added to ${target.name}. Where does that lead?`, null, [{ label: 'Ripples', run: () => rippleFact(target.id, nf.id) }, undoAction(step)]);
   }
   function helpWithIdea(eid, fid) {
     const idea = S.ripple.idea[fid], text = idea ? idea.text.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
@@ -2633,10 +3103,12 @@
     const target = found ? C.clone(found) : C.newEntity(w.kind, name, now());
     const nf = C.newFact(text, C.factOrigin(text, w.options), now());
     target.facts.push(nf);
+    const rec = record(`Answered “${w.label}” on ${src.name}`, 'ripple', Object.assign(nf.origin === 'accepted' ? { kept: 1, rippleClaude: 1 } : { own: 1, rippleOwn: 1 }, found ? {} : { entries: 1 }));
     put('canon', target.id, target);
     put('canon', eid, C.setRippleStatus(S.canon.get(eid), fid, w.id, 'answered', { answer: { eid: target.id, fid: nf.id, text: nf.text } }));
+    const step = rec.done();
     delete S.ripple.open[fid]; delete S.ripple.pick[w.id]; delete S.ripple.draft[w.id];
-    toast(found ? `Added to ${target.name}. Where does that lead?` : `${target.name} is new in your canon. Where does that lead?`, null, aiOn() ? { label: 'Ripples', run: () => rippleFact(target.id, nf.id) } : undefined);
+    toast(found ? `Added to ${target.name}. Where does that lead?` : `${target.name} is new in your canon. Where does that lead?`, null, [{ label: 'Ripples', run: () => rippleFact(target.id, nf.id) }, undoAction(step)]);
   }
   // where a contradiction is: the fact it breaks, or the scene
   function rippleTarget(b) {
@@ -2654,24 +3126,29 @@
   function laterWay(eid, fid, w) {
     const e = S.canon.get(eid), f = e && (e.facts || []).find((x) => x.id === fid);
     if (!e) return;
-    put('seeds', C.uid('d'), { text: `${w.question} (from ${e.name}: ${f ? f.text : ''})`, at: now(), proposals: [], askedAt: null });
+    const rec = record('Saved a question for later', 'ripple', { later: 1 });
+    put('seeds', C.uid('d'), { text: `${w.question} (from ${e.name}: ${f ? f.text : ''})`, at: now(), proposals: [], askedAt: null, from: { eid, fid, way: w.id } });
     put('canon', eid, C.setRippleStatus(e, fid, w.id, 'later'));
+    const step = rec.done();
     if (S.ripple.open[fid] === w.id) delete S.ripple.open[fid];
-    toast('Saved in the dream inbox for later.');
+    toast('Saved in the dream inbox for later.', null, undoAction(step));
   }
   function updateFact(eid, fid, patch) {
     const e = C.clone(S.canon.get(eid));
     if (!e) return;
     e.facts = e.facts.map((f) => (f.id === fid ? Object.assign(f, patch) : f));
+    const rec = record('secret' in patch ? `Changed whether a fact about ${e.name} is secret` : `Changed when a secret about ${e.name} comes out`, 'edit');
     put('canon', eid, e);
+    rec.done();
   }
   async function deleteEntity(eid) {
     const e = S.canon.get(eid);
     if (!e) return;
     const uses = new Set();
     for (const f of e.facts || []) for (const p of C.dependents(S.passages, f.id)) uses.add(p.id);
-    const ok = await ask({ title: `Delete ${e.name}?`, body: `${plural((e.facts || []).length, 'fact')} go with it.` + (uses.size ? ` ${plural(uses.size, 'scene')} that relied on them will be flagged.` : ''), confirm: 'Delete', danger: true });
+    const ok = await ask({ title: `Delete ${e.name}?`, body: `${plural((e.facts || []).length, 'fact')} go with it.` + (uses.size ? ` ${plural(uses.size, 'scene')} that relied on them will be flagged.` : '') + ' You can undo it from History.', confirm: 'Delete', danger: true });
     if (!ok) return;
+    const rec = record(`Deleted ${e.name}`, 'delete');
     removeDoc('canon', eid);
     if (S.plates.has(PL.plateId.entity(eid))) removeDoc('plates', PL.plateId.entity(eid));
     const map = atlasDoc();
@@ -2689,6 +3166,8 @@
         put('chapters', ch.id, c, { quiet: true });
       }
     }
+    const step = rec.done();
+    toast(`Deleted ${e.name}.`, null, undoAction(step));
     render();
   }
 
@@ -2970,9 +3449,7 @@
   }
   async function loadDreamExample() {
     try {
-      const res = await fetch('dream-example.json');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const ex = await res.json(), d = AT.parseDream(ex.answer);
+      const ex = await exampleData('dream-example.json'), d = AT.parseDream(ex.answer);
       if (!d) throw new Error('the example is damaged');
       makeDreamWorld(d, ex.dream, ex.seed || 7401, true);
     } catch (e) { toast(`Couldn't open the dreamed world (${e.message}).`, 'error'); }
@@ -2982,11 +3459,12 @@
     const spec = AT.normalizeAtlas(made.atlas, seed);
     const wid = C.uid('w'), cid = C.uid('c');
     openWorld(wid);
+    S.leftOff.due = false;
     put('world', wid, Object.assign(made.world, { example: !!example, chapterOrder: [cid], createdAt: now() }), { quiet: true });
     for (const e of made.entities) put('canon', e.id, e, { quiet: true });
     put('chapters', cid, C.newChapter('Chapter one', 3, now()), { quiet: true });
     put('atlas', 'main', { spec, dreamedAt: now() }, { quiet: true });
-    S.loaded = new Set(['canon', 'chapters', 'passages', 'seeds', 'plates', 'atlas', 'pub']);
+    S.loaded = new Set(WORLD_KINDS);
     S.cid = cid; S.k = 0; S.view = 'atlas'; S.atlasSel = null;
     toast(`${made.world.title}: ${plural(spec.regions.length, 'region')}, ${plural(spec.places.length, 'place')} and ${plural(made.entities.length, 'entry', 'entries')} in the canon.`);
     render();
@@ -3054,8 +3532,10 @@
     const d = S.seeds.get(id);
     const s = d && d.proposals.find((x) => x.id === sid);
     if (!s) return;
-    addFactTo(s.name, s.fact, s.kind);
+    const rec = record(`Kept a seed: ${s.name}`, 'keep', { kept: 1 });
+    const r = addFactTo(s.name, s.fact, s.kind);
     setSeedStatus(id, sid, 'kept');
+    keptToast(r, rec.done());
   }
   async function deleteDream(id) {
     const ok = await ask({ title: 'Delete this fragment?', body: 'Anything you already kept stays in your canon.', confirm: 'Delete', danger: true });
@@ -3064,11 +3544,13 @@
 
   // ---------------------------------------------------------------- toasts, questions, announcements
 
+  // `action`: one { label, run }, or several
   function toast(message, kind, action) {
     const root = $('#toasts');
     if (!root) return;
+    const actions = (Array.isArray(action) ? action : [action]).filter(Boolean);
     const el = h('div', { class: 'toast' + (kind ? ' ' + kind : '') }, h('p', null, message),
-      action ? h('button', { class: 'btn small', type: 'button', onclick: () => { el.remove(); action.run(); } }, action.label) : null,
+      actions.map((a) => h('button', { class: 'btn small', type: 'button', onclick: () => { el.remove(); a.run(); } }, a.label)),
       h('button', { class: 'btn ghost small', type: 'button', 'aria-label': 'Dismiss', onclick: () => el.remove() }, '×'));
     root.append(el);
     while (root.children.length > 3) root.firstChild.remove();
@@ -3115,8 +3597,8 @@
     startStudio(hot);
   }
 
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { for (const key of Object.keys(S.editBase)) commitEditLog(key); flushAll(); } });
-  window.addEventListener('pagehide', flushAll);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') onHide(); });
+  window.addEventListener('pagehide', onHide);
   if (window.matchMedia) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     if (mq.addEventListener) mq.addEventListener('change', () => Score.queue());

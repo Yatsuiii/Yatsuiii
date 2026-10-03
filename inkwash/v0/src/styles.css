@@ -603,3 +603,70 @@ details.brief pre {
   .entry-seal { width: 3.75rem; height: 3.75rem; font-size: 2rem; }
   .entry-plate { width: 6rem; }
 }
+
+/* ---------------------------------------------------------------- bringing notes in */
+.choice.lead { border-color: var(--indigo); box-shadow: inset 0 3px 0 var(--indigo); }
+.import-page code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; background: var(--paper-deep); padding: 0 4px; border-radius: 3px; }
+.import-how { max-width: 46rem; font-size: var(--step--1); color: var(--ink-soft); }
+.import-how > summary { cursor: pointer; color: var(--indigo); }
+.import-how ul { margin: 6px 0 0; padding-left: 1.2rem; display: grid; gap: 4px; }
+.import-form textarea#import-text { min-height: 15rem; font-family: var(--font-book); font-size: var(--step-0); line-height: 1.55; }
+.import-row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.import-row label.btn { cursor: pointer; }
+.import-row label.btn:focus-within { outline: 2px solid var(--indigo); outline-offset: 2px; }
+.import-past { max-width: 46rem; }
+.import-past details { border-top: 1px solid var(--rule); padding: 6px 0; }
+.import-past summary { cursor: pointer; font-size: var(--step--1); color: var(--ink-soft); }
+.import-source { margin: 8px 0 0; max-height: 18rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-book); font-size: var(--step--1); background: var(--paper-deep); padding: 10px 12px; border-radius: 3px; }
+.import-title { max-width: 30rem; }
+.import-title input { font-family: var(--font-book); font-size: var(--step-1); }
+.import-entries { display: grid; gap: 12px; max-width: 52rem; }
+.import-entry { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.import-entry.off { opacity: 0.55; }
+.import-entry-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.import-entry-head input[type="checkbox"], .import-facts input[type="checkbox"] { width: 1rem; height: 1rem; margin: 0; }
+.import-entry .import-name { flex: 1 1 12rem; font-family: var(--font-book); font-size: var(--step-1); }
+.import-tag { justify-self: start; font-size: var(--step--1); color: var(--ink-soft); }
+.import-tag.guess { color: var(--stale); }
+.import-facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.import-facts li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.import-facts li > input[type="checkbox"] { margin-top: 0.45rem; }
+.import-facts li.dup, .import-facts li.off { color: var(--ink-faint); }
+.import-fact { display: block; width: 100%; min-width: 0; font-family: var(--font-book); font-size: var(--step-0); line-height: 1.5; padding: 3px 6px; }
+textarea.import-fact { resize: none; overflow: hidden; border-color: transparent; background: none; }
+textarea.import-fact:hover:not(:disabled) { border-color: var(--rule); }
+textarea.import-fact:focus { border-color: var(--indigo); background: var(--sheet); outline: none; }
+textarea.import-fact:disabled { color: inherit; }
+.import-line { font-size: var(--step--1); color: var(--ink-faint); white-space: nowrap; padding-top: 5px; font-variant-numeric: tabular-nums; }
+.import-declare { max-width: 46rem; align-items: flex-start; flex-wrap: nowrap; }
+.import-declare input { margin-top: 0.25rem; }
+.import-declare > span { display: grid; gap: 2px; }
+.import-declare small { color: var(--ink-faint); font-size: var(--step--1); }
+.badge.imported, .entry .badge.imported { color: var(--ok); border-color: var(--ok); }
+@media (max-width: 560px) {
+  .import-facts li { grid-template-columns: auto minmax(0, 1fr); }
+  .import-line { grid-column: 2; padding-top: 0; }
+}
+
+/* ---------------------------------------------------------------- history, and activity */
+.modal.wide { width: min(40rem, 100%); max-height: calc(100vh - 32px); overflow: auto; }
+.history-list { list-style: none; margin: 0; padding: 0; display: grid; max-height: 50vh; overflow: auto; }
+.history-list li { display: grid; grid-template-columns: 8rem minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--rule); }
+.history-list li.undone .history-label { color: var(--ink-faint); text-decoration: line-through; text-decoration-color: var(--ink-faint); }
+.history-when { font-size: var(--step--1); color: var(--ink-faint); }
+.history-label { font-family: var(--font-book); overflow-wrap: anywhere; }
+.activity-text { width: 100%; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: var(--step--1); line-height: 1.5; }
+@media (max-width: 560px) {
+  .history-list li { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; }
+  .history-when { grid-column: 1 / -1; }
+}
+
+/* ---------------------------------------------------------------- where you left off */
+.left-off { position: relative; max-width: 46rem; margin: 16px auto 0; padding: 16px 48px 16px 18px; background: var(--sheet); border: 1px solid var(--rule); border-left: 3px solid var(--indigo); border-radius: 0 4px 4px 0; display: grid; gap: 8px; box-shadow: 0 1px 2px var(--shadow); }
+.left-off .eyebrow { margin: 0; }
+.left-off h2 { font-family: var(--font-book); font-size: var(--step-2); }
+.left-off-close { position: absolute; top: 8px; right: 8px; font-size: 1.2rem; line-height: 1; }
+.left-off-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.left-off-list li { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; padding-top: 6px; border-top: 1px solid var(--rule); }
+.left-off-list li > span { flex: 1 1 18rem; min-width: 0; }
+@media (max-width: 760px) { .left-off { margin: 12px 16px 0; } }

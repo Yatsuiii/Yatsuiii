@@ -221,8 +221,12 @@
   function newEntity(kind, name, now) {
     return { id: uid('e'), kind: KINDS.includes(kind) ? kind : 'thing', name: String(name || '').trim() || 'Unnamed', facts: [], createdAt: now || 0, updatedAt: now || 0 };
   }
+  // Where a fact came from: written by the author in the studio ('human'), suggested by a model
+  // and kept ('accepted'), or brought in from the author's notes ('imported': made outside the
+  // studio, so its origin isn't verified).
+  const FACT_ORIGINS = new Set(['human', 'accepted', 'imported']);
   function newFact(text, origin, now) {
-    return { id: uid('f'), text: String(text).trim(), v: 1, origin: origin === 'accepted' ? 'accepted' : 'human', secret: false, reveal: null, at: now || 0, history: [], retired: false };
+    return { id: uid('f'), text: String(text).trim(), v: 1, origin: FACT_ORIGINS.has(origin) ? origin : 'human', secret: false, reveal: null, at: now || 0, history: [], retired: false };
   }
   function factIndex(entities) {
     const idx = new Map();
@@ -247,10 +251,23 @@
     fact.at = now || 0;
     return true;
   }
+  // Undo puts a fact back the way it read, as a new version. Versions only move forward, so a
+  // scene set against the wording being undone goes stale, and one set against the words put back
+  // holds again (see staleness).
+  function restoreFact(fact, text, retired, now) {
+    text = String(text || '').trim();
+    if (!text || (text === fact.text && !!retired === !!fact.retired)) return false;
+    fact.history = (fact.history || []).concat([Object.assign({ v: fact.v, text: fact.text, at: fact.at }, fact.retired ? { retired: true } : {})]).slice(-20);
+    fact.v += 1;
+    fact.text = text;
+    fact.retired = !!retired;
+    fact.at = now || 0;
+    return true;
+  }
   function factTextAt(fact, v) {
     if (fact.v === v && !fact.retired) return fact.text;
     const h = (fact.history || []).find((x) => x.v === v);
-    return h ? h.text : null;
+    return h && !h.retired ? h.text : null;
   }
 
   function chapterIndex(world, chapterId) { return (world.chapterOrder || []).indexOf(chapterId); }
@@ -910,7 +927,8 @@
   }
 
   // Stale: a fact this passage relied on has changed since. Scoped to the facts it used; strict
-  // mode also flags any change to anyone on the page.
+  // mode also flags any change to anyone on the page. A newer version that reads exactly as the
+  // one relied on (a change undone, or reworded back) still holds; an unknown old wording doesn't.
   function staleness(p, idx, opts) {
     const reasons = [];
     if (!p) return { stale: false, reasons };
@@ -920,7 +938,7 @@
         if (!hit) { reasons.push({ f: pr.f, kind: 'removed', phase, from: pr.v, before: null, after: null, entity: null }); continue; }
         const { fact, entity } = hit;
         if (fact.retired) reasons.push({ f: pr.f, kind: 'retired', phase, entity: entity.name, entityId: entity.id, before: factTextAt(fact, pr.v), after: null, from: pr.v, to: fact.v });
-        else if (fact.v !== pr.v) reasons.push({ f: pr.f, kind: 'changed', phase, entity: entity.name, entityId: entity.id, before: factTextAt(fact, pr.v), after: fact.text, from: pr.v, to: fact.v });
+        else if (fact.v !== pr.v && factTextAt(fact, pr.v) !== fact.text) reasons.push({ f: pr.f, kind: 'changed', phase, entity: entity.name, entityId: entity.id, before: factTextAt(fact, pr.v), after: fact.text, from: pr.v, to: fact.v });
       }
     };
     check(p.premises, 'set');
@@ -1293,7 +1311,7 @@
     const s = model.stats;
     if (!s.total) return 'Made with Inkwash.';
     const pasted = s.words.pasted || 0;
-    return `Made with Inkwash. The author painted the shape of every scene and wrote ${pct(s.hand)} of the words by hand. `
+    return `Made with Inkwash. The author wrote ${pct(s.hand)} of the words by hand. `
       + (pasted ? `${pct(pasted / s.total)} was pasted in from elsewhere. ` : '')
       + 'An AI model inked the rest from the author\'s design, and the author kept or edited every line before setting it.';
   }
@@ -1462,7 +1480,7 @@
       world: { title: world.title, premise: world.premise || '', byline: world.byline || '' },
       entities: KINDS.flatMap((kind) => list.filter((e) => e.kind === kind).map((e) => ({
         kind, name: e.name,
-        facts: (e.facts || []).filter((f) => !f.retired).map((f) => ({ text: f.text, secret: !!f.secret, revealedIn: f.secret && f.reveal ? titleOf(f.reveal) : null, origin: f.origin === 'accepted' ? 'suggested by AI, kept by the author' : 'written by the author' })),
+        facts: (e.facts || []).filter((f) => !f.retired).map((f) => ({ text: f.text, secret: !!f.secret, revealedIn: f.secret && f.reveal ? titleOf(f.reveal) : null, origin: originWords(f) })),
       }))),
       chapters: (world.chapterOrder || []).map((cid) => getFrom(chapters, cid)).filter(Boolean).map((ch) => ({
         title: ch.title, scenes: Array.from({ length: ch.scenes }, (_, k) => describeScene(world, ch, k, byId)),
@@ -1470,12 +1488,18 @@
     };
   }
 
+  function originWords(f) {
+    if (f.origin === 'accepted') return 'suggested by AI, kept by the author';
+    if (f.origin === 'imported') return f.declared ? 'brought in from notes the author declared as their own writing (a statement, not verified)' : 'brought in from notes made outside the studio (origin not verified)';
+    return 'written by the author';
+  }
   // The provenance report: who wrote what, from the authorship record.
   function exportProvenance({ world, entities, chapters, passages, plates }, now) {
     const model = bookModel({ world, chapters, passages, plates });
     const list = valuesOf(entities);
     const facts = list.flatMap((e) => (e.facts || []).filter((f) => !f.retired));
-    const canon = { total: facts.length, author: facts.filter((f) => f.origin !== 'accepted').length, accepted: facts.filter((f) => f.origin === 'accepted').length };
+    const imported = facts.filter((f) => f.origin === 'imported');
+    const canon = { total: facts.length, author: facts.filter((f) => f.origin !== 'accepted' && f.origin !== 'imported').length, accepted: facts.filter((f) => f.origin === 'accepted').length, imported: imported.length, declaredOwn: imported.filter((f) => f.declared).length };
     const chs = (world.chapterOrder || []).map((cid) => getFrom(chapters, cid)).filter(Boolean);
     const direction = {
       strokes: chs.reduce((s, c) => s + (c.strokes || 0), 0),
@@ -1496,7 +1520,7 @@
       world: model.title, byline: model.byline,
       summary: { words: model.stats.total, byAuthor: model.stats.words.typed + model.stats.words.pinned, inkedKept: model.stats.words.inked, pastedIn: model.stats.words.pasted, authorShare: round2(model.stats.hand), edits, direction, canon, plates: platesPainted },
       chapters: rows,
-      note: 'Inkwash records, for every passage, which text the author typed or pinned, which text an AI model inked, which text was pasted in from outside the studio (its origin unknown, so it is not counted as the author\'s), and when the author set it. This is a record of process, not legal advice.',
+      note: 'Inkwash records, for every passage, which text the author typed or pinned, which text an AI model inked, which text was pasted in from outside the studio (its origin unknown, so it is not counted as the author\'s), and when the author set it. Canon facts brought in from notes are counted apart, because their origin is outside the studio; a declaration that they are the author\'s own writing is recorded as a statement, not verified. This is a record of process. It is not legal advice and does not establish copyright ownership.',
     };
     const s = json.summary;
     const md = [
@@ -1511,7 +1535,8 @@
         `- Edits by the author: ${s.edits}`,
         `- Direction: ${direction.strokes} brush strokes, ${direction.notes} notes, ${direction.pins} pinned lines`,
         ...(s.plates ? [`- Illustrations: ${s.plates} plates, composed by an AI model and painted by Inkwash`] : []),
-        `- Canon: ${canon.total} facts, ${canon.author} written by the author and ${canon.accepted} suggested by AI and kept by the author`,
+        `- Canon: ${canon.total} facts, ${canon.author} written by the author and ${canon.accepted} suggested by AI and kept by the author`
+          + (canon.imported ? `; ${canon.imported} brought in from notes made outside the studio, origin not verified` + (canon.declaredOwn ? ` (the author declared ${canon.declaredOwn} of them their own writing; that is the author's statement, which Inkwash can't verify)` : '') : ''),
       ].join('\n'),
       '## Chapter by chapter',
       rows.map((c) => `### Chapter ${c.chapter}: ${c.title}\n` + (c.scenes.length
@@ -1619,14 +1644,401 @@
     return { atlas: next, entities, regionFacts: x.facts.map((t) => newFact(t, 'accepted', now)), added: places.length + features.length };
   }
 
+  // ---------------------------------------------------------------- bringing notes in
+
+  // A creator's notes become a proposal to review, never canon on their own. Headings name the
+  // entries and the lines under them become their facts, in the creator's own words: nothing is
+  // invented, reworded or summed up, only split at sentence ends and cleared of markup. A section
+  // heading ("Characters", "Places") gives the kind of every entry under it; anything else has its
+  // kind guessed from its name and words, and is marked as a guess. Entries and facts already in
+  // the world are recognized, so notes brought in twice add nothing twice.
+  const IMPORT_MAX = 200000; // bytes of UTF-8: notes are kept whole in one document, and a document holds 256 KiB
+  // The size a string takes stored as UTF-8, which is what the store's limit counts.
+  function utf8Bytes(s) {
+    s = String(s == null ? '' : s);
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s.charCodeAt(i);
+      if (c < 0x80) n += 1;
+      else if (c < 0x800) n += 2;
+      else if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length) { n += 4; i++; }
+      else n += 3;
+    }
+    return n;
+  }
+  const SECTION_KINDS = [
+    ['character', /^(the )?(characters?|people|persons|cast|npcs?|figures|heroes|villains|who'?s who|dramatis personae)$/i],
+    ['place', /^(the )?(places?|locations?|regions?|geography|settings?|cities|towns|lands|realms|kingdoms|countries|landmarks|world map|map)$/i],
+    ['faction', /^(the )?(factions?|groups?|organi[sz]ations?|orders?|houses|guilds?|clans|families|nations|peoples|cults?|religions?|churches|companies)$/i],
+    ['thing', /^(the )?(things?|items?|objects?|artifacts?|artefacts?|relics?|creatures?|bestiary|monsters?|animals?|species|races|beasts|flora|fauna|technology|tech|ships?|weapons?)$/i],
+    ['rule', /^(the )?(rules?|laws?|magic|magic system|how magic works|physics|world rules|systems?|curses?|metaphysics|cosmology)$/i],
+  ];
+  const NAME_HINTS = [
+    ['place', /\b(city|town|village|hamlet|river|mountains?|mount|peaks?|sea|ocean|lake|forest|woods|isles?|island|castle|keep|tower|harbou?r|port|valley|desert|kingdom|empire|coast|bay|plains?|marsh|swamp|fen|caves?|caverns?|ruins?|temple|abbey|citadel|fortress|fort|street|district|quarter|bridge|gate|road|pass|highlands?|lowlands?|realm|province|capital|wastes?|reach|vale|hollow)\b/i],
+    ['faction', /\b(guild|order|house|clan|tribe|church|cult|council|company|brotherhood|sisterhood|league|legion|court|syndicate|circle|society|army|navy|fleet|crew|union|alliance|dynasty|wardens|knights|riders|keepers|rangers|sentinels|watch)\b/i],
+    ['rule', /\b(magic|laws?|rules?|curse|physics|calendar|cosmology|faith|system)\b/i],
+    ['thing', /\b(sword|blade|ring|crown|book|tome|map|key|stone|ship|engine|potion|beast|creature|dragon|wolf|machine|relic|artifact|artefact|amulet|staff|wand)\b/i],
+  ];
+  const TITLE_WORDS = /^(sir|lady|lord|king|queen|prince|princess|captain|brother|sister|mother|father|dr\.?|mr\.?|mrs\.?|ms\.?|admiral|general|duke|duchess|count|countess|baron|baroness|emperor|empress|saint|master|mistress|elder)\b/i;
+  const ROLE = /\b(is|was) (a|an|the) [^.]*?\b(king|queen|priest|priestess|captain|soldier|merchant|thief|mage|wizard|witch|knight|lord|lady|prince|princess|daughter|son|mother|father|brother|sister|keeper|smith|healer|scholar|sailor|hunter|farmer|guard|spy|assassin|bard|monk|nun|child|girl|boy|woman|man|widow|orphan|apprentice|leader|commander|ruler|steward)\b/i;
+  const RULE_WORDS = /\b(anyone|everyone|whoever|no one|nobody|cannot|can't|must|always|never)\b/i;
+  const BULLET = /^\s*(?:[-*+•▪◦‣]|\d{1,3}[.)])\s+(?:\[[ xX]\]\s+)?/;
+  const ATX = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/;
+  const SETEXT = /^\s{0,3}(=+|-{2,})\s*$/;
+  const RULE_LINE = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
+  const BOLD_LINE = /^\s*(\*\*|__)([^*_].*?)\1\s*:?\s*$/;
+  const LABEL_LINE = /^\s*([A-Z][^:.!?]{0,40}):\s*$/;
+  const NAMED = /^\s*(?:\*\*|__)?([^:—–*_]{1,60}?)(?:\*\*|__)?\s*(?::|—|–|\s-\s)\s*(.*)$/;
+  const ABBREV = /(?:^|[\s(])(?:mr|mrs|ms|dr|st|mt|ft|vs|etc|e\.g|i\.e|no|vol|ch|jr|sr|capt|gen|col|lt|sgt|prof|rev|approx|ca|cf)\.$/i;
+  // "Age: 34" or "Note: ..." is a fact about whatever it sits under, never an entry of its own
+  const ATTRIBUTE = /^(note|notes|nb|also|age|born|died|status|role|title|location|type|kind|description|appearance|personality|occupation|species|race|gender|height|weight|alias|aliases|aka|motto|ruler|population|capital|language|languages|religion|currency|climate|era|date|summary|todo|idea|ideas|question|questions|update|edit|important)$/i;
+
+  function normName(s) { return String(s || '').toLowerCase().replace(/^(the|a|an)\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); }
+  function normFact(s) { return String(s || '').toLowerCase().replace(/[“”"‘’']/g, '').replace(/\s+/g, ' ').replace(/[\s.!?…]+$/, '').trim(); }
+  function normSource(s) { return String(s || '').replace(/\r\n?/g, '\n').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n{3,}/g, '\n\n').trim(); }
+  // FNV-1a, with the length beside it: enough to tell the same notes from different ones
+  function hashText(s) {
+    let h = 2166136261 >>> 0;
+    const str = String(s);
+    for (const ch of str) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+    return h.toString(16).padStart(8, '0') + '-' + str.length.toString(36);
+  }
+  // A line as words: markup cleared, links keep where they point, nothing else changes.
+  function cleanLine(s) {
+    return String(s == null ? '' : s)
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '$1 ($2)')
+      .replace(/<\/?[a-z][^>]*>/gi, '')
+      .replace(/(\*\*|__)(.+?)\1/g, '$2')
+      .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1$2')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/^\s*\|(.*)\|\s*$/, (m, row) => row.split('|').map((c) => c.trim()).filter(Boolean).join(' — '))
+      .replace(/\s+/g, ' ').trim();
+  }
+  // Split at sentence ends, not at "Dr." or an initial.
+  function sentences(text) {
+    const out = [];
+    const re = /[.!?…]+["”’)\]]*(?=\s+["“‘(\[]?[A-Z0-9])/g;
+    let start = 0, m;
+    while ((m = re.exec(text))) {
+      const end = m.index + m[0].length;
+      const piece = text.slice(start, end).trim();
+      if (ABBREV.test(piece) || /(?:^|\s)[A-Z]\.$/.test(piece)) continue;
+      out.push(piece);
+      start = end;
+    }
+    const last = text.slice(start).trim();
+    if (last) out.push(last);
+    return out;
+  }
+  function sectionKind(name) {
+    const n = cleanLine(name).replace(/[:.]+$/, '').trim();
+    for (const [kind, re] of SECTION_KINDS) if (re.test(n)) return kind;
+    return null;
+  }
+  // a short name, not a sentence: "Harrowgate", "Brother Salt", "The Old Coast"
+  function isName(s) {
+    const n = cleanLine(s);
+    if (ATTRIBUTE.test(n)) return false;
+    const words = n.split(/\s+/).filter(Boolean);
+    return words.length >= 1 && words.length <= 6 && n.length <= 60 && /^[\p{Lu}\p{N}]/u.test(n)
+      && !/[.!?]$/.test(n) && !words.slice(1).some((w) => /^(is|are|was|were|has|have|had|can|will|would|could|should|must|did|does)$/i.test(w));
+  }
+  // The kind an entry's name and words suggest. Only a guess: the review says so.
+  function guessKind(name, facts) {
+    if (TITLE_WORDS.test(name)) return { kind: 'character', why: 'the title in its name' };
+    for (const [kind, re] of NAME_HINTS) if (re.test(name)) return { kind, why: 'its name' };
+    if (facts.some((t) => ROLE.test(t)) || /^(he|she)\b/i.test(facts[0] || '')) return { kind: 'character', why: 'how your notes describe it' };
+    if (facts.length && facts.filter((t) => RULE_WORDS.test(t)).length * 2 >= facts.length) return { kind: 'rule', why: 'how your notes describe it' };
+    return { kind: 'thing', why: null };
+  }
+
+  // Read notes into a plan to review. `entities` and `sources` are the world's own, so what is
+  // already there is marked; `split: false` keeps each paragraph as one fact.
+  function planImport(text, opts) {
+    opts = opts || {};
+    const raw = String(text == null ? '' : text).replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    const base = { title: null, entries: [], hash: null, chars: raw.length, seenBefore: null, counts: { entries: 0, newEntries: 0, facts: 0, newFacts: 0, dupFacts: 0, guessed: 0 } };
+    if (!raw.trim()) return Object.assign(base, { empty: true });
+    if (raw.length > IMPORT_MAX || utf8Bytes(raw) > IMPORT_MAX) return Object.assign(base, { tooBig: true, max: IMPORT_MAX });
+    const lines = raw.split('\n');
+    const entries = [], byKey = new Map();
+    const firstContent = lines.findIndex((l) => l.trim());
+    const topHeadings = lines.filter((l) => /^\s{0,3}#\s/.test(l)).length;
+    let title = null, section = null, current = null, entryIndent = -1, closeAtBlank = false;
+    let para = [];
+    const entryFor = (name, line, kind, from) => {
+      const key = normName(name);
+      if (!key) return null;
+      let e = byKey.get(key);
+      if (!e) { e = { key, name, line, kind: kind || null, from: kind ? from : null, facts: [] }; byKey.set(key, e); entries.push(e); }
+      else if (!e.kind && kind) { e.kind = kind; e.from = from; }
+      return e;
+    };
+    const unsorted = () => { const e = entryFor('Unsorted notes', 0, null, null); e.unsorted = true; return e; };
+    const sectionEntry = () => (section && section.kind === 'rule' ? entryFor(section.name, section.line, 'rule', 'section') : null);
+    const addFact = (e, t, line) => { t = cleanLine(t); if (t && /[\p{L}\p{N}]/u.test(t)) e.facts.push({ text: t, line }); };
+    const flushPara = () => {
+      if (!para.length) return;
+      const target = current || sectionEntry() || unsorted();
+      const joined = cleanLine(para.map((x) => x.text).join(' '));
+      for (const t of opts.split === false ? [joined] : sentences(joined)) addFact(target, t, para[0].line);
+      para = [];
+      if (closeAtBlank) { current = null; closeAtBlank = false; }
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i], n = i + 1;
+      if (!line.trim()) { flushPara(); continue; }
+      let heading = null, level = 0;
+      const atx = ATX.exec(line);
+      if (atx) { heading = atx[2]; level = atx[1].length; }
+      else if (para.length === 1 && SETEXT.test(line) && !BULLET.test(para[0].text)) { heading = para[0].text; level = line.trim()[0] === '=' ? 1 : 2; para = []; }
+      else if (RULE_LINE.test(line)) { flushPara(); continue; }
+      else if (!BULLET.test(line) && BOLD_LINE.test(line)) { heading = BOLD_LINE.exec(line)[2]; level = 7; }
+      else if (!BULLET.test(line) && !para.length && LABEL_LINE.test(line)) { heading = LABEL_LINE.exec(line)[1]; level = 7; }
+      if (heading != null) {
+        flushPara();
+        const name = cleanLine(heading).replace(/[:.]+$/, '').trim();
+        if (!name) continue;
+        if (level === 1 && i <= firstContent + 1 && topHeadings <= 1 && !title && !entries.length) { title = name; current = null; section = null; continue; }
+        if (section && level <= section.level) section = null;
+        const sk = sectionKind(name);
+        if (sk) { section = { kind: sk, name, line: n, level }; current = null; entryIndent = -1; continue; }
+        current = entryFor(name, n, section && section.kind, 'section');
+        entryIndent = -1; closeAtBlank = false;
+        continue;
+      }
+      // a table: each row is a fact, its cells kept in order; the rule under the header row isn't
+      if (/^\s*\|.*\|\s*$/.test(line)) {
+        flushPara();
+        if (!/^\s*\|[\s|:-]+\|\s*$/.test(line)) addFact(current || sectionEntry() || unsorted(), line, n);
+        continue;
+      }
+      const bullet = BULLET.exec(line);
+      if (bullet) {
+        flushPara();
+        const indent = line.search(/\S/), rest = line.slice(bullet[0].length);
+        if (current && entryIndent >= 0 && indent <= entryIndent) { current = null; entryIndent = -1; }
+        if (!current) {
+          const named = NAMED.exec(rest);
+          if (named && isName(named[1]) && (section || named[2].trim())) {
+            current = entryFor(cleanLine(named[1]), n, section && section.kind, 'section');
+            entryIndent = indent;
+            if (named[2].trim()) addFact(current, named[2], n);
+            continue;
+          }
+        }
+        addFact(current || sectionEntry() || unsorted(), rest, n);
+        continue;
+      }
+      // "Name: what it is" on a line of its own starts an entry, even straight after another one
+      if ((!current && !para.length) || closeAtBlank) {
+        const named = NAMED.exec(line);
+        if (named && isName(named[1]) && named[2].trim()) {
+          flushPara();
+          current = entryFor(cleanLine(named[1]), n, section && section.kind, 'section');
+          closeAtBlank = true;
+          para.push({ text: named[2], line: n });
+          continue;
+        }
+      }
+      para.push({ text: line.trim(), line: n });
+    }
+    flushPara();
+
+    const existing = valuesOf(opts.entities);
+    const byName = new Map(existing.map((e) => [normName(e.name), e]));
+    const counts = { entries: 0, newEntries: 0, facts: 0, newFacts: 0, dupFacts: 0, guessed: 0 };
+    for (const e of entries) {
+      const hit = e.unsorted ? null : byName.get(e.key);
+      if (hit) { e.match = { id: hit.id, name: hit.name, kind: hit.kind }; e.kind = hit.kind; e.from = 'canon'; e.certain = true; }
+      else if (e.kind) { e.match = null; e.certain = true; }
+      else { const g = guessKind(e.name, e.facts.map((f) => f.text)); e.match = null; e.kind = g.kind; e.from = 'guess'; e.why = g.why; e.certain = false; }
+      const have = new Set(hit ? (hit.facts || []).filter((f) => !f.retired).map((f) => normFact(f.text)) : []);
+      const seen = new Set();
+      e.facts = e.facts.filter((f) => { const k = normFact(f.text); if (!k || seen.has(k)) return false; seen.add(k); return true; })
+        .map((f, j) => { const dup = have.has(normFact(f.text)); return { key: e.key + '#' + j, text: f.text, line: f.line, dup, keep: !dup }; });
+      e.keep = !(hit && e.facts.every((f) => f.dup));
+      counts.entries++;
+      if (!hit) counts.newEntries++;
+      if (!e.certain) counts.guessed++;
+      for (const f of e.facts) { counts.facts++; if (f.dup) counts.dupFacts++; else counts.newFacts++; }
+    }
+    const hash = hashText(normSource(raw));
+    const seen = valuesOf(opts.sources).filter((x) => x && x.hash === hash).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+    return Object.assign(base, { title, entries, hash, counts, seenBefore: seen ? { id: seen.id, name: seen.name, at: seen.at } : null });
+  }
+
+  // Turn what the creator kept in the review into canon: new entries, and facts added to entries
+  // already there. Every fact keeps where it came from; the notes themselves are kept as written.
+  function applyImport(plan, { entities, now, sourceId, sourceName, text, declared }) {
+    const touched = new Map(), factIds = [];
+    for (const e of plan.entries || []) {
+      if (!e.keep) continue;
+      const facts = (e.facts || []).filter((f) => f.keep && String(f.text || '').trim());
+      const have = e.match && getFrom(entities, e.match.id);
+      if (have && !facts.length) continue;
+      const ent = have ? (touched.get(have.id) || clone(have)) : newEntity(e.kind, String(e.name || '').replace(/\s+/g, ' ').trim() || 'Unnamed entry', now);
+      ent.facts = ent.facts || [];
+      for (const f of facts) {
+        const nf = newFact(f.text, 'imported', now);
+        nf.src = sourceId;
+        if (declared) nf.declared = true;
+        if (f.edited) nf.editedOnImport = true;
+        ent.facts.push(nf);
+        factIds.push(nf.id);
+      }
+      ent.updatedAt = now || 0;
+      touched.set(ent.id, ent);
+    }
+    const source = { id: sourceId, name: String(sourceName || 'Pasted notes').slice(0, 120), text: String(text || ''), hash: plan.hash, at: now || 0, declared: !!declared, entries: touched.size, facts: factIds.length, factIds };
+    return { entities: [...touched.values()], source };
+  }
+
+  // ---------------------------------------------------------------- history: what can be undone
+
+  function stableJson(x) {
+    if (Array.isArray(x)) return '[' + x.map(stableJson).join(',') + ']';
+    if (x && typeof x === 'object') return '{' + Object.keys(x).sort().filter((k) => x[k] !== undefined).map((k) => JSON.stringify(k) + ':' + stableJson(x[k])).join(',') + '}';
+    return JSON.stringify(x === undefined ? null : x);
+  }
+  function docHash(doc) { return doc == null ? 'none' : hashText(stableJson(doc)); }
+  // What undo needs to know of an entry after a step: each fact's version and words, and a print
+  // of its ripples, so a later change to any of them is noticed.
+  function trimEntity(e) {
+    return e ? { name: e.name, kind: e.kind, facts: (e.facts || []).map((f) => ({ id: f.id, v: f.v, text: f.text, retired: !!f.retired, secret: !!f.secret, reveal: f.reveal || null, rh: docHash(f.ripples || null) })) } : null;
+  }
+  // What undo compares to tell whether a document changed since a step: what's in it, not when it
+  // was saved, nor what a continuity check last found in a scene (a check doesn't change the scene,
+  // and runs on its own right after inking).
+  const DERIVED = { passages: ['updatedAt', 'conflicts', 'checkedAt', 'pending'] };
+  function contentOf(coll, doc) {
+    if (doc == null) return null;
+    const out = Object.assign({}, doc);
+    for (const k of DERIVED[coll] || ['updatedAt']) delete out[k];
+    return out;
+  }
+  // A step remembers how each document it touched looked before it, and enough of how each looked
+  // after it to tell, later, whether anything has changed since: for a canon entry, each fact's
+  // version and words; for anything else (scenes, the map, chapters, plates, notes), a print.
+  function historyStep({ id, label, kind, at, docs }) {
+    return {
+      id: id || uid('h'), label: String(label || 'A change'), kind: kind || 'edit', at: at || 0, undone: false,
+      docs: (docs || []).map(({ coll, id: did, before, after }) => (coll === 'canon'
+        ? { coll, id: did, before: before ? clone(before) : null, after: trimEntity(after) }
+        : { coll, id: did, before: before ? clone(before) : null, afterHash: docHash(contentOf(coll, after)) })),
+    };
+  }
+  const sameFact = (a, b) => !!a && !!b && a.v === b.v && a.text === b.text && !!a.retired === !!b.retired;
+  // Undo one entry's part of a step, fact by fact. B is the entry before the step, A after it
+  // (trimmed), X as it is now. Returns the entry to write (null deletes it; undefined leaves it)
+  // and what was left alone because it changed since.
+  function undoEntity(B, A, X, now) {
+    const kept = [];
+    if (!X) return B && !A ? { write: clone(B), kept } : { kept };
+    if (B && !A) { kept.push(`${X.name} was made again since`); return { kept }; }
+    const next = clone(X);
+    const aFacts = new Map(((A && A.facts) || []).map((f) => [f.id, f]));
+    const bFacts = new Map(((B && B.facts) || []).map((f) => [f.id, f]));
+    let changed = false;
+    next.facts = (next.facts || []).filter((f) => {
+      if (bFacts.has(f.id) || !aFacts.has(f.id)) return true;
+      if (sameFact(f, aFacts.get(f.id))) { changed = true; return false; }
+      kept.push(`“${head(f.text, 60)}” changed since, so it stays`);
+      return true;
+    });
+    for (const f of next.facts) {
+      const b = bFacts.get(f.id), a = aFacts.get(f.id);
+      if (!b || !a) continue;
+      if (!sameFact(f, a)) { if (!sameFact(a, b)) kept.push(`“${head(f.text, 60)}” changed since, so it stays`); continue; }
+      if (a.text !== b.text || !!a.retired !== !!b.retired) { restoreFact(f, b.text, b.retired, now); changed = true; }
+      if (!!f.secret === !!a.secret && (f.reveal || null) === (a.reveal || null) && (!!a.secret !== !!b.secret || (a.reveal || null) !== (b.reveal || null))) { f.secret = !!b.secret; f.reveal = b.reveal || null; changed = true; }
+      if (docHash(f.ripples || null) === a.rh && docHash(b.ripples || null) !== a.rh) { if (b.ripples) f.ripples = clone(b.ripples); else delete f.ripples; changed = true; }
+    }
+    for (const [fid, b] of bFacts) if (!aFacts.has(fid) && !next.facts.some((f) => f.id === fid)) { next.facts.push(clone(b)); changed = true; }
+    if (B && A) {
+      if (next.name === A.name && A.name !== B.name) { next.name = B.name; changed = true; }
+      if (next.kind === A.kind && A.kind !== B.kind) { next.kind = B.kind; changed = true; }
+    }
+    if (!B && !next.facts.length && A && next.name === A.name) return { write: null, kept };
+    if (changed) next.updatedAt = now || 0;
+    return changed ? { write: next, kept } : { kept };
+  }
+  // Undo a step: what it changed goes back, document by document, and anything changed since is
+  // left alone and named. `current` holds the world as it is, collection by collection.
+  function undoStep(step, current, now) {
+    const writes = [], kept = [];
+    if (!step || step.undone) return { writes, kept, nothing: true };
+    for (const d of step.docs || []) {
+      const cur = getFrom(current[d.coll], d.id) || null;
+      if (d.coll === 'canon') {
+        const r = undoEntity(d.before, d.after, cur, now);
+        if (r.write !== undefined) writes.push({ coll: 'canon', id: d.id, doc: r.write });
+        kept.push(...r.kept);
+      } else if (docHash(contentOf(d.coll, cur)) !== d.afterHash) kept.push(d.coll === 'passages' ? 'a scene changed since, so it stays as it is' : 'something it touched changed since, so it stays');
+      else writes.push({ coll: d.coll, id: d.id, doc: d.before ? clone(d.before) : null });
+    }
+    return { writes, kept };
+  }
+
+  // ---------------------------------------------------------------- what a creator did, day by day
+
+  // Counts only, never words: the activity a creator can read in the studio and choose to share.
+  // In the first person, because it's the creator's own report. [one, many]
+  const ACTIVITY = {
+    own: ['fact written in my own words', 'facts written in my own words'], kept: ['suggestion from Claude kept', 'suggestions from Claude kept'],
+    imported: ['fact brought in from my notes', 'facts brought in from my notes'], entries: ['new entry', 'new entries'],
+    rippleOwn: ['ripple decided in my own words', 'ripples decided in my own words'], rippleClaude: ["ripple decided from Claude's answers", "ripples decided from Claude's answers"],
+    edits: ['fact reworded or retired', 'facts reworded or retired'], later: ['question saved for later', 'questions saved for later'],
+    sceneEdits: ['stretch of writing in a scene', 'stretches of writing in scenes'], inked: ['scene inked by Claude', 'scenes inked by Claude'],
+    scenesSet: ['scene set', 'scenes set'], undos: ['change undone', 'changes undone'],
+  };
+  function bumpActivity(doc, day, counts) {
+    const d = clone(doc) || {};
+    d.days = d.days || {};
+    const row = Object.assign({}, d.days[day] || {});
+    let any = false;
+    for (const [k, n] of Object.entries(counts || {})) if (ACTIVITY[k] && n) { row[k] = (row[k] || 0) + n; any = true; }
+    if (!any) return null;
+    d.days[day] = row;
+    return d;
+  }
+  // `worlds`: [{ example, days }] for every world. Worlds are numbered, never named.
+  function activitySummary(worlds, today) {
+    const own = (worlds || []).filter((w) => !w.example);
+    const allDays = new Set();
+    const rows = own.map((w, i) => {
+      const days = Object.keys(w.days || {}).sort();
+      days.forEach((d) => allDays.add(d));
+      const totals = {};
+      for (const d of days) for (const [k, n] of Object.entries(w.days[d])) totals[k] = (totals[k] || 0) + n;
+      return { world: `World ${i + 1}`, days: days.length, first: days[0] || null, last: days[days.length - 1] || null, totals };
+    });
+    const days = [...allDays].sort();
+    const exampleDays = new Set((worlds || []).filter((w) => w.example).flatMap((w) => Object.keys(w.days || {})));
+    const md = [
+      '# My Inkwash activity',
+      `Made by Inkwash${today ? ' on ' + today : ''}, from counts only: none of my worlds' words are in here.`,
+      `- Days I made something in my own worlds: ${days.length}${days.length ? ` (${days.join(', ')})` : ''}`,
+      `- Days I only tried an example world: ${[...exampleDays].filter((d) => !allDays.has(d)).length}`,
+      ...rows.map((r) => `- ${r.world}: ${r.days} day${r.days === 1 ? '' : 's'}` + (r.first ? `, from ${r.first} to ${r.last}` : '')
+        + (Object.keys(r.totals).length ? '. ' + Object.entries(ACTIVITY).filter(([k]) => r.totals[k]).map(([k, label]) => `${r.totals[k]} ${label[r.totals[k] === 1 ? 0 : 1]}`).join(', ') : '')),
+    ].join('\n') + '\n';
+    return { days, rows, md };
+  }
+
   // ---------------------------------------------------------------- backups
 
-  function exportBackup({ world, entities, chapters, passages, seeds, plates, atlas }, now) {
+  // Backups carry the notes a world was brought in from. A backup from before that had none, and
+  // a reader from before that ignores them, so the format stays inkwash-backup/1.
+  function exportBackup({ world, entities, chapters, passages, seeds, plates, atlas, sources }, now) {
+    const srcs = valuesOf(sources);
     return {
       format: 'inkwash-backup/1', exportedAt: new Date(now || Date.now()).toISOString(),
       world: clone(world), entities: clone(valuesOf(entities)), chapters: clone(valuesOf(chapters)),
       passages: clone(valuesOf(passages)), seeds: clone(valuesOf(seeds)), plates: clone(valuesOf(plates)),
       ...(atlas ? { atlas: clone(atlas) } : {}),
+      ...(srcs.length ? { sources: clone(srcs) } : {}),
     };
   }
   const SEG = /^[A-Za-z0-9_\-.~:@+]{1,180}$/;
@@ -1645,6 +2057,7 @@
       seeds: need(data.seeds || [], 'dream'),
       plates: need(data.plates || [], 'plate'),
       atlas: data.atlas && typeof data.atlas === 'object' && !Array.isArray(data.atlas) ? data.atlas : null,
+      sources: need(data.sources || [], 'notes'),
     };
   }
 
@@ -1663,6 +2076,8 @@
     buildSeedPrompt, parseSeeds, rippleCanon, rippleScenes, buildRipplePrompt, parseRipples, withRipples, rippleWays, addRippleWay, setRippleStatus, factOrigin, buildRepaintPrompt, parseRepaint,
     chapterProblems, publishedChapter, publishedWorld, visibleLore,
     bookModel, exportMarkdown, exportHtml, exportEpub, exportBible, exportProvenance, exportBackup, readBackup,
+    planImport, applyImport, cleanLine, sentences, guessKind, normName, normFact, hashText, normSource, IMPORT_MAX, utf8Bytes,
+    restoreFact, stableJson, docHash, trimEntity, historyStep, undoEntity, undoStep, ACTIVITY, bumpActivity, activitySummary,
     worldFromDream, atlasForWorld, exploreRegion,
     zipStore, crc32, esc, paragraphs, howMade, describeScene,
   };

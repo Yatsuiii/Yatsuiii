@@ -499,7 +499,7 @@ test('exports leave out wet scenes and report who wrote what', () => {
   assert.equal(prov.json.summary.byAuthor, 3);
   assert.equal(prov.json.summary.inkedKept, 4);
   assert.equal(prov.json.summary.edits, 1);
-  assert.deepEqual(prov.json.summary.canon, { total: 7, author: 6, accepted: 1 });
+  assert.deepEqual(prov.json.summary.canon, { total: 7, author: 6, accepted: 1, imported: 0, declaredOwn: 0 });
   assert.ok(prov.md.includes('- Scene 1: 7 words, 43% by the author, 1 edits, set 2026-09-30 14:02 UTC'));
   const bible = C.exportBible({ world: w, entities, chapters }, 0);
   assert.equal(bible.entities[0].name, 'Kael');
@@ -1095,4 +1095,277 @@ test('a fact is the author\'s unless most of its words came from an answer offer
   assert.equal(C.factOrigin('Salt pools.', []), 'human', 'nothing was offered');
   assert.equal(C.factOrigin('They’re trading with the hill kingdoms.', ["They're trading with the hill kingdoms."]), 'accepted', 'curly and straight apostrophes are the same');
   assert.equal(C.factOrigin('', offered), 'human');
+});
+
+// ---------------------------------------------------------------- bringing notes in
+
+const NOTES = `# The Salt Choir
+
+The tides here run backwards once a year.
+
+## Characters
+### Mira
+Mira is a lamplighter. She lost her sense of smell to moonlight. Dr. Fen treats her.
+- Age: 34
+
+### Kael
+
+## Places
+- Harrowgate: a cliff city of lamplit terraces.
+  - Seat of the Harbour Lords.
+- **Pomona** — the orchard capital
+
+## Magic
+Anyone touched by moonlight forgets one thing they love.
+
+## The Lantern Guild
+They keep the lamps lit, and they never sleep.
+`;
+
+test('notes become entries and facts in the creator\'s own words, kinds from their sections or marked as guesses', () => {
+  const plan = C.planImport(NOTES);
+  assert.equal(plan.title, 'The Salt Choir', 'a lone top heading is offered as the world\'s title, not made an entry');
+  const by = Object.fromEntries(plan.entries.map((e) => [e.name, e]));
+  assert.deepEqual(plan.entries.map((e) => e.name), ['Unsorted notes', 'Mira', 'Kael', 'Harrowgate', 'Pomona', 'Magic', 'The Lantern Guild']);
+  assert.deepEqual(by.Mira.facts.map((f) => f.text), ['Mira is a lamplighter.', 'She lost her sense of smell to moonlight.', 'Dr. Fen treats her.', 'Age: 34'], 'split at sentence ends, not at "Dr."');
+  assert.deepEqual([by.Mira.kind, by.Mira.certain, by.Mira.from], ['character', true, 'section']);
+  assert.deepEqual([by.Kael.kind, by.Kael.facts.length], ['character', 0], 'a heading with nothing under it is still a name');
+  assert.deepEqual(by.Harrowgate.facts.map((f) => f.text), ['a cliff city of lamplit terraces.', 'Seat of the Harbour Lords.'], 'a named bullet starts an entry and its nested bullets are its facts');
+  assert.deepEqual([by.Pomona.kind, by.Pomona.facts[0].text], ['place', 'the orchard capital']);
+  assert.deepEqual([by.Magic.kind, by.Magic.certain, by.Magic.facts[0].text], ['rule', true, 'Anyone touched by moonlight forgets one thing they love.'], 'a rules section is an entry of its own');
+  assert.deepEqual([by['The Lantern Guild'].kind, by['The Lantern Guild'].certain, by['The Lantern Guild'].why], ['faction', false, 'its name'], 'a kind guessed from the name says so');
+  assert.deepEqual([by['Unsorted notes'].unsorted, by['Unsorted notes'].facts[0].text], [true, 'The tides here run backwards once a year.'], 'text under no heading is kept, not dropped');
+  assert.equal(by.Mira.facts[3].line, 8, 'each fact knows its line in the notes');
+  assert.deepEqual(plan.counts, { entries: 7, newEntries: 7, facts: 10, newFacts: 10, dupFacts: 0, guessed: 2 });
+  assert.equal(C.planImport(NOTES, { split: false }).entries[1].facts[0].text, 'Mira is a lamplighter. She lost her sense of smell to moonlight. Dr. Fen treats her.');
+});
+
+test('nothing is invented: every fact is words that are in the notes', () => {
+  const messy = 'Captain Ilse Varr — keeps the [last lighthouse](https://x.example/l) lit. She is a widow.\nThe Glass Abbey: where the salt-priests train.\nNote: it rains here.\n\nOld Mother Rook\n===\nShe sells *weather* in jars.\n\n**Saltcross**\nA crossroads of cairns.\n\nCreatures:\n- Shield crabs: big as shields\n| Tide | Height |\n|---|---|\n| Spring | 9 ft |\n';
+  const plan = C.planImport(messy);
+  const words = (t) => C.cleanLine(t).toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  const source = new Set(words(messy));
+  for (const e of plan.entries) for (const f of e.facts) for (const w of words(f.text)) assert.ok(source.has(w), `"${w}" in "${f.text}" is in the notes`);
+  const by = Object.fromEntries(plan.entries.map((e) => [e.name, e]));
+  assert.deepEqual(by['Captain Ilse Varr'].facts.map((f) => f.text), ['keeps the last lighthouse (https://x.example/l) lit.', 'She is a widow.']);
+  assert.deepEqual(by['The Glass Abbey'].facts.map((f) => f.text), ['where the salt-priests train.', 'Note: it rains here.'], '"Note:" stays a fact');
+  assert.deepEqual([by['Old Mother Rook'].kind, by['Old Mother Rook'].certain, by['Old Mother Rook'].facts[0].text], ['character', false, 'She sells weather in jars.']);
+  assert.deepEqual([by.Saltcross.kind, by.Saltcross.why], ['thing', null], 'with nothing to go on, the kind is left for the creator');
+  const wardens = C.planImport('## The Chime Wardens\nThey tune the orchard every autumn.').entries[0];
+  assert.deepEqual([wardens.kind, wardens.certain, wardens.why], ['faction', false, 'its name'], 'a band of wardens is guessed a faction, and marked as a guess');
+  assert.deepEqual(by['Shield crabs'].facts.map((f) => f.text), ['big as shields', 'Tide — Height', 'Spring — 9 ft']);
+  assert.equal(C.planImport('   ').empty, true);
+  assert.equal(C.planImport('x'.repeat(C.IMPORT_MAX + 1)).tooBig, true, 'too much at once is refused, never cut short');
+  assert.deepEqual([C.utf8Bytes('ab'), C.utf8Bytes('é'), C.utf8Bytes('月'), C.utf8Bytes('🌙'), C.utf8Bytes(null)], [2, 2, 3, 4, 0], 'sizes are counted as the store counts them');
+  assert.equal(C.planImport('月'.repeat(Math.ceil(C.IMPORT_MAX / 3) + 1)).tooBig, true, 'notes in a script of three bytes a letter are measured in bytes, not letters');
+  assert.equal(C.planImport('月'.repeat(Math.floor(C.IMPORT_MAX / 3) - 10)).tooBig, undefined);
+});
+
+test('what is already in the world is recognized, and the same notes are known the second time', () => {
+  const ents = new Map([['e_abbey', { id: 'e_abbey', kind: 'place', name: 'The Glass Abbey', facts: [fact('f_a', 'Where the salt-priests train.'), fact('f_old', 'Its doors are glass.', { retired: true })] }]]);
+  const notes = 'Glass Abbey: where the salt-priests train.\nIts doors are glass.\n\nGlass abbey: its doors are glass';
+  const plan = C.planImport(notes, { entities: ents });
+  assert.equal(plan.entries.length, 1, 'the same entry twice in the notes is one entry');
+  const e = plan.entries[0];
+  assert.deepEqual([e.match.id, e.kind, e.from, e.keep], ['e_abbey', 'place', 'canon', true], 'matched by name, whatever "The" or case');
+  assert.deepEqual(e.facts.map((f) => [f.text, f.dup, f.keep]), [['where the salt-priests train.', true, false], ['Its doors are glass.', false, true]], 'a fact already there is skipped; a retired one can come back');
+  const src = { id: 's1', name: 'notes.md', hash: C.planImport(notes).hash, at: 7 };
+  assert.deepEqual(C.planImport(notes.replace(/\n/g, '\r\n') + '\n\n\n', { sources: [src] }).seenBefore, { id: 's1', name: 'notes.md', at: 7 }, 'line endings and trailing blank lines don\'t hide a repeat');
+  const again = C.planImport('Glass Abbey: where the salt-priests train.', { entities: ents });
+  assert.equal(again.entries[0].keep, false, 'an entry with nothing new is left out');
+});
+
+test('accepting an import adds only what was kept, as imported facts, and keeps the notes as written', () => {
+  const ents = new Map([['e_abbey', { id: 'e_abbey', kind: 'place', name: 'The Glass Abbey', facts: [fact('f_a', 'Where the salt-priests train.')] }]]);
+  const plan = C.planImport('Glass Abbey: where the salt-priests train. Its floor is salt.\n\nBrother Wick: a novice.\n\nVesk: a city.', { entities: ents });
+  plan.entries.find((e) => e.name === 'Vesk').keep = false;
+  const wick = plan.entries.find((e) => e.name === 'Brother Wick');
+  wick.facts[0].text = 'a novice who hates salt.'; wick.facts[0].edited = true;
+  const before = JSON.stringify(ents.get('e_abbey'));
+  const out = C.applyImport(plan, { entities: ents, now: 50, sourceId: 's9', sourceName: 'abbey.md', text: 'the notes', declared: true });
+  assert.equal(JSON.stringify(ents.get('e_abbey')), before, 'the world it was given is untouched');
+  assert.deepEqual(out.entities.map((e) => e.name), ['The Glass Abbey', 'Brother Wick']);
+  const abbey = out.entities[0];
+  assert.deepEqual(abbey.facts.map((f) => [f.text, f.origin]), [['Where the salt-priests train.', 'human'], ['Its floor is salt.', 'imported']], 'existing facts stay as they were');
+  const added = abbey.facts[1];
+  assert.deepEqual([added.src, added.declared, added.v], ['s9', true, 1]);
+  assert.deepEqual([out.entities[1].kind, out.entities[1].facts[0].editedOnImport], ['character', true]);
+  assert.deepEqual([out.source.id, out.source.name, out.source.text, out.source.declared, out.source.facts, out.source.entries], ['s9', 'abbey.md', 'the notes', true, 2, 2]);
+  assert.deepEqual(out.source.factIds, [added.id, out.entities[1].facts[0].id]);
+  const undeclared = C.applyImport(C.planImport('X: y.'), { entities: new Map(), now: 1, sourceId: 's2' });
+  assert.equal(undeclared.entities[0].facts[0].declared, undefined, 'nothing is declared unless the creator says so');
+  const blank = C.planImport('X: y.');
+  blank.entries[0].name = '   ';
+  blank.entries[0].facts[0].text = ' ';
+  const nameless = C.applyImport(blank, { entities: new Map(), now: 1, sourceId: 's3' });
+  assert.deepEqual([nameless.entities[0].name, nameless.entities[0].facts.length], ['Unnamed entry', 0], 'a name cleared in review still names the entry, and an emptied line is left out');
+});
+
+test('provenance counts imported facts apart, and a declaration is a statement, not proof', () => {
+  const { w, entities, chapters } = hollowMoon();
+  const kael = entities.find((e) => e.id === 'kael');
+  kael.facts.push(Object.assign(C.newFact('Kael hums when he lies.', 'imported', 3), { src: 's1', declared: true }));
+  kael.facts.push(Object.assign(C.newFact('Kael has a sister.', 'imported', 3), { src: 's1' }));
+  const prov = C.exportProvenance({ world: w, entities, chapters, passages: new Map() }, 9);
+  assert.equal(prov.json.summary.canon.imported, 2);
+  assert.equal(prov.json.summary.canon.declaredOwn, 1);
+  assert.equal(prov.json.summary.canon.author, prov.json.summary.canon.total - prov.json.summary.canon.accepted - 2, 'imported facts are not counted as written in the studio');
+  assert.match(prov.md, /2 brought in from notes made outside the studio, origin not verified \(the author declared 1 of them their own writing; that is the author's statement, which Inkwash can't verify\)/);
+  assert.match(prov.json.note, /does not establish copyright ownership/);
+  const bible = C.exportBible({ world: w, entities, chapters }, 0);
+  const origins = bible.entities.find((e) => e.name === 'Kael').facts.slice(-2).map((f) => f.origin);
+  assert.deepEqual(origins, ['brought in from notes the author declared as their own writing (a statement, not verified)', 'brought in from notes made outside the studio (origin not verified)']);
+});
+
+test('backups carry the notes, old backups still open, and a new backup opens in an old reader', () => {
+  const w = { id: 'w1', title: 'T' };
+  const sources = [{ id: 's1', name: 'notes.md', text: '# T', hash: 'h', at: 1, declared: false, factIds: [] }];
+  const back = C.readBackup(JSON.parse(JSON.stringify(C.exportBackup({ world: w, entities: [], chapters: [], passages: [], seeds: [], plates: [], sources }, 2))));
+  assert.deepEqual(back.sources, sources);
+  assert.deepEqual(C.readBackup({ format: 'inkwash-backup/1', world: {} }).sources, [], 'a backup from before has none');
+  assert.equal(C.exportBackup({ world: w, entities: [], chapters: [], passages: [], seeds: [], plates: [] }, 2).sources, undefined, 'no notes, no key');
+  assert.throws(() => C.readBackup({ format: 'inkwash-backup/1', world: {}, sources: [{ id: '../x' }] }), /bad id/);
+  const file = C.exportBackup({ world: w, entities: [], chapters: [], passages: [], seeds: [], plates: [], sources }, 2);
+  assert.equal(file.format, 'inkwash-backup/1', 'same format: a reader that predates notes ignores the extra list');
+});
+
+// ---------------------------------------------------------------- undo, and the ledger
+
+test('a fact put back is a new version: scenes on the old words hold again, scenes on the undone words go stale', () => {
+  const f = fact('f1', 'The sea drained in one night.');
+  const idx = () => new Map([['f1', { fact: f, entity: { id: 'e1', name: 'The Sea' } }]]);
+  const old = { premises: [{ f: 'f1', v: 1 }], pending: [] };
+  assert.equal(C.reviseFact(f, 'The sea drained over a century.', 2), true);
+  assert.equal(C.staleness(old, idx()).stale, true, 'reworded: the scene on the old words is stale');
+  const reviewed = { premises: [{ f: 'f1', v: 2 }], pending: [] };
+  assert.equal(C.restoreFact(f, 'The sea drained in one night.', false, 3), true);
+  assert.equal(f.v, 3, 'versions only move forward');
+  assert.equal(C.staleness(old, idx()).stale, false, 'the words it relied on are back');
+  assert.equal(C.staleness(reviewed, idx()).stale, true, 'a scene checked against the undone words is stale');
+  assert.equal(C.reviseFact(f, 'The sea drained in a week.', 4), true);
+  assert.equal(f.v, 4);
+  assert.equal(C.staleness(reviewed, idx()).stale, true, 'a later rewording never makes an old version number current again');
+  assert.equal(C.staleness(old, idx()).stale, true);
+  assert.equal(C.restoreFact(f, 'The sea drained in a week.', false, 5), false, 'nothing to put back');
+});
+
+test('a retired fact brought back holds for the scenes that relied on it; a retired version is never a match', () => {
+  const f = fact('f1', 'Glass stops moonlight.');
+  const idx = () => new Map([['f1', { fact: f, entity: { id: 'e1', name: 'Moonlight' } }]]);
+  const scene = { premises: [{ f: 'f1', v: 1 }], pending: [] };
+  C.retireFact(f, 2);
+  assert.equal(C.staleness(scene, idx()).reasons[0].kind, 'retired');
+  assert.equal(C.factTextAt(f, 2), null);
+  C.restoreFact(f, 'Glass stops moonlight.', false, 3);
+  assert.deepEqual([f.v, f.retired, f.history.at(-1).retired], [3, false, true]);
+  assert.equal(C.factTextAt(f, 2), null, 'the retired version has no words to match');
+  assert.equal(C.staleness(scene, idx()).stale, false);
+});
+
+function worldNow(extra = {}) {
+  return Object.assign({ canon: new Map(), passages: new Map(), seeds: new Map(), sources: new Map() }, extra);
+}
+test('undoing an import removes what it added and nothing else', () => {
+  const abbey = { id: 'e_abbey', kind: 'place', name: 'The Glass Abbey', facts: [fact('f_a', 'Where the salt-priests train.')] };
+  const ents = new Map([[abbey.id, abbey]]);
+  const plan = C.planImport('Glass Abbey: its floor is salt.\n\nBrother Wick: a novice.', { entities: ents });
+  const out = C.applyImport(plan, { entities: ents, now: 10, sourceId: 's1', text: 'notes' });
+  const now = worldNow();
+  for (const e of out.entities) now.canon.set(e.id, e);
+  now.sources.set('s1', out.source);
+  const step = C.historyStep({ label: 'Brought in notes', kind: 'import', at: 10, docs: [
+    ...out.entities.map((e) => ({ coll: 'canon', id: e.id, before: ents.get(e.id) || null, after: e })),
+    { coll: 'sources', id: 's1', before: null, after: out.source },
+  ] });
+  const wick = out.entities[1];
+  const r = C.undoStep(step, now, 20);
+  assert.deepEqual(r.kept, []);
+  const w = Object.fromEntries(r.writes.map((x) => [x.coll + ':' + x.id, x.doc]));
+  assert.deepEqual(w['canon:e_abbey'].facts.map((f) => f.text), ['Where the salt-priests train.'], 'the entry keeps what it had');
+  assert.equal(w['canon:' + wick.id], null, 'an entry the import made goes');
+  assert.equal(w['sources:s1'], null, 'and so do the notes');
+});
+
+test('undo leaves alone, and names, whatever changed since the step', () => {
+  const abbey = { id: 'e_abbey', kind: 'place', name: 'The Glass Abbey', facts: [] };
+  const out = C.applyImport(C.planImport('Glass Abbey: its floor is salt. Its bells are glass.', { entities: new Map([[abbey.id, abbey]]) }), { entities: new Map([[abbey.id, abbey]]), now: 10, sourceId: 's1' });
+  const after = out.entities[0];
+  const step = C.historyStep({ label: 'x', at: 10, docs: [{ coll: 'canon', id: abbey.id, before: abbey, after }] });
+  const later = C.clone(after);
+  C.reviseFact(later.facts[0], 'Its floor is salt, and it sings.', 12);
+  const r = C.undoStep(step, worldNow({ canon: new Map([[abbey.id, later]]) }), 20);
+  assert.deepEqual(r.writes[0].doc.facts.map((f) => f.text), ['Its floor is salt, and it sings.']);
+  assert.match(r.kept[0], /changed since, so it stays/);
+});
+
+test('undoing an edit, a retirement, a secret, a rename and a deletion', () => {
+  const before = { id: 'e1', kind: 'place', name: 'Vesk', facts: [fact('f1', 'Vesk has nine hundred lamps.'), fact('f2', 'The moon rises late.'), fact('f3', 'The Queen is Kael’s mother.')] };
+  const after = C.clone(before);
+  after.name = 'Vesk-on-Sea';
+  C.reviseFact(after.facts[0], 'Vesk has a thousand lamps.', 5);
+  C.retireFact(after.facts[1], 5);
+  after.facts[2].secret = true;
+  const step = C.historyStep({ label: 'edits', at: 5, docs: [{ coll: 'canon', id: 'e1', before, after }] });
+  const r = C.undoStep(step, worldNow({ canon: new Map([['e1', C.clone(after)]]) }), 9);
+  const doc = r.writes[0].doc;
+  assert.equal(doc.name, 'Vesk');
+  assert.deepEqual(doc.facts.map((f) => [f.text, f.v, !!f.retired, !!f.secret]), [['Vesk has nine hundred lamps.', 3, false, false], ['The moon rises late.', 3, false, false], ['The Queen is Kael’s mother.', 1, false, false]]);
+  // deleting a whole entry, then undoing it, brings it back exactly
+  const del = C.historyStep({ label: 'deleted', at: 6, docs: [{ coll: 'canon', id: 'e1', before, after: null }] });
+  const back = C.undoStep(del, worldNow(), 9);
+  assert.deepEqual(back.writes, [{ coll: 'canon', id: 'e1', doc: before }]);
+  assert.equal(C.undoStep(Object.assign({}, del, { undone: true }), worldNow(), 9).nothing, true, 'a step is undone once');
+});
+
+test('undoing a ripple answer takes the answer out and reopens the way', () => {
+  const src = { id: 'e_moon', kind: 'rule', name: 'Moonlight', facts: [fact('f_m', 'Moonlight takes a memory.', { ripples: { at: 1, v: 1, breaks: [], ways: [{ id: 'rp_1', label: 'Glass', question: 'Does glass stop it?', options: [], status: 'new' }] } })] };
+  const tgt = { id: 'e_vesk', kind: 'place', name: 'Vesk', facts: [] };
+  const srcAfter = C.setRippleStatus(src, 'f_m', 'rp_1', 'answered', { answer: { eid: 'e_vesk', fid: 'f_new', text: 'Glass stops it.' } });
+  const tgtAfter = C.clone(tgt);
+  tgtAfter.facts.push(fact('f_new', 'Glass stops it.'));
+  const step = C.historyStep({ label: 'ripple', at: 3, docs: [{ coll: 'canon', id: 'e_vesk', before: tgt, after: tgtAfter }, { coll: 'canon', id: 'e_moon', before: src, after: srcAfter }] });
+  const r = C.undoStep(step, worldNow({ canon: new Map([['e_vesk', C.clone(tgtAfter)], ['e_moon', C.clone(srcAfter)]]) }), 4);
+  const w = Object.fromEntries(r.writes.map((x) => [x.id, x.doc]));
+  assert.deepEqual(w.e_vesk.facts, []);
+  assert.equal(w.e_moon.facts[0].ripples.ways[0].status, 'new');
+  assert.equal(w.e_moon.facts[0].ripples.ways[0].answer, undefined);
+});
+
+test('a scene edit is undone whole, and only if the scene hasn\'t changed since', () => {
+  const before = { id: 'c1__s1', chapter: 'c1', scene: 0, text: 'Kael lit the lamps.', spans: [{ s: 0, e: 19, o: 'typed' }], premises: [{ f: 'f1', v: 1 }], setAt: 5, updatedAt: 5 };
+  const after = Object.assign({}, before, { text: 'Kael lit every lamp.', updatedAt: 6 });
+  const step = C.historyStep({ label: 'scene', at: 6, docs: [{ coll: 'passages', id: 'c1__s1', before, after }] });
+  assert.equal(step.docs[0].after, undefined, 'a scene keeps only a print of how it looked after');
+  assert.deepEqual(C.undoStep(step, worldNow({ passages: new Map([['c1__s1', after]]) }), 9).writes, [{ coll: 'passages', id: 'c1__s1', doc: before }]);
+  const r = C.undoStep(step, worldNow({ passages: new Map([['c1__s1', Object.assign({}, after, { text: 'Changed again.' })]]) }), 9);
+  assert.deepEqual([r.writes.length, r.kept.length], [0, 1]);
+});
+
+test('a continuity check, or saving again, doesn\'t stop a scene being undone; a new word or a kept contradiction does', () => {
+  const before = { id: 'c1__s2', chapter: 'c1', scene: 1, text: '', spans: [], updatedAt: 5 };
+  const inked = { id: 'c1__s2', chapter: 'c1', scene: 1, text: 'Mira climbed.', spans: [{ s: 0, e: 13, o: 'inked', wet: true }], pending: [{ f: 'f1', v: 1 }], updatedAt: 6 };
+  const step = C.historyStep({ label: 'Inked', at: 6, docs: [{ coll: 'passages', id: 'c1__s2', before, after: inked }] });
+  // the check that runs on its own right after inking: conflicts found, premises merged, saved again
+  const checked = Object.assign({}, inked, { conflicts: [{ fact: 'f1', start: 0, end: 4, why: 'x' }], pending: [{ f: 'f1', v: 1 }, { f: 'f2', v: 3 }], checkedAt: 7, updatedAt: 7 });
+  assert.deepEqual(C.undoStep(step, worldNow({ passages: new Map([['c1__s2', checked]]) }), 9).writes, [{ coll: 'passages', id: 'c1__s2', doc: before }]);
+  const typed = Object.assign({}, checked, { text: 'Mira climbed fast.' });
+  assert.equal(C.undoStep(step, worldNow({ passages: new Map([['c1__s2', typed]]) }), 9).writes.length, 0, 'words changed since: it stays');
+  const map = { id: 'main', spec: { seed: 4 }, updatedAt: 1 };
+  const mapStep = C.historyStep({ label: 'map', at: 2, docs: [{ coll: 'atlas', id: 'main', before: null, after: map }] });
+  assert.deepEqual(C.undoStep(mapStep, worldNow({ atlas: new Map([['main', Object.assign({}, map, { updatedAt: 3 })]]) }), 9).writes, [{ coll: 'atlas', id: 'main', doc: null }], 'saved again unchanged is not a change');
+});
+
+test('activity is counted by day, in numbers only, and worlds are never named', () => {
+  let doc = null;
+  doc = C.bumpActivity(doc, '2026-10-03', { own: 2, imported: 5 });
+  doc = C.bumpActivity(doc, '2026-10-03', { own: 1, nonsense: 9 });
+  doc = C.bumpActivity(doc, '2026-10-05', { rippleOwn: 1 });
+  assert.deepEqual(doc.days, { '2026-10-03': { own: 3, imported: 5 }, '2026-10-05': { rippleOwn: 1 } });
+  assert.equal(C.bumpActivity(doc, '2026-10-06', { nonsense: 1 }), null, 'nothing to count, nothing to write');
+  const s = C.activitySummary([{ example: false, days: doc.days, title: 'The Salt Choir' }, { example: true, days: { '2026-10-02': { own: 1 } } }], '2026-10-06');
+  assert.deepEqual(s.days, ['2026-10-03', '2026-10-05']);
+  assert.match(s.md, /Days I made something in my own worlds: 2 \(2026-10-03, 2026-10-05\)/);
+  assert.match(s.md, /Days I only tried an example world: 1/);
+  assert.match(s.md, /World 1: 2 days, from 2026-10-03 to 2026-10-05\. 3 facts written in my own words, 5 facts brought in from my notes, 1 ripple decided in my own words$/m);
+  assert.ok(!s.md.includes('Salt Choir'), 'no world names');
 });

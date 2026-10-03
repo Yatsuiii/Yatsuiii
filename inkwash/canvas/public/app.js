@@ -521,7 +521,8 @@ function syncCosts() {
   }
   const pic = /pro/.test(m.image || '') ? 0.13 : 0.05;
   const perSecond = /lite/.test(m.video || '') ? 0.05 : /fast/.test(m.video || '') ? 0.1 : 0.4, secs = Number($('#seconds').value) || 6;
-  $('#make-cost').textContent = `About ${cents(pic)} a picture, on your Google key.`;
+  $('#make-cost').textContent = `About ${cents(pic)} a picture, on your Google key. Not yet run live.`;
+  $('#make-cost').title = UNTRIED;
   $('#widen-cost').textContent = `The same place, widened into a panorama. About ${cents(pic)}.`;
   $('#move-cost').textContent = `Video with Veo: about ${cents(perSecond * secs)} for ${secs} seconds.`;
 }
@@ -541,14 +542,17 @@ function syncPanel() {
   $('#delete').disabled = busy;
   syncCosts();
 }
+// Google's picture and video calls are written from Google's own SDKs and tested against
+// stand-ins, but haven't been run against Google yet. Say so wherever they can be spent.
+const UNTRIED = 'Google pictures and video haven’t been run live yet: the first real run may fail, and its error is shown word for word.';
 function renderStatus() {
   const s = state.status, box = $('#status');
   if (!s) return box.replaceChildren(el('span', { class: 'pill off', text: 'The server isn\'t answering' }));
   if (s.fake) return box.replaceChildren(el('span', { class: 'pill', text: 'Stand-in mode: no keys, nothing charged' }));
   const m = s.models || {};
   box.replaceChildren(
-    el('span', { class: 'pill ' + (s.paint && !m.error ? 'on' : 'off'), title: m.error || (m.image ? `Pictures: ${m.image}. Video: ${m.video}.` : '') },
-      !s.paint ? 'Pictures: off (no GEMINI_API_KEY)' : m.code === 'bad_key' ? 'Google key refused' : 'Pictures and video: Gemini'),
+    el('span', { class: 'pill ' + (s.paint && !m.error ? 'on' : 'off'), title: m.error || ((m.image ? `Pictures: ${m.image}. Video: ${m.video}. ` : '') + UNTRIED) },
+      !s.paint ? 'Pictures: off (no GEMINI_API_KEY)' : m.code === 'bad_key' ? 'Google key refused' : 'Pictures and video: Gemini, not yet run live'),
     el('span', { class: 'pill ' + (s.world ? 'on' : 'off') }, s.world ? 'Worlds: World Labs' : 'Worlds: off (no WORLDLABS_API_KEY)'),
   );
 }

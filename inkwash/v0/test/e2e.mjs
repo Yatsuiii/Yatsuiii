@@ -21,6 +21,9 @@ function mockClaude(cfg) {
   const docs = new Map(Object.entries(cfg.seed || {}).map(([p, b]) => [p, JSON.stringify(b)]));
   const listeners = new Set();
   const M = (window.__mock = { docs, saves: [], calls: [], writes: 0 });
+  // cfg.loseFirstLife: writes made before the first reload never arrive, as if the tab closed first
+  const lost = !!cfg.loseFirstLife && !sessionStorage.getItem('mock.lived');
+  if (cfg.loseFirstLife) sessionStorage.setItem('mock.lived', '1');
   const parent = (p) => p.split('/').slice(0, -1).join('/');
   const snap = (p, body) => ({ id: p.split('/').pop(), exists: body != null, data: () => (body == null ? undefined : JSON.parse(body)), metadata: { fromCache: false, hasPendingWrites: false } });
   const deliver = (l) => {
@@ -45,6 +48,7 @@ function mockClaude(cfg) {
         get: async () => snap(path, docs.get(path)),
         set: async (data) => {
           if (cfg.owner === false && path.startsWith('studio')) throw { code: 'invalid_argument', message: 'not allowed' };
+          if (lost) return new Promise(() => {});
           const s = JSON.stringify(data);
           if (s.length > 262144) throw { code: 'invalid_argument', message: 'document over 256 KiB' };
           M.writes++;
@@ -168,9 +172,12 @@ async function step(name, fn) {
     if (typeof errors !== 'undefined' && errors.length) console.log('     page errors so far: ' + errors.join(' | '));
   }
 }
-async function open(cfg, viewport, scheme) {
-  const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 950 }, colorScheme: scheme || 'light', permissions: ['clipboard-read', 'clipboard-write'] });
+// more.storageState: this browser's storage from an earlier visit; more.later: ms to move the clock on
+async function open(cfg, viewport, scheme, more) {
+  more = more || {};
+  const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 950 }, colorScheme: scheme || 'light', permissions: ['clipboard-read', 'clipboard-write'], storageState: more.storageState });
   const page = await ctx.newPage();
+  if (more.later) await page.addInitScript((ms) => { const real = Date.now.bind(Date); Date.now = () => real() + ms; }, more.later);
   const errors = [];
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/fonts\.(googleapis|gstatic)/.test((m.location() || {}).url || '') && !/fonts\.(googleapis|gstatic)/.test(m.text())) errors.push('console: ' + m.text() + ' @ ' + ((m.location() || {}).url || '')); });
@@ -860,6 +867,457 @@ await step('the dreamed example opens anywhere, without Claude, and its map can 
   assert.deepEqual(r.errors, []);
   await r.ctx.close();
 });
+
+// ---------------------------------------------------------------- a creator's own notes
+// The Glass Orchard is a world made up for these tests. Bringing notes in, what is already there,
+// undo, coming back later, backups, and the copy of the studio that opens from a file.
+const ORCHARD = `# The Glass Orchard
+
+In the valley of Selt, the old trees grow glass instead of fruit.
+
+## Places
+
+### Vellmere
+A hill town of glassblowers above the orchard.
+- The bells of Vellmere are cast from green glass.
+- Nobody in Vellmere may sell orchard glass.
+
+### The Long Rows
+Every autumn the trees ring like wind chimes.
+
+## Characters
+- Tamsin Hale: Odile's apprentice, who says she can hear the trees.
+
+### Odile Marr
+Odile is the orchard's last pruner. She is sixty-one.
+- She lost two fingers to a cracking pear.
+
+## Rules
+Glass picked before the first frost shatters by spring.
+
+## The Chime Wardens
+They tune the orchard every autumn and answer to no town.
+`;
+const MORE_NOTES = `## Odile Marr
+- She keeps a ledger of every tree she has cut.
+
+## Wren Ashby
+A glass merchant from the coast, and Odile's oldest enemy.
+`;
+const cr = await open({ seed: {} });
+const cp = cr.page;
+const S_ = (fn, arg) => cp.evaluate(fn, arg);
+const canonOf = () => S_(() => [...window.__inkwash.state.canon.values()]);
+const byName = async (name) => (await canonOf()).find((e) => e.name === name);
+const toastBtn = (text, label) => cp.locator(`.toast:has-text(${JSON.stringify(text)}) button:has-text("${label}")`).first();
+
+await step('bringing notes in: everything found is shown before anything is added, guesses are marked, and only what is ticked comes in, word for word', async () => {
+  await cp.waitForSelector('.welcome');
+  await cp.click('.choice.lead button:has-text("Bring in notes")');
+  await cp.fill('#import-text', ORCHARD);
+  await cp.click('button:has-text("Read my notes")');
+  await cp.waitForSelector('.import-entry');
+  assert.equal(await cp.inputValue('#import-title'), 'The Glass Orchard', 'a lone top heading is offered as the world\'s name');
+  const names = await cp.locator('.import-entry .import-name').evaluateAll((els) => els.map((e) => e.value));
+  assert.deepEqual(names, ['Unsorted notes', 'Vellmere', 'The Long Rows', 'Tamsin Hale', 'Odile Marr', 'Rules', 'The Chime Wardens']);
+  assert.match(await cp.textContent('.import-entry[aria-label="The Chime Wardens"] .import-tag.guess'), /a guess from its name: check it/);
+  assert.match(await cp.textContent('.import-entry[aria-label="Unsorted notes"] .import-tag.guess'), /not under any heading/);
+  assert.match(await cp.textContent('.import-page .page-head'), /7 entries and 11 facts/);
+  assert.equal(await cp.textContent('.import-page .btn.primary'), 'Add 11 facts to a new world');
+  // leave out the unsorted line and one fact, reword one line, and say the notes are mine
+  await cp.uncheck('.import-entry[aria-label="Unsorted notes"] .import-entry-head input[type=checkbox]');
+  await cp.uncheck('.import-entry[aria-label="Odile Marr"] .import-facts li:nth-child(2) input[type=checkbox]');
+  await cp.fill('.import-entry[aria-label="Tamsin Hale"] textarea.import-fact', 'Odile\'s apprentice, who swears she can hear the trees.');
+  await cp.selectOption('.import-entry[aria-label="The Chime Wardens"] select', 'faction');
+  await cp.check('#import-declared');
+  await cp.waitForFunction(() => document.querySelector('.import-page .btn.primary').textContent === 'Add 9 facts to a new world');
+  assert.equal(await S_(() => window.__mock.calls.length), 0, 'nothing was sent to Claude');
+  assert.equal(await S_(() => window.__inkwash.state.worlds.size), 0, 'nothing is added before the creator says so');
+  await cp.click('.import-page .btn.primary');
+  await cp.waitForSelector('.card[aria-label="Vellmere"]');
+  assert.match(await cp.textContent('#toasts'), /Brought in 9 facts in 6 entries, in your own words\./);
+  await settle(cp);
+  const w = await S_(() => [...window.__inkwash.state.worlds.values()][0]);
+  assert.equal(w.title, 'The Glass Orchard');
+  const canon = await canonOf();
+  assert.deepEqual(canon.map((e) => e.name).sort(), ['Odile Marr', 'Rules', 'Tamsin Hale', 'The Chime Wardens', 'The Long Rows', 'Vellmere']);
+  const src = await S_(() => [...window.__inkwash.state.sources.values()][0]);
+  const facts = canon.flatMap((e) => e.facts);
+  assert.equal(facts.length, 9);
+  assert.ok(facts.every((f) => f.origin === 'imported' && f.src === src.id && f.declared === true && f.v === 1), 'each fact says where it came from');
+  const tamsin = canon.find((e) => e.name === 'Tamsin Hale').facts[0];
+  assert.deepEqual([tamsin.text, tamsin.editedOnImport], ['Odile\'s apprentice, who swears she can hear the trees.', true]);
+  assert.deepEqual(canon.find((e) => e.name === 'Odile Marr').facts.map((f) => f.text), ['Odile is the orchard\'s last pruner.', 'She lost two fingers to a cracking pear.']);
+  assert.equal(canon.find((e) => e.name === 'The Chime Wardens').kind, 'faction');
+  const stored = await S_((id) => JSON.parse(window.__mock.docs.get(`studio/${window.__inkwash.state.wid}/sources/${id}`)), src.id);
+  assert.equal(stored.text, ORCHARD, 'the notes are kept exactly as they were pasted');
+  assert.deepEqual([stored.declared, stored.facts, stored.entries], [true, 9, 6]);
+  const hist = await S_(() => [...window.__inkwash.state.history.values()]);
+  assert.deepEqual(hist.map((x) => [x.kind, x.label]), [['import', 'Brought in Pasted notes']]);
+  assert.equal(await cp.locator('.card[aria-label="Vellmere"] .badge.imported').count(), 3);
+  assert.match(await cp.getAttribute('.card[aria-label="Vellmere"] .badge.imported >> nth=0', 'title'), /your statement; not checked/);
+});
+
+await step('the same notes again are recognized: what is already in the canon is left out', async () => {
+  await cp.selectOption('#world-select', '__import');
+  await cp.waitForSelector('#import-text');
+  assert.equal(await cp.inputValue('#import-target'), await S_(() => window.__inkwash.state.wid), 'notes go into the world that is open');
+  await cp.fill('#import-text', ORCHARD.replace(/\n/g, '\r\n') + '\n\n');
+  await cp.click('button:has-text("Read my notes")');
+  await cp.waitForSelector('.banner.warn');
+  assert.match(await cp.textContent('.banner.warn'), /You brought these notes in before\./);
+  assert.equal(await cp.locator('.import-facts li.dup').count(), 8, 'every line already in the canon is shown as already there');
+  assert.equal(await cp.textContent('.import-page .btn.primary'), 'Add 3 facts to The Glass Orchard', 'only the lines left out last time, and the original of the reworded one, are offered');
+  assert.equal(await cp.locator('.import-entry.off').count(), 4, 'entries with nothing new are left out');
+  await cp.click('.import-page button:has-text("Cancel")');
+  await cp.waitForSelector('.codex');
+  assert.equal(await S_(() => window.__inkwash.state.sources.size), 1, 'cancelling adds nothing');
+});
+
+await step('notes about entries already there add to them, and undo takes out only what they added', async () => {
+  const odileBefore = (await byName('Odile Marr')).facts;
+  await cp.selectOption('#world-select', '__import');
+  await cp.setInputFiles('.import-row input[type=file]', { name: 'more-notes.md', mimeType: 'text/markdown', buffer: Buffer.from(MORE_NOTES) });
+  await cp.waitForFunction(() => document.querySelector('#import-text').value.includes('Wren Ashby'));
+  await cp.click('button:has-text("Read my notes")');
+  await cp.waitForSelector('.import-entry[aria-label="Wren Ashby"]');
+  assert.match(await cp.textContent('.import-entry[aria-label="Odile Marr"]'), /already in your canon as a character: these facts are added to it/);
+  await cp.selectOption('.import-entry[aria-label="Wren Ashby"] select', 'character');
+  await cp.click('.import-page .btn.primary');
+  await cp.waitForSelector('.toast:has-text("Brought in 2 facts")');
+  assert.equal((await byName('Odile Marr')).facts.length, 3);
+  assert.ok(await byName('Wren Ashby'));
+  assert.equal(await S_(() => [...window.__inkwash.state.sources.values()].find((x) => x.name === 'more-notes.md').text), MORE_NOTES);
+  await toastBtn('Brought in 2 facts', 'Undo').click();
+  await cp.waitForSelector('.toast:has-text("Undone: Brought in more-notes.md")');
+  await settle(cp);
+  assert.deepEqual((await byName('Odile Marr')).facts, odileBefore, 'the entry is as it was, fact for fact');
+  assert.equal(await byName('Wren Ashby'), undefined);
+  assert.deepEqual(await S_(() => [...window.__inkwash.state.sources.values()].map((x) => x.name)), ['Pasted notes'], 'the notes it brought are gone too');
+  assert.ok(!(await S_(() => [...window.__mock.docs.keys()].some((k) => k.includes('/canon/') && window.__mock.docs.get(k).includes('Wren Ashby')))), 'and gone from the store');
+});
+
+await step('deleting an entry can be undone from History, and History says what each change was', async () => {
+  const wardens = await byName('The Chime Wardens');
+  await cp.click('.codex-link:text-is("The Chime Wardens")');
+  await cp.click('.card[aria-label="The Chime Wardens"] button[aria-label="Delete The Chime Wardens"]');
+  assert.match(await cp.textContent('.modal'), /You can undo it from History\./);
+  await cp.click('.modal button.seal');
+  await settle(cp);
+  assert.equal(await byName('The Chime Wardens'), undefined);
+  await cp.click('#open-history');
+  await cp.waitForSelector('.history-list');
+  const rows = await cp.locator('.history-list li').evaluateAll((els) => els.map((li) => [li.querySelector('.history-label').textContent, li.className]));
+  assert.deepEqual(rows, [['Deleted The Chime Wardens', ''], ['Brought in more-notes.md', 'undone'], ['Brought in Pasted notes', '']]);
+  await cp.click('.history-list li:first-child button:has-text("Undo")');
+  await cp.waitForSelector('.history-list li.undone >> nth=1');
+  await cp.keyboard.press('Escape');
+  await settle(cp);
+  const back = await byName('The Chime Wardens');
+  assert.ok(back.updatedAt >= wardens.updatedAt);
+  assert.deepEqual(Object.assign({}, back, { updatedAt: 0 }), Object.assign({}, wardens, { updatedAt: 0 }), 'it comes back as it was, under the same id');
+});
+
+await step('rewording a fact, and a scene written by hand, can each be undone', async () => {
+  const odile = await byName('Odile Marr');
+  const fid = odile.facts[1].id;
+  await cp.click('.codex-link:text-is("Odile Marr")');
+  await cp.fill('#fact-' + fid, 'She lost three fingers to a cracking pear.');
+  await cp.keyboard.press('Tab');
+  await cp.waitForSelector('.toast:has-text("Odile Marr changed.")');
+  await toastBtn('Odile Marr changed.', 'Undo').click();
+  await settle(cp);
+  const f = (await byName('Odile Marr')).facts[1];
+  assert.deepEqual([f.text, f.v, f.history.map((x) => x.v)], ['She lost two fingers to a cracking pear.', 3, [1, 2]], 'the old words come back as a new version');
+  // a scene, written by hand
+  await cp.click('.tab >> text=Score');
+  await cp.waitForSelector('button:has-text("Write it yourself")');
+  await cp.click('button:has-text("Write it yourself")');
+  await cp.waitForSelector('#passage-text');
+  await cp.keyboard.type('Odile counted the rows twice and still came up one tree short.');
+  await cp.click('.chapter-title');
+  await settle(cp);
+  const key = await S_(() => `${window.__inkwash.state.cid}__s1`);
+  assert.match(await S_((k) => window.__inkwash.state.passages.get(k).text, key), /one tree short/);
+  await cp.click('#open-history');
+  assert.equal(await cp.textContent('.history-list li:first-child .history-label'), 'Edited chapter 1, scene 1');
+  await cp.click('.history-list li:first-child button:has-text("Undo")');
+  await cp.keyboard.press('Escape');
+  await settle(cp);
+  assert.equal(await S_((k) => (window.__inkwash.state.passages.get(k) || {}).text || '', key), '', 'the words typed are taken back');
+});
+
+await step('a question saved for later and ripples not yet decided wait in the canon', async () => {
+  await cp.click('.tab >> text=Canon');
+  await cp.click('.codex-link:text-is("Odile Marr")');
+  await cp.click('.card[aria-label="Odile Marr"] .fact >> nth=1 >> button:has-text("Ripples")');
+  await cp.waitForSelector('.card[aria-label="Odile Marr"] .ripple-ways .btn.way:has-text("The records")', { timeout: 8000 });
+  await cp.click('.card[aria-label="Odile Marr"] .ripple-ways .btn.way:has-text("The records")');
+  await cp.click('.ripple.way-open button:has-text("Later")');
+  await cp.waitForSelector('.toast:has-text("Saved in the dream inbox for later.")');
+  await cp.click('.codex-link:text-is("Vellmere")');
+  await settle(cp);
+  assert.equal(await S_(() => [...window.__inkwash.state.seeds.values()].filter((d) => d.from).length), 1);
+});
+
+const later = { storageState: await cr.ctx.storageState(), docs: await S_(() => Object.fromEntries([...window.__mock.docs].map(([k, v]) => [k, JSON.parse(v)]))) };
+assert.deepEqual(cr.errors, []);
+await cr.ctx.close();
+
+await step('coming back hours later: the studio opens where the creator left off, says what is still undecided, and asks nothing of Claude', async () => {
+  const r = await open({ seed: later.docs }, null, null, { storageState: later.storageState, later: 3 * 3600e3 });
+  await r.page.waitForSelector('.left-off');
+  const card = await r.page.textContent('.left-off');
+  assert.match(card, /Welcome back to The Glass Orchard/);
+  assert.match(card, /Your last change, .*: Saved a question for later\./);
+  assert.match(card, /Ripples on Odile Marr: 3 ways you haven’t decided yet/);
+  assert.match(card, /1 question you saved for later, in the dream inbox/);
+  assert.equal(await r.page.textContent('.left-off .btn.primary'), 'Continue with Vellmere');
+  assert.equal(await r.page.evaluate(() => window.__inkwash.state.view), 'canon', 'the view it was left on');
+  assert.ok(await r.page.locator('.card[aria-label="Vellmere"]').count(), 'and the entry');
+  await r.page.waitForTimeout(400);
+  assert.equal(await r.page.evaluate(() => window.__mock.calls.length), 0, 'opening asks nothing of Claude');
+  if (wantShots) await r.page.screenshot({ path: join(SHOTS, 'return-light.png') });
+  await r.page.click('.left-off button:has-text("Dream inbox")');
+  await r.page.waitForSelector('.dream-form');
+  assert.equal(await r.page.locator('.left-off').count(), 0, 'once followed, it is gone');
+  await r.page.click('.tab >> text=Canon');
+  assert.equal(await r.page.locator('.left-off').count(), 0, 'and stays gone');
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+  // a short break is not a return
+  const soon = await open({ seed: later.docs }, null, null, { storageState: later.storageState, later: 5 * 60e3 });
+  await soon.page.waitForSelector('.codex');
+  await soon.page.waitForTimeout(300);
+  assert.equal(await soon.page.locator('.left-off').count(), 0);
+  await soon.ctx.close();
+});
+
+await step('a backup carries the notes; restoring it keeps where each fact came from, and the notes are still known', async () => {
+  const r = await open({ seed: later.docs }, null, null, { storageState: later.storageState });
+  const p = r.page;
+  await p.waitForSelector('.codex');
+  await p.click('.tab >> text=Book');
+  await p.click('button:has-text("Back up this world")');
+  await p.waitForFunction(() => window.__mock.saves.some((x) => x.filename === 'the-glass-orchard-backup.json'));
+  const b64 = await p.evaluate(() => window.__mock.saves.find((x) => x.filename === 'the-glass-orchard-backup.json').b64);
+  const backup = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+  assert.equal(backup.format, 'inkwash-backup/1');
+  assert.deepEqual(backup.sources.map((x) => [x.name, x.text]), [['Pasted notes', ORCHARD]]);
+  await p.setInputFiles('input[type=file][accept=".json,application/json"]', { name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+  await p.waitForFunction(() => window.__inkwash.state.worlds.size === 2);
+  await settle(p);
+  const restored = await p.evaluate(() => ({ wid: window.__inkwash.state.wid, canon: [...window.__inkwash.state.canon.values()], sources: [...window.__inkwash.state.sources.values()] }));
+  assert.equal(restored.sources[0].text, ORCHARD);
+  const tamsin = restored.canon.find((e) => e.name === 'Tamsin Hale').facts[0];
+  assert.deepEqual([tamsin.origin, tamsin.src, tamsin.declared, tamsin.editedOnImport], ['imported', restored.sources[0].id, true, true]);
+  assert.equal(await p.locator('.left-off').count(), 0, 'a world just restored is not a return');
+  await p.selectOption('#world-select', '__import');
+  await p.fill('#import-text', ORCHARD);
+  await p.click('button:has-text("Read my notes")');
+  await p.waitForSelector('.banner.warn:has-text("You brought these notes in before.")');
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
+
+await step('undoing a reworded fact never quietly passes a scene: one set on the words put back holds again, one set on the undone words is flagged', async () => {
+  const r = await open({ seed: exampleDocs(WID) });
+  const p = r.page;
+  await p.waitForSelector('.score-view');
+  const sceneDoc = () => p.evaluate(() => window.__inkwash.state.passages.get('c_lamps__s1'));
+  await p.click('.tab >> text=Canon');
+  await p.click('.codex-link:text-is("Vesk")');
+  await p.fill('#fact-f_vesk_lamps', 'Vesk is a city of a thousand lamps on a cliff above a black sea.');
+  await p.keyboard.press('Tab');
+  await p.waitForSelector('.toast.warn:has-text("now flagged: chapter 1, scene 1")');
+  await p.locator('.toast.warn:has-text("Vesk changed.") button:has-text("Undo")').click();
+  await settle(p);
+  const scene = (k) => p.evaluate((kk) => { const dots = document.querySelectorAll('.rail-item')[0].querySelectorAll('.dot'); return dots[kk].dataset.state; }, k);
+  await p.click('.tab >> text=Score');
+  await p.waitForSelector('.rail-item');
+  assert.equal(await scene(0), 'set', 'the scene relied on these very words, so it holds');
+  const f1 = await p.evaluate(() => window.__inkwash.state.canon.get('e_vesk').facts.find((f) => f.id === 'f_vesk_lamps'));
+  assert.deepEqual([f1.v, f1.text], [3, 'Vesk is a city of nine hundred lamps on a cliff above a black sea.']);
+  // reword it again, and this time tell the scene its words are still true
+  await p.click('.tab >> text=Canon');
+  await p.fill('#fact-f_vesk_lamps', 'Vesk is a city of a thousand lamps on a cliff above a black sea.');
+  await p.keyboard.press('Tab');
+  await p.locator('.toast.warn:has-text("Vesk changed.") button:has-text("Show me")').click();
+  await p.waitForSelector('.stale-box');
+  await p.click('.stale-box button:has-text("Still true")');
+  await p.waitForFunction(() => document.querySelector('#scene-pill').textContent === 'Set');
+  assert.deepEqual((await sceneDoc()).premises.find((x) => x.f === 'f_vesk_lamps'), { f: 'f_vesk_lamps', v: 4 });
+  // now undo the rewording: the scene was set on the words being undone
+  await p.click('#open-history');
+  const labels = await p.locator('.history-list li .history-label').allTextContents();
+  assert.deepEqual(labels.slice(0, 2), ['Marked chapter 1, scene 1 still true', 'Reworded a fact about Vesk']);
+  await p.click('.history-list li:nth-child(2) button:has-text("Undo")');
+  await p.keyboard.press('Escape');
+  await p.waitForSelector('.toast.warn:has-text("written against the undone words is now flagged: chapter 1, scene 1")');
+  await settle(p);
+  assert.equal(await p.textContent('#scene-pill'), 'Stale');
+  const f2 = await p.evaluate(() => window.__inkwash.state.canon.get('e_vesk').facts.find((f) => f.id === 'f_vesk_lamps'));
+  assert.deepEqual([f2.v, f2.text], [5, 'Vesk is a city of nine hundred lamps on a cliff above a black sea.'], 'versions only move forward');
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
+
+await step('inking a scene can be undone after the continuity check has run on it', async () => {
+  const r = await open({ seed: exampleDocs(WID) });
+  const p = r.page;
+  await p.waitForSelector('.score-view');
+  await p.click('.rail-item >> nth=1');
+  await p.click('button:has-text("Ink this scene")');
+  await p.waitForFunction(() => { const x = window.__inkwash.state.passages.get('c_door__s1'); return x && x.checkedAt && !window.__inkwash.state.busy['check:c_door__s1']; }, null, { timeout: 10000 });
+  assert.ok((await p.evaluate(() => window.__inkwash.state.passages.get('c_door__s1').conflicts.length)) > 0, 'the check found something and saved it');
+  await p.click('#open-history');
+  assert.equal(await p.textContent('.history-list li:first-child .history-label'), 'Inked chapter 2, scene 1');
+  await p.click('.history-list li:first-child button:has-text("Undo")');
+  await p.keyboard.press('Escape');
+  await p.waitForSelector('.toast:has-text("Undone: Inked chapter 2, scene 1.")');
+  assert.ok(!(await p.textContent('#toasts')).includes('changed since'));
+  await settle(p);
+  assert.equal(await p.evaluate(() => window.__inkwash.state.passages.has('c_door__s1')), false, 'the scene is back to not written');
+  assert.equal(await p.evaluate(() => window.__mock.docs.has('studio/w_hollow_moon/passages/c_door__s1')), false);
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
+
+await step('work saved just before the page closed: what never reached the store is finished on the next visit', async () => {
+  const r = await open({ seed: exampleDocs(WID), loseFirstLife: true });
+  const p = r.page;
+  await p.waitForSelector('.score-view');
+  await p.click('.tab >> text=Canon');
+  await p.click('.codex-link:text-is("Mira")');
+  await p.fill('#new-fact-e_mira', 'Mira hums when she climbs.');
+  await p.keyboard.press('Enter');
+  await p.waitForFunction(() => window.__inkwash.state.canon.get('e_mira').facts.some((f) => f.text === 'Mira hums when she climbs.'));
+  await p.reload();
+  await p.waitForSelector('.toast:has-text("hadn\'t arrived when the page last closed")', { timeout: 8000 });
+  await settle(p);
+  assert.ok((await p.evaluate(() => window.__mock.docs.get('studio/w_hollow_moon/canon/e_mira'))).includes('Mira hums when she climbs.'), 'the store has it now');
+  assert.ok(await p.evaluate(() => window.__inkwash.state.canon.get('e_mira').facts.some((f) => f.text === 'Mira hums when she climbs.')));
+  assert.equal(await p.evaluate(() => localStorage.getItem('inkwash.pending')), null, 'nothing is left waiting');
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
+
+await step('sketchbook mode: a world made a moment before a reload is still there after it', async () => {
+  const r = await open({ noDb: true });
+  const p = r.page;
+  await p.waitForSelector('.welcome');
+  await p.click('.choice button:has-text("Start a world")');
+  await p.fill('#wf-title', 'A Quick Thought');
+  await p.click('#world-form button[type=submit]');
+  await p.waitForFunction(() => [...window.__inkwash.state.worlds.values()].some((w) => w.title === 'A Quick Thought'));
+  await p.reload();
+  await p.waitForSelector('#world-select');
+  await p.waitForFunction(() => [...window.__inkwash.state.worlds.values()].some((w) => w.title === 'A Quick Thought'), null, { timeout: 5000 });
+  assert.deepEqual(r.errors, []);
+  await r.ctx.close();
+});
+
+await step('the studio as one file: it opens from disk with its examples, keeps notes in the browser, and the creator\'s own idea needs no Claude', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
+  const net = [];
+  p.on('request', (q) => { if (!q.url().startsWith('file:') && !q.url().startsWith('data:') && !q.url().startsWith('blob:')) net.push(q.url()); });
+  await p.route(/fonts\.(googleapis|gstatic)\.com/, (q) => q.abort());
+  await p.goto('file://' + join(DIST, 'inkwash-offline.html'));
+  await p.waitForSelector('.welcome');
+  assert.match(await p.textContent('#banners'), /Sketchbook mode/);
+  await p.click('.choice button:has-text("The Hollow Moon")');
+  await p.waitForSelector('.score-view');
+  assert.equal(await p.inputValue('#chapter-title'), 'Nine Hundred Lamps');
+  assert.match(await p.textContent('#banners'), /running outside claude\.ai, so inking is off/);
+  // the creator's own idea, without Claude
+  await p.click('.tab >> text=Canon');
+  await p.click('.codex-link:text-is("Mira")');
+  const fid = await p.evaluate(() => window.__inkwash.state.canon.get('e_mira').facts[0].id);
+  await p.click(`.card[aria-label="Mira"] .fact:has(#fact-${fid}) button:has-text("Ripples")`);
+  await p.waitForSelector('#ripple-idea-' + fid);
+  assert.match(await p.textContent('.card[aria-label="Mira"] .ripples'), /need the claude\.ai version of Inkwash/);
+  await p.fill('#ripple-idea-' + fid, 'Mira keeps a jar of lamp smoke she can no longer smell.');
+  await p.click('.ripple.way-open.mine button:has-text("Add to Mira")');
+  await p.waitForFunction(() => window.__inkwash.state.canon.get('e_mira').facts.some((f) => f.text === 'Mira keeps a jar of lamp smoke she can no longer smell.' && f.origin === 'human'));
+  // and notes come in here too
+  await p.selectOption('#world-select', '__import');
+  await p.selectOption('#import-target', 'new');
+  await p.fill('#import-text', ORCHARD);
+  await p.click('button:has-text("Read my notes")');
+  await p.click('.import-page .btn.primary');
+  await p.waitForSelector('.card[aria-label="Vellmere"]');
+  await p.evaluate(() => window.__inkwash.flush());
+  await p.waitForFunction(() => (localStorage.getItem('inkwash.sketchbook') || '').includes('glassblowers'));
+  assert.deepEqual(net.filter((u) => !/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(u)), [], 'nothing but a request for its typefaces leaves the browser');
+  assert.deepEqual(errs, []);
+  await ctx.close();
+  // the other example opens from the file too
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const p2 = await ctx2.newPage();
+  await p2.route(/fonts\.(googleapis|gstatic)\.com/, (q) => q.abort());
+  await p2.goto('file://' + join(DIST, 'inkwash-offline.html'));
+  await p2.click('.choice button:has-text("The Drained Sea")');
+  await p2.waitForSelector('.atlas-stage svg', { timeout: 20000 });
+  await ctx2.close();
+});
+
+await step('a big notes file, about 2,500 lines in 1,400 entries, is reviewed and brought in within seconds', async () => {
+  let big = '', i = 0;
+  while (big.length < 195000) { big += ORCHARD.replace(/Vellmere|Odile Marr|Tamsin Hale|The Long Rows|The Chime Wardens/g, (m) => `${m} ${i}`) + '\n'; i++; }
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const p = await ctx.newPage();
+  await p.route(/fonts\.(googleapis|gstatic)\.com/, (q) => q.abort());
+  await p.goto('file://' + join(DIST, 'inkwash-offline.html'));
+  await p.click('.choice.lead button:has-text("Bring in notes")');
+  await p.waitForSelector('#import-text');
+  await p.evaluate((t) => { const ta = document.querySelector('#import-text'); ta.value = t; ta.dispatchEvent(new Event('input', { bubbles: true })); }, big);
+  let t = Date.now();
+  await p.click('button:has-text("Read my notes")');
+  await p.waitForSelector('.import-entry');
+  const review = Date.now() - t;
+  assert.ok((await p.locator('textarea.import-fact').count()) > 2500);
+  t = Date.now();
+  await p.click('.import-page .btn.primary');
+  await p.waitForSelector('.toast:has-text("Brought in")', { timeout: 30000 });
+  const accept = Date.now() - t;
+  console.log(`     review ${review} ms, accept ${accept} ms`);
+  assert.ok(review < 8000 && accept < 8000, `review ${review} ms, accept ${accept} ms`);
+  await ctx.close();
+});
+
+if (wantShots) {
+  // the new screens, on a desktop and on a phone
+  for (const [name, vp, scheme] of [['import-light', { width: 1400, height: 950 }, 'light'], ['import-phone-dark', { width: 390, height: 844 }, 'dark']]) {
+    const r = await open({ seed: {} }, vp, scheme);
+    await r.page.waitForSelector('.welcome');
+    if (name === 'import-light') await r.page.screenshot({ path: join(SHOTS, 'welcome-light.png'), fullPage: true });
+    await r.page.click('.choice.lead button:has-text("Bring in notes")');
+    await r.page.fill('#import-text', ORCHARD);
+    await r.page.click('button:has-text("Read my notes")');
+    await r.page.waitForSelector('.import-entry');
+    const overflow = await r.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    console.log(`     ${name}: horizontal overflow ${overflow}px`);
+    await r.page.screenshot({ path: join(SHOTS, name + '.png'), fullPage: true });
+    await r.page.click('.import-page .btn.primary');
+    await r.page.waitForSelector('.codex');
+    await r.page.click('#open-history');
+    await r.page.waitForSelector('.history-list');
+    await r.page.screenshot({ path: join(SHOTS, name.replace('import', 'history') + '.png') });
+    await r.page.keyboard.press('Escape');
+    await r.page.waitForTimeout(200);
+    await r.page.screenshot({ path: join(SHOTS, name.replace('import', 'canon-notes') + '.png'), fullPage: name === 'import-light' });
+    await r.ctx.close();
+  }
+  const r = await open({ seed: later.docs }, { width: 390, height: 844 }, 'dark', { storageState: later.storageState, later: 3 * 3600e3 });
+  await r.page.waitForSelector('.left-off');
+  const overflow = await r.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  console.log(`     return-phone-dark: horizontal overflow ${overflow}px`);
+  await r.page.screenshot({ path: join(SHOTS, 'return-phone-dark.png') });
+  await r.ctx.close();
+}
 
 if (wantShots) {
   for (const [name, vp, scheme] of [['score-dark', { width: 1400, height: 950 }, 'dark'], ['score-phone', { width: 390, height: 844 }, 'light'], ['book-phone-dark', { width: 390, height: 844 }, 'dark']]) {
