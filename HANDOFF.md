@@ -42,10 +42,12 @@ reliability, evals and protocols.
 > - a "where you left off" card;
 > - an offline copy of the studio for a ten-person creator trial.
 >
-> It's built and tested (60 unit tests, 43 browser steps) but **not yet republished**: the live
+> It's built and tested (60 unit tests, 50 browser steps) but **not yet republished**: the live
 > artifact holds Raghav's private world, so republishing waits for his go-ahead. Start with
-> `inkwash/NEXT_DIRECTION.md`, then `inkwash/CREATOR_TRIAL.md`. The test counts in the table
-> below are from before this release.
+> `inkwash/NEXT_DIRECTION.md`, then `inkwash/TRIAL_SETUP.md` (one private trial copy per creator,
+> and why never to invite anyone as an Editor on the live studio) and `inkwash/CREATOR_TRIAL.md`.
+> The live store was backed up on 2026-10-03; the backups went to Raghav and are not in this repo.
+> The test counts in the table below are from before this release.
 
 ---
 

@@ -1,27 +1,51 @@
-# Inkwash creator trial: a kit for ten people
+# Inkwash creator trial: a kit for two kinds of tryout
 
-*Drafts only. Nothing here has been sent or posted.*
+*Drafts only. Nothing here has been sent or posted, and nobody has been invited.*
 
-## What it's for
+## Two tracks, kept apart
 
-Ten people who have a world in their head, and notes somewhere, use Inkwash for two weeks with
-their own world. We want to learn five things:
+The trial has two experiences, and their feedback must never be mixed.
 
-1. **First useful result:** do they get something worth keeping in the first session?
-2. **Voluntary return:** do they come back on a later day without being asked?
-3. **Continued development:** do they keep building the same world?
-4. **Preferred workflow:** which way in, and which tools, do they actually use?
-5. **Willingness to pay:** kept as three separate things that must never be merged:
+| | **Track P: the preview** | **Track F: the full experience** |
+| --- | --- | --- |
+| What they use | `inkwash-offline.html`, one file | Their own trial copy on claude.ai (`TRIAL_SETUP.md`) |
+| What it tests | Bringing notes in, the canon, editing, undo, coming back | The whole loop: notes, Ripples with Claude, Claude's answers kept or rewritten, scenes inked and set |
+| Claude | None. Ripples opens to "My own idea" only | Claude's ways, answers, inking and checks, on their own Claude usage |
+| Who | Anyone with notes, including people with no claude.ai account or no wish to use AI | 3–5 creators with a claude.ai account, each invited by email as an Editor of their own copy |
+| Where their world lives | Their browser, on their computer | Their private space in their copy, which nobody else can read under its rules, not even you |
+| Ready? | Yes | Built and tested; waits for your go-ahead and a check with a second account of yours (`TRIAL_SETUP.md`, runbook) |
+
+**Never read preview feedback as a verdict on the AI.** Preview users never saw Claude's side.
+
+**Moving between tracks.** A creator can move their preview world into a full copy: Book → Back up
+this world in the preview, then Book → Restore a backup in their copy. Their feedback stays filed
+under the track it came from.
+
+## What we want to learn
+
+From both tracks:
+
+1. **First useful result:** did they get something worth keeping in their first session?
+2. **Voluntary return:** did they come back on a later day without being asked?
+3. **Continued development:** did they keep building the same world?
+4. **Preferred workflow:** which way in, and which tools, did they actually use?
+5. **Willingness to pay:** kept as three things that must never be merged:
    - what they actually pay;
    - what they say they'd pay;
    - what they'd be interested in, hypothetically.
 
-Ten people can't give rates. This gives direction, and the reasons behind it.
+From Track F only:
 
-## What participants use
+6. **Does Claude's help help?** Did they use Claude's ways or their own ideas? Did they keep
+   Claude's answers as offered, rewrite them, or write their own? Did they ink scenes or write
+   them by hand?
 
-**The offline copy of the studio:** one file, `inkwash-offline.html`, about 535 KB. Build it
-with `node inkwash/v0/build.mjs`; it's written to `inkwash/v0/dist/`.
+A handful of people can't give rates. This gives direction, and the reasons behind it.
+
+## Track P: the preview
+
+**The file:** `inkwash-offline.html`, about 540 KB. Build it with `node inkwash/v0/build.mjs`; it's
+written to `inkwash/v0/dist/`.
 
 - **What it needs:**
   - a laptop or desktop;
@@ -29,73 +53,27 @@ with `node inkwash/v0/build.mjs`; it's written to `inkwash/v0/dist/`.
   - their notes, pasted in or as a `.txt` or `.md` file;
   - no account and no install.
 - **Their privacy:** nothing they write leaves their computer. The file's only request is for its
-  typefaces, from Google Fonts. It's a plain web page; anyone can open it in a text editor to
-  look inside.
-- **Where their work lives:** in that browser on that computer. Clearing the browser's data
-  deletes it, and a private window forgets it. They should back up from the Book view.
-- **What it doesn't have:** no Claude. They can't try Claude's ways and answers in ripples,
-  inking, dreaming a world or plates. Their own ideas, the canon, writing scenes by hand,
-  History and the examples all work.
+  typefaces, from Google Fonts. It's a plain web page; anyone can open it in a text editor to look
+  inside.
+- **Where their work lives:** in that browser on that computer. Clearing the browser's data deletes
+  it, and a private window forgets it. They should back up from the Book view.
 - **Sending it:** as an attachment or a direct message. Some email services flag `.html`
   attachments. Hosting it at a public link is a publishing decision, so make it deliberately.
 
-**Before sending it:** open it yourself, bring in a page of your own notes, and back up.
-
-## Assisted and unassisted
-
-Alternate by the order people say yes: P01 assisted, P02 unassisted, P03 assisted, and so on.
-
-- **Assisted:** a 15-minute call. They share their screen and start with the guide while you
-  watch. Answer questions, but don't drive.
-  - If they want to see Claude's side, show it on an example world in your own studio.
-  - Open the example before you share your screen: the world menu lists your other worlds'
-    titles.
-- **Unassisted:** the guide only. They can message you.
-
-Write down which each person had.
-
-## Prompted and voluntary return
-
-- Send no reminders before day 7.
-- On day 7, send one check-in (draft below).
-- Making something on a later day before that message is a **voluntary return**. Anything
-  after it is a **prompted return**. Record them in separate columns.
-
-## Where to find ten people
-
-1. **First, people you already talk with on X** who have mentioned their own world or their
-   notes. Ask one person at a time, in your own words.
-2. **r/WritingWithAI** allows a product post in its weekly thread. Re-read its rules on the day
-   before posting; a draft is below.
-3. **Don't recruit in r/worldbuilding**, which restricts AI content, or **r/WorldbuildingWithAI**,
-   which prohibits promotion. Re-check any other community's rules first.
-
-## The invitation
+**Invitation (Track P)**
 
 > Hey! You mentioned you keep notes on your world. I've been building something small for
 > exactly that. You paste your notes in, and it turns them into a codex of your world:
-> characters, places, rules. When you change a fact, it shows what that touches. It never
-> writes anything for you.
+> characters, places, rules. When you change a fact, it shows what that touches. It never writes
+> anything for you.
 >
-> Would you try it for a week or two with your own notes? It's one file you open in your
-> browser. There's no account, and nothing you write leaves your computer. Afterwards I'd ask
-> you three quick questions.
+> Would you try it for a week or two with your own notes? It's one file you open in your browser.
+> There's no account, and nothing you write leaves your computer. This copy has no AI in it at
+> all. Afterwards I'd ask you three quick questions.
 >
 > Totally fine to say no.
 
-**For the r/WritingWithAI weekly thread** (check the rules first):
-
-> I'm looking for 10 people with a world in their head and notes all over the place, to try a
-> tool I'm building. Paste your notes in and it sorts them into a codex: characters, places,
-> rules. You review every line before anything is added. Change a fact later, and it shows which
-> scenes relied on it.
->
-> The copy I'm sharing for this has no AI in it at all, and runs from one file in your browser.
-> Nothing you write is uploaded. The full version uses Claude to suggest where a fact might lead,
-> but your own idea always comes first. I'd ask three questions after two weeks. DM me if you're
-> up for it.
-
-## The 5-minute guide (send with the file)
+**The 5-minute guide (Track P, send with the file)**
 
 > **Inkwash in five minutes**
 >
@@ -103,8 +81,8 @@ Write down which each person had.
 >    Chrome or Edge work best. Nothing gets installed.
 > 2. **Look first, if you like.** Click **The Hollow Moon**: a made-up book with a scene that went
 >    stale when a fact changed. Use the menu at the top to get back.
-> 3. **Bring in your notes.** Click **Bring in notes**. Paste them, or open a `.txt` or `.md`
->    file, then click **Read my notes**. You'll see everything it found, line by line.
+> 3. **Bring in your notes.** Click **Bring in notes**. Paste them, or open a `.txt` or `.md` file,
+>    then click **Read my notes**. You'll see everything it found, line by line.
 >    - A heading (`## Harrowgate`) becomes an entry, and the lines under it become its facts.
 >    - Headings like *Characters* or *Places* say what the entries under them are.
 >
@@ -117,43 +95,143 @@ Write down which each person had.
 >
 > That's all. Come back to it if and when you feel like it. Either way, I'd love to know why.
 
-## The day-7 check-in
+## Track F: the full experience
+
+**What it needs from each creator:**
+
+- a claude.ai account, signed in;
+- an email invitation as an Editor of their own trial copy (you send it from that copy's Share
+  menu, with link sharing off);
+- their own Claude usage, which claude.ai asks them to allow at the first call.
+
+How it behaves on free plans hasn't been checked (`TRIAL_SETUP.md`).
+
+**What they're told:**
+
+- Their worlds are private to their account: under the rules the page is published with, nobody
+  else can read them, not even you. The page says this too.
+- You could change those rules by publishing their copy again, and you won't without telling them
+  first.
+
+**Invitation (Track F)**
+
+> Hey! You mentioned you keep notes on your world. I've been building a tool for exactly that,
+> and I'd love you to try the full version for a week or two.
+>
+> You bring your notes in and they become a codex of your world. When you add or change a fact,
+> Claude can show you what it breaks and ask where it might lead. Your own idea always comes
+> first, Claude's are there to start from, and nothing goes into your world unless you add it.
+> You can also have it write a scene from your outline, and you decide what stays.
+>
+> It runs on claude.ai, on your own Claude account. I'd send you an invite to your own copy, and
+> what you write there is private to your account: I can't read it. Afterwards I'd ask you a few
+> questions.
+>
+> Totally fine to say no.
+
+**The 10-minute guide (Track F, send with the invitation)**
+
+> **Inkwash, the full version, in ten minutes**
+>
+> 1. **Open the link** from the invitation email, signed in to claude.ai. The banner at the top
+>    says your worlds here are private to your account.
+> 2. **Bring in your notes** (same as the preview): **Bring in notes**, paste or open a file,
+>    **Read my notes**, untick and fix, then **Add**.
+> 3. **Ripples.** Open an entry in **Canon** and click **Ripples** under a fact. The first time,
+>    claude.ai asks you to allow it: it uses your Claude usage. You'll see what the fact breaks,
+>    then **My own idea** first, then Claude's ways. Pick one, and write your own answer or start
+>    from one of Claude's. Only what you add goes into your world.
+> 4. **A scene.** In **Score**, pick a scene and click **Ink this scene**, or **Write it
+>    yourself**. If the check finds something that contradicts your canon, keep it or change it,
+>    then set the scene with your seal.
+> 5. **Change a fact a scene used**, and see the scene flagged. **History**, top right, undoes
+>    any step.
+> 6. **Back it up** from **Book** now and then: **Back up this world**.
+>
+> Come back whenever you feel like it, or don't, and tell me why either way.
+
+## For both tracks
+
+### Assisted and unassisted
+
+Alternate within each track, by the order people say yes: P01 assisted, P02 unassisted, and so
+on; F01 assisted, F02 unassisted.
+
+- **Assisted:** a 15-minute call. They share their screen and start with the guide while you
+  watch. Answer questions, but don't drive.
+- **Unassisted:** the guide only. They can message you.
+
+### Prompted and voluntary return
+
+- Send no reminders before day 7.
+- On day 7, send one check-in (below).
+- Making something on a later day before that message is a **voluntary return**. Anything after
+  it is a **prompted return**. Record them in separate columns.
 
 > Hey, quick check-in on Inkwash, no pressure. Whether you've opened it since the first day or
 > not, I'd love to hear why, whenever you have a minute.
 
-## The three questions (day 10 to 14)
+### Where to find people
 
-Ask them in this order, word for word, and write down their answers as they say them:
+1. **First, people you already talk with on X** who have mentioned their own world or their notes.
+   Ask one person at a time, in your own words.
+2. **r/WritingWithAI** allows a product post in its weekly thread. Re-read its rules on the day
+   before posting. Draft:
+
+   > I'm looking for a few people with a world in their head and notes all over the place, to try
+   > a tool I'm building. Paste your notes in and it sorts them into a codex: characters, places,
+   > rules. You review every line before anything is added. Change a fact later, and it shows which
+   > scenes relied on it. There's a no-AI preview that runs from one file in your browser, and a
+   > full version on claude.ai where Claude suggests where a fact might lead, with your own idea
+   > always first. DM me if you're up for it.
+
+3. **Don't recruit in r/worldbuilding**, which restricts AI content, or in r/WorldbuildingWithAI,
+   which prohibits promotion. Re-check any other community's rules first.
+
+## Questions (day 10 to 14)
+
+Ask about one track at a time. If someone tried both, ask the three questions twice, naming which
+one you mean each time, and file the answers under that track.
+
+**The three questions, both tracks, word for word:**
 
 1. What did you try to make, or do, with it?
 2. What interrupted you, or got in your way?
 3. Did you come back to it on another day? Why, or why not?
 
-## About paying (last, and optional)
+**Track F only, after those:**
 
-Ask these after the three questions, and record each answer in its own column:
+4. When you used Ripples, did you go with your own idea or one of Claude's? Why?
+5. When Claude offered answers, did you keep one as it was, change it, or write your own?
+   Was there one you wished it hadn't offered?
+6. Did you have it write a scene, or write it yourself? If it wrote one, what did you keep?
 
-- **Actual payment.** Nobody can pay in this trial, so record "none" for everyone. As context,
-  in a separate column, ask: "Do you pay for anything you use for your world today? What, and
-  about how much?"
-- **Stated willingness.** "Would you pay for Inkwash as it is now? If so, roughly how much, and
-  how often?" Record their words, not your reading of them.
+**About paying (last, optional, both tracks).** Record each answer in its own column:
+
+- **Actual payment.** Nobody can pay in this trial, so record "none" for everyone. As context, in a
+  separate column, ask: "Do you pay for anything you use for your world today? What, and about how
+  much?"
+- **Stated willingness.** "Would you pay for Inkwash as it is now? If so, roughly how much, and how
+  often?" Record their words, not your reading of them. For Track F, note that they already spend
+  their own Claude usage.
 - **Hypothetical interest.** "Would it change your answer if it [kept your world in your account
-  rather than one browser / let Claude suggest where a fact might lead]?" Ask one at a time.
+  rather than one browser / let Claude suggest where a fact might lead]?" Ask one at a time, and
+  only about things that track didn't have.
 
 Don't suggest a price, and don't promise features or unlimited anything.
 
 ## Their activity, if they choose to share it
 
-The studio counts what a creator does, day by day. It records no words and no world names, and
-it stays on their computer.
+Both versions count what a creator does, day by day. The count records no words and no world
+names, and stays with them.
 
-- **To share it:** History, then **My activity, in numbers**, then **Copy** or **Save as a
-  file**, then send it to you if they want to.
+- **To share it:** History, then **My activity, in numbers**, then **Copy** or **Save as a file**,
+  then send it to you if they want to.
 - **If they don't share it:** that's fine. Use their answers.
 
-Here's what it looks like:
+Track F counts show whether Claude's help was used: "ripples decided from Claude's answers" and
+"scenes inked by Claude", against "in my own words" and "stretches of writing in scenes". A
+preview count looks like this:
 
 ```
 # My Inkwash activity
@@ -168,48 +246,50 @@ question 3 as well.
 
 ## The tracker
 
-Keep the filled-in tracker private, outside the repository.
+Keep the filled-in tracker private, outside the repository. One row per person per track: someone
+who tried both has a P row and an F row.
 
 **Definitions:**
 
 - **First useful result:** the first time they say they got something they'd keep or use.
-  - Examples: their notes as a canon they'd actually use; a stale scene or a contradiction they
-    hadn't seen; a ripple question that moved their world.
+  - Examples: their notes as a canon they'd actually use; a stale scene or contradiction they
+    hadn't seen; a ripple question that moved their world; a scene they kept.
   - Record what it was and, if you were on the call, about how many minutes in.
   - "It's cool" isn't a result.
 - **Voluntary return:** they made something in their own world on a calendar day after their
-  first, before the day-7 check-in. The evidence is the activity summary's days, or their
-  answer to question 3.
+  first, before the day-7 check-in. The evidence is the activity summary's days, or their answer
+  to question 3.
 - **Prompted return:** the same, but only after the check-in.
 - **Same world continued:** on a later day, at least one meaningful creation action in the world
   they started, not a new world and not an example.
 - **Meaningful creation actions:**
-  - facts written in their own words;
-  - facts brought in from notes and kept;
+  - facts written in their own words, or brought in from notes and kept;
+  - suggestions from Claude kept;
   - new entries;
   - ripples decided;
   - questions saved for later;
-  - writing in scenes;
+  - writing in scenes, and scenes inked;
   - scenes set.
 
   Not counted: opening the studio, reading, exploring an example, undoing.
 - **Preferred workflow:** how they started (notes, from nothing, an example first) and what they
-  went back to (the canon, ripples, writing scenes, the map).
+  went back to (the canon, ripples, scenes, the map).
+- **Claude's help (Track F):** own ideas against Claude's ways; Claude's answers kept, rewritten,
+  or passed over for their own; scenes inked against written by hand. Take these from the
+  activity counts where shared, and from questions 4–6.
 
 **The table:**
 
-| ID | Onboarding | Started | First useful result (what, minutes) | Voluntary return (dates) | Prompted return (dates) | Same world continued | Meaningful actions (from summary) | Preferred workflow | Pays for related tools now | Actual payment | Stated willingness to pay | Hypothetical interest | Summary shared | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| P01 | assisted | | | | | | | | | none | | | | |
-| P02 | unassisted | | | | | | | | | none | | | | |
-| P03 | assisted | | | | | | | | | none | | | | |
-| P04 | unassisted | | | | | | | | | none | | | | |
-| P05 | assisted | | | | | | | | | none | | | | |
-| P06 | unassisted | | | | | | | | | none | | | | |
-| P07 | assisted | | | | | | | | | none | | | | |
-| P08 | unassisted | | | | | | | | | none | | | | |
-| P09 | assisted | | | | | | | | | none | | | | |
-| P10 | unassisted | | | | | | | | | none | | | | |
+| ID | Track | Onboarding | Started | First useful result (what, minutes) | Voluntary return (dates) | Prompted return (dates) | Same world continued | Meaningful actions (from summary) | Preferred workflow | Claude's help: ways, answers, scenes (F only) | Pays for related tools now | Actual payment | Stated willingness to pay | Hypothetical interest | Summary shared | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| F01 | full | assisted | | | | | | | | | | none | | | | |
+| F02 | full | unassisted | | | | | | | | | | none | | | | |
+| F03 | full | assisted | | | | | | | | | | none | | | | |
+| P01 | preview | assisted | | | | | | | | — | | none | | | | |
+| P02 | preview | unassisted | | | | | | | | — | | none | | | | |
+| P03 | preview | assisted | | | | | | | | — | | none | | | | |
+
+Add F04–F05 and more P rows as people say yes.
 
 ## What's collected, and what isn't
 
@@ -218,17 +298,19 @@ Keep the filled-in tracker private, outside the repository.
   - their activity summary, if they choose to share it;
   - your notes from assisted calls.
 - **Never collected:**
-  - their notes or their world;
-  - anything gathered automatically: the studio has no telemetry and sends nothing anywhere.
+  - their notes or their world. In Track F, their copy's rules keep their worlds from you too;
+  - anything gathered automatically: neither version has telemetry.
 - **Quoting:** ask before quoting anyone publicly, even without a name.
-- **Deleting:** delete someone's row if they ask.
+- **Deleting:** delete someone's row if they ask. When a Track F creator is done, ask whether
+  they want their copy deleted, after they've backed up.
 
 ## Schedule
 
 | Day | What happens |
 | --- | --- |
-| 0 | Invite. Send the file and the guide to those who say yes. |
+| Before day 0 | Track F only: the runbook in `TRIAL_SETUP.md`, steps 1 and 2, on yourself and a second account. |
+| 0 | Invite. Send the file and guide (P), or publish the copy, send the invitation and guide (F). |
 | 0 to 3 | They start. Assisted calls happen here. |
 | 7 | The one check-in. |
-| 10 to 14 | The three questions, the questions about paying, and the activity summary if they'll share it. |
-| 14 | Fill in the tracker and read it against `NEXT_DIRECTION.md` ("After the trial"). |
+| 10 to 14 | The questions for their track, about paying, and the activity summary if they'll share it. |
+| 14 | Fill in the tracker, by track, and read it against `NEXT_DIRECTION.md` ("After the trial"). |

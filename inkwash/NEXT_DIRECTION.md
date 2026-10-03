@@ -9,12 +9,20 @@ they rely on, and ripples the author leads. What stopped a real creator from usi
 basic. They couldn't bring in the notes they already have, a mistake couldn't be taken back,
 and nothing helped them pick up where they left off. Only the owner could use the studio at all.
 
-This release fixes those, in that order, and adds a copy of the studio that runs from a single
-file, so ten people can try it without an account, without keys and without sharing the live
-artifact. Nothing was built around video, 3D, payments or a market.
+This release fixes those, in that order. Nothing was built around video, 3D, payments or a market.
 
-It's built and tested here. It is **not yet republished** to the live artifact, because that
-page holds your private world and republishing is your call.
+It adds two ways for creators to try Inkwash:
+
+- **The offline preview,** a copy that runs from a single file, for onboarding and editing. It
+  needs no account and no keys.
+- **Trial copies,** one per creator on claude.ai, for the full loop with Ripples working. Each
+  creator's worlds are private to them, and Claude runs on their own usage.
+
+It's built and tested here. It is **not yet republished** to the live artifact, and no trial copy
+has been published, because those are your calls.
+
+Before any republish, the live store was backed up and the backups were verified to restore. The
+exposure of private content was checked rather than assumed (see "Before republishing" below).
 
 ## The three obstacles, as found
 
@@ -128,40 +136,86 @@ See the runtime audit below, and `CREATOR_TRIAL.md`.
 | Studio artifact, as owner | You | Everything, Claude on your own usage | None | Studio data to claude.ai, readable by you alone (`studio` rules: owner only). Prompts to Claude when you ask | Live. This release isn't published there yet |
 | Studio artifact, as anyone else | Signed-in people it's shared with | The reader view: published chapters and spoiler-safe lore | None | Nothing; they can't write | Live |
 | Offline file | Anyone with the file and a browser | Notes, canon, own ripples, scenes by hand, the score, History, return card, backups, both examples | None | A request for the typefaces | Tested in Chromium only |
+| Trial copy, one per creator (`TRIAL_SETUP.md`) | The creator, invited by email as an Editor of their copy | The full studio and loop, no publishing | None | Their worlds to their own private part of that copy's store; prompts to Claude on their own usage | Built and tested against a fake store; not published |
 | Dream Canvas, local server | Someone who runs Node with keys | Sketch, picture, panorama, video, worlds, stepping inside | Server environment only; never in the page or exports | Sketches, pictures and world facts to Google; a panorama to World Labs | Stand-ins tested end to end. World Labs draft run live once. Google pictures and video **not run live** |
 
 No key appears in either built page; checked by searching both for key patterns.
 
-### Why the offline file for the trial
+### The trial: a preview and the full experience
 
-**It's the least invasive route that works today.** There's no sharing change, no exposure of
-the live artifact, no cost and no account. Nothing a participant writes leaves their computer,
-and the examples let them look before bringing their own notes.
+**The offline file is the preview, for onboarding and editing.** There's no sharing change, no
+cost and no account, and nothing a creator writes leaves their computer. It can't show Claude's
+side, so its feedback is never read as a verdict on the AI.
 
-**It has a cost.** Participants can't try Claude's side: its ways and answers in ripples, what
-a fact breaks, inking, dreaming a world, plates. The trial measures the core loop (notes, canon,
-thinking it through, coming back), not whether Claude's help is wanted. In assisted sessions you
-can show Claude's side on an example world in your own studio. The world menu lists your
-worlds' titles, so open an example before sharing your screen.
+**Trial copies are the full experience, for 3–5 creators.** Each creator gets their own copy of
+the studio on claude.ai, with their worlds in their own `data/users/<id>/`. The platform keeps
+that from everyone else, you included. Claude's help runs on their own Claude usage.
+`TRIAL_SETUP.md` covers:
 
-**Not chosen, and why:**
+- why one copy per creator and not one shared page;
+- the rules each copy is published with;
+- the runbook;
+- what still needs a check with a second account of yours;
+- a standalone fallback with its costs, which isn't needed unless the runtime fails that check.
 
-- **Sharing the live artifact.** Participants would see only the reader view, and it holds your
-  private world.
-- **A hosted trial studio, one per participant.** This is the bounded next step, and it isn't
-  built. It needs:
-  - **code:** per-person storage under `data/users/<id>/` for non-owners, with publishing off
-    for them;
-  - **a new, separate artifact** with no private data;
-  - **sharing:** each participant invited by email as an Editor. Outside visitors hold `view`
-    and can't write even their own data. An outside Editor keeps that only while the page isn't
-    also shared by link, and Editors hold admin rights on the page, so check what that allows
-    before inviting strangers;
-  - **participants:** a claude.ai account, and their own Claude usage for Claude's features.
+**What an Editor invite gives.** On your own studio, an Editor can't read `studio/` through the
+store. That was checked live, at Editor level. But an Editor can publish a new page, and its code
+would run with your access when you next opened it. So never invite a creator as an Editor there.
+On a trial copy, an Editor reaches only that copy.
 
-  Those are your decisions to make, not routine details.
-- **Dream Canvas.** It needs Node, keys and billing, and Google's side hasn't run live. It's not
-  part of the trial.
+**Not chosen:**
+
+- **Sharing the live artifact.** Participants would see only the reader view.
+- **One shared trial page for all creators.** Any one of them, as an Editor, could change the page
+  the others open.
+- **Dream Canvas.** It needs Node, keys and billing, and Google's side hasn't run live. It's left
+  for later.
+
+## Before republishing: backup, restore and exposure (checked 2026-10-03)
+
+**Backup.**
+
+- Every document in the live store was read to private files: 128 documents, your two worlds and
+  the example. None of it went into this repository.
+- From them came a backup per world, in the studio's own format, plus a dump of every document by
+  path. All three went to you.
+
+**Restore.**
+
+- Both the live code and this release read each backup back exactly: entries, facts, chapters,
+  scenes and plates.
+- In a browser, against a local copy of the store, a backup made in each page restored as a new
+  world identical to the original, with the original untouched.
+
+**The new release on your data.**
+
+- Opening your worlds and going through every view showed the same thing as the live page.
+- It made no writes, called Claude zero times, threw no errors and sent no request outside the
+  page.
+
+**What's exposed now.**
+
+- **The page is private.** Your plan allows link sharing and outside email invites. Who has
+  access isn't visible to these tools, so confirm in the Share menu that nobody does.
+- **The stored rules match the repo.** `studio/` is owner-only for reading and writing.
+  `published/` is readable by anyone with access, and it is empty.
+- **Reads as a viewer, a contributor and an Editor** return nothing from `studio/`.
+- **The live page and both example files** are byte-identical to the repo's build and files.
+- **No private sentence anywhere public.** Your worlds' names and every eight-word run of their
+  text were searched for across the live page, every build in this release and the whole git
+  history. No sentence matched. The only names that matched are ordinary words the app itself
+  uses.
+
+**What a republish would change.**
+
+- Only the page. Republish to the same URL **without passing capabilities**, so the stored rules
+  stay exactly as they are; passing a new set would replace them.
+- The release's new records (History, notes, activity) live under `studio/`, which the rules
+  already keep to you.
+- One new thing is kept locally: writes that hadn't arrived when the tab closed are held in your
+  browser until the next visit.
+- In-app "Publish" still sends a chapter and its spoiler-safe lore to `published/`, readable by
+  anyone you share the page with. That's by design, and it's unchanged.
 
 ## How it was checked
 
@@ -178,9 +232,9 @@ All run here, on the final build:
   - re-versioning and staleness both ways;
   - checks and re-saves not blocking undo;
   - activity counts.
-- **Browser steps:** 43 pass (`node inkwash/v0/test/e2e.mjs`), the 29 earlier ones unchanged
-  plus 14 new. The new ones use a world made up for the tests, *The Glass Orchard*, and the
-  public example. They cover:
+- **Browser steps:** 50 pass (`node inkwash/v0/test/e2e.mjs`), the 29 earlier ones unchanged
+  plus 21 new. The 7 trial-copy steps are listed in `TRIAL_SETUP.md`. The other new ones use a
+  world made up for the tests, *The Glass Orchard*, and the public example. They cover:
   - bringing notes in, reviewed, with guesses marked, a line left out, one rewritten and the
     declaration ticked;
   - the same notes again, with duplicates left out;
@@ -248,33 +302,32 @@ These are open questions, not facts, and the trial is the first test of the firs
 
 ## Your decisions, in order
 
-1. **Try the offline file with your own notes for ten minutes**, before anyone else does. You'll
-   find the rough edges fastest.
-2. **Republish the studio artifact with this release?** It's ready for the same URL:
+1. **Confirm in the Share menu that nobody else has access to the studio.** Keep link sharing off.
+2. **Republish the studio with this release?** It's ready for the same URL:
    - the page `inkwash/v0/dist/index.html`, plus `example-world.json` and `dream-example.json`;
-   - the stored capabilities and rules kept as they are.
+   - capabilities omitted, so the stored rules stay as they are.
 
-   The change is additive: the new history, notes and activity records sit under `studio/`,
-   which your rules already keep to you. Nothing is migrated, and your world stays as it is.
-   It needs your go-ahead because the page holds your private world.
-3. **Send the trial file to the first participants**, with the drafts in `CREATOR_TRIAL.md`.
-   Nothing has been sent.
-4. **Later, if the trial says so:** build the hosted per-participant studio, which needs the
-   sharing decisions above.
-5. **Optional:** authorize about 30¢ of Google usage for the first live check of Dream Canvas
-   pictures and video: one picture, one panorama and one 4-second Lite video. Until then, they
-   stay labeled as not run live.
+   Backups are in hand, and the checks above passed.
+3. **Start the full trial on yourself.** Say the word and I'll publish one private trial copy for
+   you to run the loop in, then you check it with a second account of yours (`TRIAL_SETUP.md`,
+   steps 1–2). Nobody else is invited until that works.
+4. **Then 3–5 creators, one copy each,** invited by you as Editors of their own copy, with the
+   Track F drafts in `CREATOR_TRIAL.md`.
+5. **The preview** can go to anyone else at any time (Track P). Nothing has been sent.
+6. **Later, as you said:** a first live check of Dream Canvas's Google pictures and video. About
+   30¢; not authorized, not run.
 
 ## After the trial
 
-Ten people is too few for rates. Read the answers as direction:
+A handful of people is too few for rates. Read the answers as direction, track by track:
 
 - **Most get a useful first session, but few come back on their own.** The problem is the
   return. Read what interrupted them before building anything new.
 - **Few get a useful first session.** Fix the first ten minutes first: how notes come in and
   how the codex reads.
-- **Several come back and keep building, and ask for Claude's help.** Build the hosted studio
-  per participant, so the trial can measure whether they use Claude's ways or their own.
+- **Several come back and keep building.** Look at how they used Claude's help in Track F. Did
+  they take Claude's ways or their own ideas? Did they keep, rewrite or skip Claude's answers? Did
+  they ink scenes or write them? Then decide what Ripples and inking should become.
 
 In every case, video and 3D wait until the core loop and the providers' real behavior are
 dependable.

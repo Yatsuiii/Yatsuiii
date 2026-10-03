@@ -6,7 +6,8 @@ It runs as a single page published as a claude.ai artifact:
 - **Live:** https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK
 - **Access:** private to its owner until it's shared from the page's Share menu.
 - **Examples:** *The Drained Sea*, a world dreamed from three sentences, and *The Hollow Moon*, a book in progress.
-- **Without claude.ai:** `node build.mjs` also writes `dist/inkwash-offline.html`, the same studio as one file that opens from disk, with both examples inside. It has no Claude, needs no account and keeps everything in the browser it's opened in. It's the route for a creator trial (see `../CREATOR_TRIAL.md`).
+- **Without claude.ai:** `node build.mjs` also writes `dist/inkwash-offline.html`, the same studio as one file that opens from disk, with both examples inside. It has no Claude, needs no account and keeps everything in the browser it's opened in. It's the preview track of the creator trial (see `../CREATOR_TRIAL.md`).
+- **Trial copies:** `dist/inkwash-trial.html` is the studio for one creator's own copy on claude.ai. Each person's worlds live in their own private part of the store, and nothing is published. `dist/inkwash-trial-shared.html` is the fallback, keeping them in the copy's own studio. See `../TRIAL_SETUP.md` for what an Editor invite gives, and how to set it up.
 - **Pictures, film and worlds:** Dream Canvas (`../canvas`) turns a sketch into a real picture, a moving shot and a world you can walk through. It runs on your own computer, with your own keys. It isn't needed for anything below.
 
 ## What it does
@@ -125,7 +126,7 @@ Plates show in the scene sheet, the book, the canon's pages, the reader view and
 - **Book:** shows the whole book. From here you can:
   - publish a chapter (blocked while any scene is wet, stale, a draft, missing a pin, or contradicting the canon);
   - preview the reader view;
-  - export as EPUB, HTML, Markdown, the bible as JSON, the provenance report as Markdown and JSON, or a full backup.
+  - export as EPUB, HTML, Markdown, the bible as JSON, the provenance report as Markdown and JSON, or a full backup. A backup restores here, or from the welcome page when there's no world yet, as a new world.
 
 **Readers.** Anyone the page is shared with who isn't the owner sees only the reader view:
 - published chapters;
@@ -144,12 +145,12 @@ They never see the studio, because the access rules make `studio/` readable by t
 | `src/plates.js` | The plate painter: cleans a composition and paints it as an ink-wash SVG with seeded brushes, and writes the plate brief. Pure, shared by the page, the exports and the tests |
 | `src/app.js` | The page: storage through `claude.use('db')`, the canvas score, the views, the calls to `sample` and `downloads` |
 | `src/styles.css`, `src/page.html` | Look and markup |
-| `build.mjs` | Inlines everything into `dist/index.html` and copies the examples beside it; writes `dist/inkwash-offline.html`, a whole document with the examples inside |
+| `build.mjs` | Inlines everything into `dist/index.html` and copies the examples beside it; writes `dist/inkwash-offline.html`, a whole document with the examples inside, and the two trial pages |
 | `dream-example.json` | The dream behind *The Drained Sea* and the world grown from it, composed in place of the model; the page builds the example world from it with no call to Claude |
 | `example-world.json` | The Hollow Moon, as a backup file. It has a set scene, a stale scene, a wet scene, a scene ready to ink, and seven plates. Regenerate it with `tools/make-example.mjs` |
 | `tools/example-docs.mjs` | The example as database documents, used to seed the artifact and by the end-to-end test |
 | `test/core.test.mjs` | 60 unit tests |
-| `test/e2e.mjs` | 43 browser steps against a fake claude.ai runtime, and the offline copy opened from disk |
+| `test/e2e.mjs` | 50 browser steps against a fake claude.ai runtime, the offline copy opened from disk, and the trial pages against a fake store that enforces a trial copy's rules |
 
 ## Build, test, publish
 
