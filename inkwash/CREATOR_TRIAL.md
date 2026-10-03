@@ -12,8 +12,8 @@ The trial has two experiences, and their feedback must never be mixed.
 | What it tests | Bringing notes in, the canon, editing, undo, coming back | The whole loop: notes, Ripples with Claude, Claude's answers kept or rewritten, scenes inked and set |
 | Claude | None. Ripples opens to "My own idea" only | Claude's ways, answers, inking and checks, on their own Claude usage |
 | Who | Anyone with notes, including people with no claude.ai account or no wish to use AI | 3–5 creators with a claude.ai account, each invited by email as an Editor of their own copy |
-| Where their world lives | Their browser, on their computer | Their private space in their copy, which nobody else can read under its rules, not even you |
-| Ready? | Yes | Built and tested; waits for your go-ahead and a check with a second account of yours (`TRIAL_SETUP.md`, runbook) |
+| Where their world lives | Their browser, on their computer | Their own space in their copy's storage on claude.ai. Its published rules keep it from everyone else, you included, but you could change those rules or the page (`TRIAL_SETUP.md`) |
+| Ready? | Yes | A test copy is published for you. Creators wait until your second account has run the whole loop (`TRIAL_SETUP.md`) |
 
 **Never read preview feedback as a verdict on the AI.** Preview users never saw Claude's side.
 
@@ -108,12 +108,14 @@ How it behaves on free plans hasn't been checked (`TRIAL_SETUP.md`).
 
 **What they're told:**
 
-- Their worlds are private to their account: under the rules the page is published with, nobody
-  else can read them, not even you. The page says this too.
-- You could change those rules by publishing their copy again, and you won't without telling them
-  first.
+- Their worlds are saved in their own space in their copy. The copy's published rules show that
+  space to them alone: not to other visitors, and not to you. The page's banner says this too.
+- That's a rule, not a guarantee about you. You own the copy, and a new version of it, with
+  different code or rules, could read their worlds. You'll tell them before you publish one.
+- Never tell them you *can't* read their worlds.
 
-**Invitation (Track F)**
+**Invitation (Track F).** Not ready to send. It's finished once your second account has run the
+whole loop, with the setup and limits that run shows (`TRIAL_SETUP.md`).
 
 > Hey! You mentioned you keep notes on your world. I've been building a tool for exactly that,
 > and I'd love you to try the full version for a week or two.
@@ -123,9 +125,10 @@ How it behaves on free plans hasn't been checked (`TRIAL_SETUP.md`).
 > first, Claude's are there to start from, and nothing goes into your world unless you add it.
 > You can also have it write a scene from your outline, and you decide what stays.
 >
-> It runs on claude.ai, on your own Claude account. I'd send you an invite to your own copy, and
-> what you write there is private to your account: I can't read it. Afterwards I'd ask you a few
-> questions.
+> It runs on claude.ai, on your own Claude account. I'd send you an invite to your own copy.
+> What you write there is kept in your own space, and the copy's storage rules don't let anyone
+> else read it, me included. I do own the copy, so I could change those rules or the page, and I
+> won't without telling you first. Afterwards I'd ask you a few questions.
 >
 > Totally fine to say no.
 
@@ -134,7 +137,7 @@ How it behaves on free plans hasn't been checked (`TRIAL_SETUP.md`).
 > **Inkwash, the full version, in ten minutes**
 >
 > 1. **Open the link** from the invitation email, signed in to claude.ai. The banner at the top
->    says your worlds here are private to your account.
+>    says where your worlds are kept, and who the copy's rules show them to.
 > 2. **Bring in your notes** (same as the preview): **Bring in notes**, paste or open a file,
 >    **Read my notes**, untick and fix, then **Add**.
 > 3. **Ripples.** Open an entry in **Canon** and click **Ripples** under a fact. The first time,
@@ -298,7 +301,8 @@ Add F04–F05 and more P rows as people say yes.
   - their activity summary, if they choose to share it;
   - your notes from assisted calls.
 - **Never collected:**
-  - their notes or their world. In Track F, their copy's rules keep their worlds from you too;
+  - their notes or their world. In Track F, their copy's rules keep their worlds from you as
+    well. Don't publish a version of their copy that would change that;
   - anything gathered automatically: neither version has telemetry.
 - **Quoting:** ask before quoting anyone publicly, even without a name.
 - **Deleting:** delete someone's row if they ask. When a Track F creator is done, ask whether

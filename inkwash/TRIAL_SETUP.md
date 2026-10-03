@@ -8,8 +8,14 @@ nobody has been invited.*
 **Use the current runtime: one trial copy of Inkwash per creator, published as its own artifact.**
 
 - A copy has its own store, so creators can't reach each other's worlds or yours.
-- Inside a copy, a creator's worlds live under their own `data/users/<id>/`. The platform keeps
-  that part of the store from everyone else, you (the owner) included.
+- Inside a copy, a creator's worlds live under their own `data/users/<id>/`. Under the rules the
+  copy is published with, the store shows that space to nobody else: not other visitors, and not
+  you, the owner, even through Claude's data tools.
+- **That's a storage rule, not a guarantee against you.** You can publish a new version of a copy
+  at any time, and a new version can change its rules or its code. Either could expose a
+  creator's worlds (see "What the rules protect, and what they don't"). So never tell a creator
+  you *can't* read their worlds. Tell them the rules keep their worlds from you, and that you
+  could change the copy.
 - Claude's help (Ripples, inking, plates) runs on each creator's own Claude usage. claude.ai asks
   them before the first call.
 - You pay nothing per call.
@@ -38,7 +44,9 @@ Why is below.
 **On a trial copy: no.**
 
 - A copy is a separate artifact with its own store, and your worlds aren't in it.
-- An Editor of a copy can change that copy's page, which affects only that copy.
+- An Editor of a copy can change that copy's page and rules, which affects only that copy.
+- That includes anything you save in it, your own space there too. So keep only made-up content
+  in a copy you share.
 
 Two platform rules matter here:
 
@@ -49,12 +57,12 @@ Two platform rules matter here:
 
 ## Why one copy per creator, not one shared trial page
 
-**One shared page is simpler:** one link, one republish per update. Each creator's worlds would
-still be private to them in normal use.
+**One shared page is simpler:** one link, one republish per update. The store's rules would still
+keep each creator's worlds from the others.
 
 **But every creator would be an Editor of that one page.** Any one of them could publish a
-changed page that copies the other creators' worlds when they next open it. Separation would
-then rest on trust, not on the platform.
+changed page, or changed rules, that exposes the other creators' worlds. Separation would then
+rest on trusting every creator, not just you.
 
 **With one copy each, nobody shares a store with anyone.** The cost: you invite one person per
 copy, and I republish each copy for an update.
@@ -66,14 +74,19 @@ copy, and I republish each copy for an update.
 - No reader view: everyone who can save gets a studio.
 - Every store path is under `data/users/<their id>/home/`.
 - Publishing and the reader preview are hidden.
-- A banner says where the worlds live, and that Claude's suggestions use the creator's own usage.
-- When the platform gives a visit no id, it says so and saves nothing anywhere.
-- When a person can only view, the page says to ask for an Editor invite.
+- A banner says where the worlds live and who the published rules show them to. It also says the
+  person who shared the copy could publish a new version that reads them, and that Claude's
+  suggestions use the creator's own usage. You, as the owner, see a version addressed to you.
+- When the platform gives a visit no id, it says so and saves nothing anywhere. It also says the
+  other copy you could offer would let you read their worlds, and to switch only if they're happy
+  with that.
+- When a person can only view, the page says to ask for an Editor invite by email.
 - Changes that can't be saved are refused, with a message, not lost silently.
 
 **The fallback page.** `dist/inkwash-trial-shared.html` (`{store: "shared"}`) is for when a
-creator's visit gets no id (see "Not yet checked"). It keeps their worlds in that copy's own
-studio instead, which you, as the copy's owner, could read. Its banner says so.
+creator's visit gets no id (see "Not yet checked"). It keeps their worlds in that copy's shared
+storage instead. You, as the copy's owner, can read and change them there at any time, with no
+new version needed. Its banner says so. Use it for a creator only once they've agreed to that.
 
 **Tests.** Seven browser steps run against a fake store that enforces a trial copy's access
 rules:
@@ -86,7 +99,7 @@ rules:
   its notes and where each fact came from;
 - a visit without an id is turned away and nothing is saved;
 - someone who can only view is told how to get in;
-- the one-person copy saves to the copy's studio and says who can open it.
+- the one-person copy saves to the copy's shared storage and says who can read it.
 
 The full suite is 50 browser steps and 60 unit tests, all passing. Separately, the main studio
 page was run against a copy of your live data and wrote nothing. That check isn't in the repo,
@@ -117,8 +130,44 @@ content.
 - **Each person their own space.** Each creator reads and writes only their own
   `data/users/<id>/`, and nobody reads anyone else's: there's no rule at `data/users` that would
   open the siblings.
+- **Fixed at publish.** A running page can't change these rules. They hold until a new version is
+  published with different ones, by you or by an Editor of that copy.
 - **The fallback copy** uses `[{ "path": "", "read": "admin", "write": "admin" }]` instead: the
   creator, as Editor, and you, as owner, read and write that copy's studio.
+
+## What the rules protect, and what they don't
+
+**What the store enforces while a copy stays as published:**
+
+- A creator's `data/users/<id>/` can be read and written by that creator only. To anyone else,
+  you included, it reads as if it didn't exist, through the page and through Claude's data tools
+  alike. The platform's documentation for this runtime says so, and the fake store in the tests
+  enforces it. On the real store, what I can check alone was checked after publishing the test
+  copy (see "The test copy"). The rest needs your second account.
+- Nothing else in a copy can be read or written by anyone but you, and the page writes nothing
+  anywhere else.
+
+**What they don't cover:**
+
+- **A new version of the copy.** You can publish one at any time, and so can anyone who's an
+  Editor of it, the creator included. A new version can:
+  - change the rules: one rule at `data/users` would open every creator's space in that copy, to
+    you, straight away, without them opening anything;
+  - change the code, which runs with the creator's own access whenever they open the page, so it
+    can read everything in their space.
+
+  The platform doesn't stop either. Whether creators are told when a new version is published
+  hasn't been checked.
+- **The platform.** Worlds are stored on claude.ai. What Ripples and inking send goes to Claude
+  under the creator's own account. Both fall under claude.ai's terms, not these rules.
+- **Backups.** A backup file is the creator's, wherever they save it.
+
+**So this is privacy by the rules, kept by your word, not a guarantee from the platform.** What
+creators are told says exactly that:
+
+- the rules keep their worlds from other visitors, and from you;
+- you own the copy, and could change those rules or the page;
+- you'll tell them before you publish a new version of it.
 
 ## Runbook (when you decide to go ahead)
 
@@ -131,18 +180,22 @@ content.
    - the copy opens a studio for that account, not the "can't give you a private studio" page;
    - Ripples asks for consent, then works on that account's usage.
 
-   If the private studio page appears, use the fallback page for real creators and tell them you
-   could read their copy.
+   If the "can't give you a private studio" page appears, stop there. The fallback copy would let
+   you read and change a creator's worlds at any time, so it's only for a creator who agrees to
+   that, once told.
 3. **Per creator:** I publish a copy, and you invite them by email as an Editor, with link sharing
    off. Send them the link and the guide in `CREATOR_TRIAL.md`.
-4. **Updates:** I republish each copy from the same file. Their worlds stay in each copy's store.
+4. **Updates:** I republish each copy from the same file, without passing capabilities, so its
+   rules stay exactly as they are. Tell the creator before each one. Their worlds stay in the
+   copy's store.
 
 ## Not yet checked (needs a real second account)
 
 - That the Share menu offers **Editor** for an outside email on your plan. The artifact service
   says outside email invites are available; the level isn't stated.
 - That an outside Editor gets a user id. The platform's own notes say a guest Editor "may have
-  none". If not, use the fallback page for that creator.
+  none". If not, the fallback page is the only way on this runtime, and it gives you read access,
+  so it needs that creator's agreement.
 - How `sample` behaves for creators on free plans. The platform may substitute a lower model
   tier or limit usage; the page shows the platform's error if a call is refused.
 

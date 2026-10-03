@@ -1310,7 +1310,9 @@ await step('a trial copy gives a creator a studio of their own, and the whole lo
   const p = r.page;
   const frame = () => p.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
   await p.waitForSelector('.welcome');
-  assert.match(await p.textContent('#banners'), /Trial copy\.\s*Your worlds here are private to your claude\.ai account: under the rules this page is published with, nobody else can read them/);
+  const note = await p.textContent('#banners');
+  assert.match(note, /Trial copy\.\s*Your worlds are saved in your own space in this copy’s storage\. Its published rules show that space to you alone, not to other visitors or to the person who shared it with you\./);
+  assert.match(note, /But that person can publish a new version with different code or rules, which could read your worlds\./, 'and it says what the rules don\'t cover');
   assert.equal(await p.locator('.reader').count(), 0, 'not the reader view: a studio');
   // notes in
   await p.click('.choice.lead button:has-text("Bring in notes")');
@@ -1369,6 +1371,9 @@ await step('in the same trial copy, another creator and the page\'s owner each s
     const r = await open(Object.assign({ seed: trialDocs, selfRules: true }, cfg), null, null, { file: 'inkwash-trial.html' });
     await r.page.waitForSelector('.welcome');
     assert.equal(await r.page.evaluate(() => window.__inkwash.state.worlds.size), 0, `${who} sees no worlds of hers`);
+    assert.match(await r.page.textContent('#banners'), cfg.owner
+      ? /You own this copy\. Your worlds are saved in your own space in its storage\..*A new version with different code or rules could change that, so tell them before you publish one\./
+      : /show that space to you alone/, `${who} is told who can see their worlds`);
     const touched = await r.page.evaluate(() => [...window.__mock.touched]);
     assert.deepEqual(touched.filter((x) => !x.startsWith(rootOf(cfg.uid))), [], `${who}'s page only looks in their own space`);
     // and their own work lands in their own space, beside hers
@@ -1432,6 +1437,7 @@ await step('a world made in the preview moves into a creator\'s own trial copy t
 await step('a visit the platform gives no identity is told so, and nothing is saved anywhere', async () => {
   const r = await open({ seed: {}, owner: false, editor: true, uid: null, selfRules: true }, null, null, { file: 'inkwash-trial.html' });
   await r.page.waitForSelector('text=This page can’t give you a private studio yet.');
+  assert.match(await r.page.textContent('.opening'), /saves your worlds in its shared storage instead, where they can read them\. Only switch if you’re happy with that\./, 'and what the other way would cost them');
   assert.equal(await r.page.locator('#world-select, .welcome').count(), 0, 'nothing to start, so nothing to lose');
   assert.equal(await r.page.evaluate(() => window.__mock.writes), 0);
   await r.ctx.close();
@@ -1443,15 +1449,15 @@ await step('someone who can only view a trial copy is told how to get in, and th
   await r.page.click('.choice button:has-text("Start a world")');
   await r.page.fill('#wf-title', 'Just looking');
   await r.page.click('#world-form button[type=submit]');
-  await r.page.waitForSelector('.banner.warn:has-text("Ask the person who shared it to invite you as an Editor")', { timeout: 5000 });
+  await r.page.waitForSelector('.banner.warn:has-text("Ask the person who shared it to invite you by email as an Editor")', { timeout: 5000 });
   assert.match(await r.page.textContent('#toasts'), /can't save changes|can’t save changes/);
   await r.ctx.close();
 });
 
-await step('a copy made for one person keeps their worlds in the copy\'s own studio, and says who can open it', async () => {
+await step('a copy made for one person keeps their worlds in the copy\'s own studio, and says who can read them', async () => {
   const r = await open({ seed: {}, owner: false, editor: true, uid: null }, null, null, { file: 'inkwash-trial-shared.html' });
   await r.page.waitForSelector('.welcome');
-  assert.match(await r.page.textContent('#banners'), /kept in this copy of Inkwash, which only you and the person who shared it with you can open/);
+  assert.match(await r.page.textContent('#banners'), /Your worlds are saved in this copy’s shared storage\. The person who shared it with you can read and change them, and so can anyone else they make an Editor\./);
   await r.page.click('.choice button:has-text("Start a world")');
   await r.page.fill('#wf-title', 'One person’s world');
   await r.page.click('#world-form button[type=submit]');

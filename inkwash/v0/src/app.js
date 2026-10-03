@@ -62,7 +62,7 @@
   const S = {
     mode: 'loading', // loading | welcome | form | studio | reader
     persist: null, // db | local
-    readOnly: false,
+    readOnly: false, owner: null,
     db: null, user: null, sample: null, downloads: null,
     worlds: new Map(), worldsReady: false, pubWorlds: new Map(),
     wid: null, loaded: new Set(),
@@ -95,8 +95,10 @@
 
   // A trial copy (dist/inkwash-trial.html) gives everyone who can save a studio of their own, and
   // publishes nothing. With store 'self' (the default), a person's worlds live under their own
-  // data/users/<id>/ in the store, which the platform keeps from everyone else, the page's owner
-  // included. With store 'shared', they live in the copy's studio, for a copy made for one person.
+  // data/users/<id>/ in the store, which the copy's published rules keep from everyone else, the
+  // page's owner included. A new version can change the code or the rules, so that holds only for
+  // as long as the copy stays as published. With store 'shared', they live in the copy's studio,
+  // which its owner and Editors can read, for a copy made for one person.
   const TRIAL = window.INKWASH_TRIAL || null;
   // Where the studio lives in the store: the top, or a trial visitor's own subtree.
   let ROOT = '';
@@ -591,14 +593,8 @@
         window.claude ? "Inkwash can't save to claude.ai in this view, so your work is kept in this browser only. Back up each world to a file from the Book view."
           : 'This copy of Inkwash keeps your work in this browser only, and sends none of it anywhere. Clearing the browser’s data deletes it, so back up each world to a file from the Book view.'));
     }
-    if (TRIAL && S.persist === 'db' && S.mode !== 'blocked') {
-      root.append(h('div', { class: 'banner' },
-        h('strong', null, 'Trial copy.'),
-        TRIAL.store === 'shared'
-          ? 'Your worlds are kept in this copy of Inkwash, which only you and the person who shared it with you can open. Claude’s suggestions use your own Claude usage, and claude.ai asks you before the first one.'
-          : 'Your worlds here are private to your claude.ai account: under the rules this page is published with, nobody else can read them, not even the person who shared it. Claude’s suggestions use your own Claude usage, and claude.ai asks you before the first one.'));
-    }
-    if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), TRIAL ? 'You can look around, but this page can’t save your changes. Ask the person who shared it to invite you as an Editor.' : "This view can't save changes."));
+    if (TRIAL && S.persist === 'db' && S.mode !== 'blocked') root.append(h('div', { class: 'banner' }, h('strong', null, 'Trial copy.'), trialNote()));
+    if (S.readOnly && S.mode === 'studio') root.append(h('div', { class: 'banner warn' }, h('strong', null, 'Read-only.'), TRIAL ? 'You can look around, but this page can’t save your changes. Ask the person who shared it to invite you by email as an Editor.' : "This view can't save changes."));
     if (S.aiOff && S.mode === 'studio') root.append(h('div', { class: 'banner' }, h('strong', null, 'Inking is off.'), S.aiOff));
     if (w && w.example) {
       root.append(h('div', { class: 'banner' },
@@ -608,12 +604,26 @@
     }
   }
 
+  // Who can see a trial copy's worlds. The published rules decide who the store shows them to; a
+  // new version of the page can change its code or its rules, so the note never promises more.
+  function trialNote() {
+    const usage = 'Claude’s suggestions use your own Claude usage, and claude.ai asks you before the first one.';
+    if (TRIAL.store === 'shared') {
+      return (S.owner
+        ? 'You own this copy. Its worlds are saved in its shared storage, which you and anyone you make an Editor can read and change. '
+        : 'Your worlds are saved in this copy’s shared storage. The person who shared it with you can read and change them, and so can anyone else they make an Editor. ') + usage;
+    }
+    return (S.owner
+      ? 'You own this copy. Your worlds are saved in your own space in its storage. Each person you invite as an Editor gets their own space, which its published rules keep from everyone else, you included. A new version with different code or rules could change that, so tell them before you publish one. '
+      : 'Your worlds are saved in your own space in this copy’s storage. Its published rules show that space to you alone, not to other visitors or to the person who shared it with you. But that person can publish a new version with different code or rules, which could read your worlds. ') + usage;
+  }
+
   function blockedView() {
     return h('section', { class: 'opening' },
       h('p', { class: 'eyebrow' }, 'Inkwash trial'),
       h('h1', null, 'This page can’t give you a private studio yet.'),
-      h('p', { class: 'muted' }, 'This trial copy keeps each person’s worlds in a private place tied to their claude.ai account, and this visit didn’t come with one. Nothing has been saved. Sign in to claude.ai and open the link from your invitation again.'),
-      h('p', { class: 'muted' }, 'If you still see this, tell the person who shared the page with you: they can switch your copy to a studio of its own.'));
+      h('p', { class: 'muted' }, 'This trial copy saves each person’s worlds in a space of their own, tied to their claude.ai account. claude.ai didn’t tell this page which account you’re using, so nothing has been saved. Check you’re signed in to claude.ai with the email your invitation went to, then open the link from it again.'),
+      h('p', { class: 'muted' }, 'If you still see this, tell the person who shared it with you. The other copy they can offer saves your worlds in its shared storage instead, where they can read them. Only switch if you’re happy with that.'));
   }
   function openingView(title) {
     return h('section', { class: 'opening' },
@@ -3618,9 +3628,10 @@
     S.user = user; S.sample = sample; S.downloads = downloads;
     let owner = null;
     if (user) { try { owner = await user.isOwner(); } catch (e) { owner = null; } }
+    S.owner = owner;
     if (TRIAL && db && TRIAL.store !== 'shared') {
-      // the platform keeps data/users/<id>/ to its person; without an id there is no private
-      // place, and nothing is saved anywhere else instead
+      // under this copy's rules the store keeps data/users/<id>/ to its person; without an id
+      // there is no such place, and nothing is saved anywhere else instead
       let id = null;
       try { id = await user.id(); } catch (e) { id = null; }
       if (!id) { S.mode = 'blocked'; render(); return; }

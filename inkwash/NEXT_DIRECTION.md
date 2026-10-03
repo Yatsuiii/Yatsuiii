@@ -16,7 +16,9 @@ It adds two ways for creators to try Inkwash:
 - **The offline preview,** a copy that runs from a single file, for onboarding and editing. It
   needs no account and no keys.
 - **Trial copies,** one per creator on claude.ai, for the full loop with Ripples working. Each
-  creator's worlds are private to them, and Claude runs on their own usage.
+  creator's worlds sit in their own space, which the copy's storage rules keep from everyone
+  else, you included. A new version of the copy could change that, so it's not a guarantee
+  against you. Claude runs on their own usage.
 
 It's built and tested here. It is **not yet republished** to the live artifact, and no trial copy
 has been published, because those are your calls.
@@ -136,7 +138,7 @@ See the runtime audit below, and `CREATOR_TRIAL.md`.
 | Studio artifact, as owner | You | Everything, Claude on your own usage | None | Studio data to claude.ai, readable by you alone (`studio` rules: owner only). Prompts to Claude when you ask | Live. This release isn't published there yet |
 | Studio artifact, as anyone else | Signed-in people it's shared with | The reader view: published chapters and spoiler-safe lore | None | Nothing; they can't write | Live |
 | Offline file | Anyone with the file and a browser | Notes, canon, own ripples, scenes by hand, the score, History, return card, backups, both examples | None | A request for the typefaces | Tested in Chromium only |
-| Trial copy, one per creator (`TRIAL_SETUP.md`) | The creator, invited by email as an Editor of their copy | The full studio and loop, no publishing | None | Their worlds to their own private part of that copy's store; prompts to Claude on their own usage | Built and tested against a fake store; not published |
+| Trial copy, one per creator (`TRIAL_SETUP.md`) | The creator, invited by email as an Editor of their copy | The full studio and loop, no publishing | None | Their worlds to their own space in that copy's store, kept from everyone else by its published rules; prompts to Claude on their own usage | Built and tested against a fake store; not published |
 | Dream Canvas, local server | Someone who runs Node with keys | Sketch, picture, panorama, video, worlds, stepping inside | Server environment only; never in the page or exports | Sketches, pictures and world facts to Google; a panorama to World Labs | Stand-ins tested end to end. World Labs draft run live once. Google pictures and video **not run live** |
 
 No key appears in either built page; checked by searching both for key patterns.
@@ -148,8 +150,11 @@ cost and no account, and nothing a creator writes leaves their computer. It can'
 side, so its feedback is never read as a verdict on the AI.
 
 **Trial copies are the full experience, for 3–5 creators.** Each creator gets their own copy of
-the studio on claude.ai, with their worlds in their own `data/users/<id>/`. The platform keeps
-that from everyone else, you included. Claude's help runs on their own Claude usage.
+the studio on claude.ai, with their worlds in their own `data/users/<id>/`. The copy's published
+rules keep that from everyone else, you included. Those rules hold only while the copy stays as
+published. You, or an Editor of the copy, can publish a new version with different rules or
+code, so it isn't privacy from you (`TRIAL_SETUP.md`, "What the rules protect, and what they
+don't"). Claude's help runs on their own Claude usage.
 `TRIAL_SETUP.md` covers:
 
 - why one copy per creator and not one shared page;
@@ -161,7 +166,8 @@ that from everyone else, you included. Claude's help runs on their own Claude us
 **What an Editor invite gives.** On your own studio, an Editor can't read `studio/` through the
 store. That was checked live, at Editor level. But an Editor can publish a new page, and its code
 would run with your access when you next opened it. So never invite a creator as an Editor there.
-On a trial copy, an Editor reaches only that copy.
+On a trial copy, an Editor reaches only that copy, including anything you save in it, so keep
+only made-up content in a copy you share.
 
 **Not chosen:**
 
