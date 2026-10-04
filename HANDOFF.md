@@ -51,6 +51,11 @@ reliability, evals and protocols.
 > waits for his check from a second account.
 > The live store was backed up on 2026-10-03; the backups went to Raghav and are not in this repo.
 > The test counts in the table below are from before this release.
+>
+> **Inkwash on Quest, first prototype (2026-10-04):** `inkwash/vr/`. A world's map rises from the
+> table in WebXR; a fingertip opens a place's page, a pinch turns the map. Made-up content only
+> (The Drained Sea). 14 unit tests and 8 browser steps inside IWER, Meta's WebXR emulator; not yet
+> run on a headset, and not hosted anywhere. See `inkwash/vr/README.md`.
 
 ---
 

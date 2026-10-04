@@ -1,0 +1,22 @@
+{
+  "name": "inkwash-vr",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Inkwash on Quest: a world's map rises from your table, and you open its places by hand.",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/prepare.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/prepare.mjs",
+    "build": "vite build",
+    "test": "node --test test/diorama.test.mjs test/poke.test.mjs",
+    "e2e": "node test/xr.e2e.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1",
+    "iwer": "^2.5.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  }
+}
