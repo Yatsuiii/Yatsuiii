@@ -1,4 +1,4 @@
-# Handoff: stalefence and Inkwash (for Claude on Windows, starting with zero context)
+# Handoff: stalefence (for Claude on Windows, starting with zero context)
 
 You are picking up work that an earlier Claude session did in a Linux cloud container. This file
 is the whole context you need. Where it says a number or a verdict, the repo contains the
@@ -17,45 +17,8 @@ reliability, evals and protocols.
 > treat the outreach as a sales test, and don't push publishing as a product. **Your main job now
 > is helping screen the next idea** (section 5).
 
-> **Later on 2026-10-01: the next idea is a creative product.** Its working name is **Inkwash**:
-> - creators paint the shape of a story and the AI inks it in;
-> - the world keeps its facts straight;
-> - readers can visit;
-> - creators can license their worlds to producers and game developers.
->
-> The design is in `inkwash/DESIGN.md`. Raghav asked for the first slice to be built, and **v0 is
-> built and published** as a private claude.ai artifact: https://claude.ai/artifact/TxYpHeRRTDSLLg9mPj3DeK.
-> Its code, tests and the ways it differs from the design are in `inkwash/v0/` (start with its
-> README). The next step is stage 0: Raghav builds a first world in it and shows it to ten fantasy
-> readers. That first world, from one of Raghav's private game projects, is already loaded in the
-> studio. **Keep that world's content out of this public repo.** It lives only in the artifact's
-> private studio data, and its source docs say parts of the story must never be made public.
->
-> Don't run it through the kill screen in `stalefence/DECISION.md`. That screen was written for
-> business tools that sell relief from a pain, and Raghav pushed back on kill-testing this one
-> before it exists. The design has its own stages and signals (its section 13).
-
-> **Update (2026-10-03): Inkwash's next direction.** A release adds:
-> - bringing notes in;
-> - History with undo;
-> - saving that survives a closed tab;
-> - a "where you left off" card;
-> - an offline copy of the studio for a ten-person creator trial.
->
-> It's built and tested (60 unit tests, 50 browser steps) but **not yet republished**: the live
-> artifact holds Raghav's private world, so republishing waits for his go-ahead. Start with
-> `inkwash/NEXT_DIRECTION.md`, then `inkwash/TRIAL_SETUP.md` (one trial copy per creator, what
-> its storage rules protect and what they don't, and why never to invite anyone as an Editor on
-> the live studio) and `inkwash/CREATOR_TRIAL.md`. One test copy is published, private to
-> Raghav, with made-up examples only: https://claude.ai/artifact/76GitMowRjowobZd1vvXtn. It
-> waits for his check from a second account.
-> The live store was backed up on 2026-10-03; the backups went to Raghav and are not in this repo.
-> The test counts in the table below are from before this release.
->
-> **Inkwash on Quest, first prototype (2026-10-04):** `inkwash/vr/`. A world's map rises from the
-> table in WebXR; a fingertip opens a place's page, a pinch turns the map. Made-up content only
-> (The Drained Sea). 14 unit tests and 8 browser steps inside IWER, Meta's WebXR emulator; not yet
-> run on a headset, and not hosted anywhere. See `inkwash/vr/README.md`.
+> **2026-10-05: Inkwash has moved to its own private repository.** Nothing about it is in this
+> one any more.
 
 ---
 
@@ -65,7 +28,7 @@ reliability, evals and protocols.
 git clone https://github.com/Yatsuiii/Yatsuiii.git
 cd Yatsuiii
 git checkout claude/sleepy-bardeen-shw5sj
-git log --oneline -5        # newest should mention "Inkwash"
+git log --oneline -5
 ```
 
 - `main` holds only his GitHub profile README. **All of this work is on
@@ -80,8 +43,6 @@ What's on the branch:
 | `stalefence-guard/` | An open-source CLI, `stalefence`, kept as portfolio work (not a product) | Built, 37 tests pass on Linux, **untested on Windows** |
 | `stalefence/outreach/` | 14 drafted GitHub comments plus a reply tracker | Drafted, none posted, **now optional** |
 | `stalefence/DECISION.md` | Why the business was killed, what would reopen it, and the screen for the next idea | Read this first |
-| `inkwash/DESIGN.md` | Design for the creative product: the brush, the canon and its ledgers, the library, the market, the architecture and the v0 scope | Design draft; open questions in its section 15 |
-| `inkwash/v0/` | The first working version, a single-page claude.ai artifact, with 22 unit tests and 19 browser steps | Built and published (private) |
 | `mcp-drift/`, `pagedrift/`, `rewardhack/` | Earlier, unrelated kill tests (INCONCLUSIVE, KILLED, KILLED) | Finished, no action needed |
 
 ---
@@ -207,13 +168,7 @@ reproduce the incidents. Run `examples/demo.sh` to see two agents end to end; it
 
 The stalefence work is finished. In order:
 
-1. **Inkwash.** Read `inkwash/DESIGN.md`, then `inkwash/v0/README.md`.
-   - v0 is live, and Raghav's first world is loaded in it. Help Raghav through stage 0: write
-     that world's first chapter and show it to ten fantasy readers. Never commit that world's
-     content to this repo.
-   - Fix what Raghav finds. Republish to the same artifact URL, and run both test suites first.
-   - The design's open questions are in its section 15. The name is still a placeholder.
-   - Don't apply the screen below to it.
+1. **Inkwash** has moved to its own private repository, and isn't worked on here any more.
 2. **For any other new idea**, use the screen in `stalefence/DECISION.md`:
    1. Does a failure cost real money, to someone with a budget?
    2. Is it hard to build yourself, and not something a platform can ship as a free feature?
@@ -302,8 +257,6 @@ want to check.
    whether to post any of the comments.
 3. Whether to merge this branch into his profile repo's `main`. The research folders would then
    become public on the profile.
-4. What Inkwash is called, which world to build first, and what changes after trying v0.
 
 **Suggested first message to him:**
-"I've read the handoff and tried Inkwash v0. Which world do you want to build first, and what
-felt wrong when you used it?"
+"I've read the handoff. What would you like to work on next?"
