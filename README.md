@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="./assets/research-notebook.svg" alt="Raghav Sharma: computational research and software. Graph representations, controlled comparisons and interactive worlds." width="100%" />
-</p>
-
-I'm building [StillHere](https://github.com/Yatsuiii/stillhere), my flagship research tool for fMRI labs planning listening studies.
+I'm building [StillHere](https://github.com/Yatsuiii/stillhere), my flagship tool for brain-imaging researchers planning studies where people listen to stories.
 
 > **Pre-registered result · 22 listeners**
 >
@@ -20,24 +16,31 @@ I also build [Fractured Perception](https://github.com/Yatsuiii/fractured_percep
   <tr>
     <td width="50%" valign="top">
       <h3><a href="https://github.com/Yatsuiii/stillhere">StillHere</a></h3>
-      <p>Listening studies and brain-response forecasts.</p>
+      <p>Plans story-listening studies for brain-imaging labs.</p>
+      <a href="./assets/stillhere-planner.png"><img src="./assets/stillhere-planner.png" alt="StillHere turns a study request into a plan. Screenshot of its recorded local demo." width="100%" /></a>
+      <p><sub>Recorded planner demo.</sub></p>
       <a href="https://github.com/Yatsuiii/stillhere/blob/main/results/d20_notthefall.json">Result</a> · <a href="https://github.com/Yatsuiii/stillhere/blob/main/PREREG.md">Protocol</a>
     </td>
     <td width="50%" valign="top">
       <h3><a href="https://github.com/Yatsuiii/medgate">Medgate</a></h3>
-      <p>Lab-order drafts for human review. Synthetic data.</p>
+      <p>Turns lab results into draft orders a clinician reviews. Synthetic data only.</p>
+      <a href="./assets/medgate-review.png"><img src="./assets/medgate-review.png" alt="Medgate shows a synthetic lab result, its draft order and the approve or reject controls." width="100%" /></a>
+      <p><sub>Order-review screen from the repository.</sub></p>
       <a href="https://github.com/Yatsuiii/medgate#results">Results</a> · <a href="https://github.com/Yatsuiii/medgate#what-the-gates-catch">Gate limits</a>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <h3><a href="https://github.com/Yatsuiii/Brain-Connectivity-GCN">BrainConnect-ASD</a></h3>
-      <p>Site-adversarial fMRI classification research.</p>
+      <p>Studies autism classification from fMRI across scanning sites. Research use.</p>
+      <a href="./assets/brainconnect-site-results.png"><img src="./assets/brainconnect-site-results.png" alt="BrainConnect's committed evaluation figure compares models evaluated on held-out scanning sites." width="100%" /></a>
+      <p><sub>Repository figure: each site was excluded from training for its test. Longer bars mean better separation between groups.</sub></p>
       <a href="https://github.com/Yatsuiii/Brain-Connectivity-GCN">Code</a> · <a href="https://github.com/Yatsuiii/Brain-Connectivity-GCN/blob/main/MODEL_CARD.md">Model card</a>
     </td>
     <td width="50%" valign="top">
       <h3><a href="https://github.com/Yatsuiii/fractured_perception/tree/claude/gameplay-itt">Fractured Perception</a></h3>
-      <p>Cooperative Unity game. Private repository.</p>
+      <p>A cooperative Unity game where players see different information.</p>
+      <p><strong>Private repository.</strong></p>
       <a href="https://github.com/Yatsuiii/fractured_perception/tree/claude/gameplay-itt">Current branch</a> · <a href="https://github.com/Yatsuiii/fractured_perception/blob/claude/gameplay-itt/docs/STAGE1_DESIGN.md">Design</a>
     </td>
   </tr>

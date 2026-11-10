@@ -1,0 +1,22 @@
+{
+  "images": [
+    {
+      "file": "stillhere-planner.png",
+      "source": "https://github.com/Yatsuiii/stillhere/tree/e14a88f/web",
+      "description": "Screenshot of the real local app with STILLHERE_LIVE=0; first demo study selected, recorded plan shown. No model calls.",
+      "sha256": "79ed14ed9993dee17af26afad8f51e7957b09a730196673839b410e1ff6a7a64"
+    },
+    {
+      "file": "medgate-review.png",
+      "source": "https://github.com/Yatsuiii/medgate/blob/f5ee4c4/docs/assets/review-screen.png",
+      "description": "Unchanged screenshot committed in medgate. Synthetic data.",
+      "sha256": "e29e31fd5735efac348913b9281701de5712df6c5d3fa484291577dd8b4ded7a"
+    },
+    {
+      "file": "brainconnect-site-results.png",
+      "source": "https://github.com/Yatsuiii/Brain-Connectivity-GCN/blob/2520b4d/hf_space/_charts.py",
+      "description": "Exact PNG decoded from AUC_B64, without changing the figure or its values.",
+      "sha256": "a6aa5a680d07082e2c3672afe651d3f1543efc5811c210c26dda33d6476d14d0"
+    }
+  ]
+}
