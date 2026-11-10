@@ -1,7 +1,5 @@
 <p align="center">
-  <a href="https://github.com/Yatsuiii/stillhere">
-    <img src="./assets/stillhere-research.svg" alt="StillHere: listening studies before the scan. Plan, build, check, forecast." width="100%" />
-  </a>
+  <img src="./assets/research-notebook.svg" alt="Raghav Sharma: computational research and software. Graph representations, controlled comparisons and interactive worlds." width="100%" />
 </p>
 
 I'm building [StillHere](https://github.com/Yatsuiii/stillhere), my flagship research tool for fMRI labs planning listening studies.
