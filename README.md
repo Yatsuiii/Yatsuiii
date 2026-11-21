@@ -2,7 +2,7 @@ I build evidence that an AI agent's work actually happened, in a form someone wh
 
 That means two things in practice. A record of what the agent's tool calls did, signed and chained so an edit shows. And a rerun of someone else's work from a clean checkout, with every command, deviation and failed run written down. Every result below has a cheap baseline next to it, and the ones where the baseline won are kept.
 
-**Available for fixed-price agent reliability audits.** <!-- CONTACT: replace this comment with the public contact line before merging --> Written scope and written report. Bengaluru, working async.
+**Available for fixed-price agent reliability audits.** Email [battyrises@gmail.com](mailto:battyrises@gmail.com). Written scope and written report. Bengaluru, working async.
 
 ## Proofs
 
